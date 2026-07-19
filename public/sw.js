@@ -1,5 +1,5 @@
 // ============================================================
-// Thai Vocab PWA — Service Worker
+// Chá Chá Angkrit PWA — Service Worker
 // Sprint 7.4 | Cache strategy:
 //   - Static assets (JS/CSS/fonts) → Cache-first
 //   - Supabase / OpenRouter AI      → Network-first (no offline cache)
@@ -14,8 +14,8 @@
 // ============================================================
 
 const CACHE_VERSION  = "v2";
-const STATIC_CACHE   = `thai-vocab-static-${CACHE_VERSION}`;
-const FONT_CACHE     = `thai-vocab-fonts-${CACHE_VERSION}`;
+const STATIC_CACHE   = `angrueit-static-${CACHE_VERSION}`;
+const FONT_CACHE     = `angrueit-fonts-${CACHE_VERSION}`;
 
 // Assets to precache on install (adjust paths after Vite build)
 const PRECACHE_URLS = [

@@ -29,12 +29,12 @@ const LessonPathFeature = React.lazy(() =>
 // Supabase Anonymous Auth has no way to "log back in" to the same identity
 // from a different device with just a name, so each account is a real
 // email/password Supabase Auth user under the hood — the "email" is just
-// `<name>@chaachaathai.local` (never a real mailbox) and the "password" is
+// `<name>@chaachaa-angrueit.local` (never a real mailbox) and the "password" is
 // the student's 4-digit PIN. This gives every student a stable, unique
 // auth.uid() that Postgres Row-Level-Security can lock their data to,
 // instead of the old plain-text `username` column anyone could read/write.
 // ---------------------------------------------------------------------------
-const AUTH_DOMAIN         = "chaachaathai-app.com"; // NOTE: fake per-student email domain, never
+const AUTH_DOMAIN         = "chaachaa-angrueit-app.com"; // NOTE: fake per-student email domain, never
                                                      // actually sent to. Must NOT be a reserved/
                                                      // special-use TLD (.local, .test, .example,
                                                      // .invalid, .internal, etc) — Supabase Auth
@@ -3595,7 +3595,7 @@ async function generateExamFeedback(finalLesson, outcome, level, wordMap, progMa
     `You are a supportive Thai-language teacher's assistant writing a short personalized feedback report for a ` +
     `student who just finished their ${level} proficiency exam. Score: ${outcome.pct}% (${outcome.passed ? "PASSED" : "did not pass"} — threshold-based).\n\n` +
     `Use ONLY the data below, which comes from this exact student's actual results — never give generic, made-up ` +
-    `advice. Always write in plain, encouraging, simple English (the reader is a language learner), addressing them ` +
+    `advice. Always write in plain, encouraging, simple English (the reader is a Thai student learning English), addressing them ` +
     `directly as "you".\n\n` +
     `Accuracy by exercise type:\n${typeLines}\n\n` +
     `Accuracy by vocabulary category:\n${catLines}\n\n` +
@@ -3683,11 +3683,11 @@ function wordsToCSV(words) {
 }
 
 function exportWordsAsCSV(words) {
-  downloadBlob(`chaachaathai-word-bank-${todayStr()}.csv`, wordsToCSV(words), "text/csv;charset=utf-8;");
+  downloadBlob(`chaachaa-angrueit-word-bank-${todayStr()}.csv`, wordsToCSV(words), "text/csv;charset=utf-8;");
 }
 
 function exportWordsAsJSON(words) {
-  downloadBlob(`chaachaathai-word-bank-${todayStr()}.json`, JSON.stringify(words, null, 2), "application/json");
+  downloadBlob(`chaachaa-angrueit-word-bank-${todayStr()}.json`, JSON.stringify(words, null, 2), "application/json");
 }
 function daysAgo(dateStr) {
   if (!dateStr) return 9999;
@@ -4246,15 +4246,15 @@ function extractJsonObject(text) {
 }
 
 // Given a single Thai word, suggest Paiboon+ romanization, English translation, POS
-async function suggestWordDetails(thaiWord, aiConfig) {
+async function suggestWordDetails(englishWord, aiConfig) {
   const system =
-    "You are a Thai language expert. Given a single Thai word or short phrase, respond with ONLY a valid JSON object, no markdown fences, no preamble. " +
+    "You are a English language expert. Given a single English word or short phrase, respond with ONLY a valid JSON object, no markdown fences, no preamble. " +
     'Keys: "romanization" (Paiboon+ system, with tone marks), "english" (short common translation), ' +
     '"pos" (one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, interjection, particle, classifier, numeral), ' +
     '"emoji" (a single emoji character that best represents the word meaning). ' +
     'Example: {"romanization":"sà-wàt-dii","english":"hello","pos":"noun","emoji":"👋"}';
 
-  const { text } = await callAIWithFallback(system, thaiWord, aiConfig);
+  const { text } = await callAIWithFallback(system, englishWord, aiConfig);
   const clean = text.replace(/```json|```/g, "").trim();
   const parsed = JSON.parse(clean);
   if (!parsed.romanization || !parsed.english || !parsed.pos) throw new Error("Incomplete AI response");
@@ -4269,7 +4269,7 @@ async function suggestWordDetails(thaiWord, aiConfig) {
 async function suggestPosCategory(word, categories, aiConfig) {
   const catNames = categories.map(c => c.name);
   const system =
-    "You are a Thai language expert helping a teacher categorize vocabulary for a Thai learning app. " +
+    "You are a English language expert helping a teacher categorize vocabulary for a Thai learning app. " +
     "Given a Thai word plus its English translation and romanization, respond with ONLY a valid JSON object, " +
     "no markdown fences, no preamble. Keys: " +
     '"pos" (one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, interjection, particle, classifier, numeral), ' +
@@ -4308,7 +4308,7 @@ async function suggestPosCategoryMulti(word, categories, aiConfig) {
   const romLooksBad = looksLikeBadRomanization(word.romanization);
 
   const system =
-    "You are a Thai language expert helping a teacher categorize vocabulary for a Thai learning app.\n" +
+    "You are a English language expert helping a teacher categorize vocabulary for a Thai learning app.\n" +
     "Given a Thai word, its English translation(s), romanization, and dictionary references, determine if the English field contains\n" +
     "ONE underlying sense (near-synonyms / closely related meanings) or MULTIPLE genuinely distinct, unrelated senses of the same Thai spelling\n" +
     "(e.g. \u0e43\u0e1a meaning both \"leaf\" AND, unrelated, \"classifier\" — these should be split into separate cards).\n\n" +
@@ -4382,7 +4382,7 @@ function sanitizeSpelling(text) {
   return out.trim();
 }
 
-async function generateSpelling(thaiWord, wordId, aiConfig) {
+async function generateSpelling(englishWord, wordId, aiConfig) {
   // v2: cache key bumped to invalidate old entries generated with the inconsistent/buggy format
   const lsKey = `spelling_v2_${wordId}`;
   // 1. Fastest: localStorage (same user, repeat visit)
@@ -4428,7 +4428,7 @@ async function generateSpelling(thaiWord, wordId, aiConfig) {
     "Respond with ONLY the final breakdown string. No markdown, no explanation, no extra text.";
 
   try {
-    const { text } = await callAIWithFallback(system, thaiWord, aiConfig);
+    const { text } = await callAIWithFallback(system, englishWord, aiConfig);
     const clean = sanitizeSpelling(text.replace(/```json|```/g, "").trim());
     // Persist to Supabase shared_kv so every other student benefits
     storageSet(dbKey, clean, true).catch(() => {});
@@ -6917,7 +6917,7 @@ export default function App() {
       <header className="topbar">
         {/* Esquerda: logo + tagline */}
         <div className="brand">
-          <img src="/logomarca2.png" alt="ช้าช้าไทย" className="brand-logo" />
+          <img src="/logomarca2.png" alt="Chá Chá Angkrit" className="brand-logo" />
         </div>
 
         {/* Centro: streak + moedas (apenas alunos) */}
@@ -7680,7 +7680,7 @@ const PRACTICE_TIMER_SECONDS = {
   "Pre-A1": 20, "A1": 16, "A2": 15, "B1": 12, "B2": 10, "C1": 8, "C2": 5,
 };
 function thaiFontForLevel(level) {
-  return BEGINNER_FONT_LEVELS.has(level) ? "'Sarabun', sans-serif" : "'Noto Sans Thai', sans-serif";
+  return BEGINNER_FONT_LEVELS.has(level) ? "'Inter', sans-serif" : "'Inter', sans-serif";
 }
 
 // ---------------------------------------------------------------------------
@@ -8013,7 +8013,7 @@ function SplashScreen() {
         <div className="splash-mascot-inner">
           <img
             src="/loginpage-brand.png"
-            alt="ช้าช้าไทย"
+            alt="Chá Chá Angkrit"
             className="splash-mascot-img"
           />
         </div>
@@ -8250,7 +8250,7 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="login-screen">
-      <img src="/login-brand.png" alt="ช้าช้าไทย — Learn Thai One Sip at a Time" className="login-brand-img login-brand-mobile" />
+      <img src="/login-brand.png" alt="Chá Chá Angkrit — Learn Thai One Sip at a Time" className="login-brand-img login-brand-mobile" />
       <div className="login-card">
         <img src="/login-brand.png" alt="" className="login-brand-img login-brand-desktop" aria-hidden="true" />
 
@@ -8375,7 +8375,7 @@ function LoginScreen({ onLogin }) {
 // ---------------------------------------------------------------------------
 // #695 — redesigned tour: 21 steps in narrative order
 const TOUR_STEPS = [
-  { tab: "home",     selector: null,                              title: "Welcome to ช้าช้าไทย! 👋",  desc: "Let me give you a quick tour of the app. It'll only take a few seconds!" },
+  { tab: "home",     selector: null,                              title: "Welcome to Chá Chá Angkrit! 👋",  desc: "Let me give you a quick tour of the app. It'll only take a few seconds!" },
   { tab: "home",     selector: "[data-tour='hero-banner']",       title: "Your Dashboard 🌟",          desc: "This banner greets you every day with a phrase in Thai. Tap the button here to go straight to your Lesson Path — the fastest way to start learning." },
   { tab: "home",     selector: ".stat-grid",                      title: "Your Vocabulary 📚",         desc: "Words practiced, new ones available, and words you've mastered. These numbers grow every time you study." },
   { tab: "home",     selector: ".level-progress-card",            title: "Level Progress 📊",          desc: "Your mastery of the current level. Study consistently and this bar will fill up!" },
@@ -8520,7 +8520,7 @@ function getHeroBannerGreeting(name, streak, profile) {
   const hour = new Date().getHours();
 
   const isNew = profile?.joinedAt && (Date.now() - profile.joinedAt) < 10 * 60 * 1000;
-  if (isNew) return { thai: "สวัสดีครับ,", sub: "Welcome to ช้าช้าไทย! 🙏" };
+  if (isNew) return { thai: "สวัสดีครับ,", sub: "Welcome to Chá Chá Angkrit! 🙏" };
 
   const lastDate = streak?.lastDate;
   if (lastDate) {
@@ -9620,7 +9620,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
           <button
             className="home-cta-card stt-test"
             onClick={() => window.open('/stt-test.html', '_blank')}
-            title="Test Speech Recognition (th-TH) — feasibility spike #69"
+            title="Test Speech Recognition (en-US) — feasibility spike #69"
           >
             <img src="/mascots/mic-cat.png" alt="" className="home-cta-mascot" />
             <span className="home-cta-label">Speech Recognition Test</span>
@@ -15100,8 +15100,8 @@ let _ttsAudioEl = null; // persist audio element to allow cancel
 function _getThaiVoice() {
   if (_thaiVoiceCache) return _thaiVoiceCache;
   const voices = window.speechSynthesis?.getVoices?.() || [];
-  // Prefer Google / native Thai voices, then any th-TH voice
-  const thai = voices.filter(v => v.lang?.toLowerCase().startsWith("th"));
+  // Prefer Google / native English voices, then any en-US voice
+  const thai = voices.filter(v => v.lang?.toLowerCase().startsWith("en"));
   if (thai.length === 0) return null;
   // Prefer "Google" voices (usually higher quality on Chrome)
   const google = thai.find(v => /google/i.test(v.name));
@@ -15118,7 +15118,7 @@ function _speakBrowser(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = "th-TH";
+  utt.lang = "en-US";
   utt.rate = 0.85;
   const voice = _getThaiVoice();
   if (voice) utt.voice = voice;
@@ -15182,7 +15182,7 @@ const STT_ERRORS = {
   "network":            "network error — STT requires internet",
   "aborted":            "recording aborted",
   "audio-capture":      "no microphone found",
-  "language-not-supported": "th-TH not supported by this browser",
+  "language-not-supported": "en-US not supported by this browser",
 };
 
 function listenThai(targetWord, opts = {}) {
@@ -15221,7 +15221,7 @@ function listenThai(targetWord, opts = {}) {
       return;
     }
 
-    recognition.lang = "th-TH";
+    recognition.lang = "en-US";
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 3;
@@ -15325,7 +15325,7 @@ window._testPronScorer = _testPronScorer;
 // The chosen deviceId is saved either way as a preference for the day some
 // feature records raw audio directly (none does yet).
 // ---------------------------------------------------------------------------
-const MIC_CALIBRATION_TARGET = "ชา";
+const MIC_CALIBRATION_TARGET = "hello";
 const MIC_CALIBRATION_THRESHOLD = 33;
 
 function MicCalibrationModal({ initialDevice, onClose, onSave }) {
@@ -15403,7 +15403,7 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
     }
 
     setSttState("listening");
-    const result = await listenThai(MIC_CALIBRATION_TARGET, {
+    const result = await listenThai("hello", {
       onInterim: (txt) => setTranscript(txt),
     });
     stopMeter();
@@ -15423,7 +15423,7 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
     }
 
     setTranscript(result.transcript || "");
-    setScore(result.transcript ? pronunciationScore(result.transcript, MIC_CALIBRATION_TARGET) : 0);
+    setScore(result.transcript ? pronunciationScore(result.transcript, "hello") : 0);
     setSttState("done");
     setStep("scored");
   }
@@ -15484,7 +15484,7 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
             <div className="mic-calibration-test">
               <div className="mic-level-meter"><div className="mic-level-fill" style={{ width: level + "%" }} /></div>
               <p className="release-modal-hint" style={{ marginTop: 14 }}>
-                {sttState === "idle" ? "Getting your microphone ready…" : <>Say <strong lang="th">{MIC_CALIBRATION_TARGET}</strong> ("chá") now…</>}
+                {sttState === "idle" ? "Getting your microphone ready…" : <>Say <strong lang="th">{"hello"}</strong> ("chá") now…</>}
               </p>
               {transcript && <p className="release-modal-hint">Heard: "{transcript}"</p>}
             </div>
@@ -15507,7 +15507,7 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
               </div>
               {transcript && (
                 <p className="release-modal-hint" style={{ fontSize: 11, opacity: 0.6 }}>
-                  Heard: "{transcript}" · Target: "{MIC_CALIBRATION_TARGET}"
+                  Heard: "{transcript}" · Target: "{"hello"}"
                 </p>
               )}
               {!passed && (
@@ -15874,7 +15874,7 @@ function SundaySession({ lesson, wordMap, progMap, showRomanization, thaiFont, o
         "audio-capture":       "(no microphone found)",
         "timeout":             "(timeout — no speech detected in 8s)",
         "not-supported":       "(STT not supported in this browser)",
-        "language-not-supported": "(th-TH not supported)",
+        "language-not-supported": "(en-US not supported)",
       };
       setSttTranscript(msgs[result.error] || "(error: " + result.error + ")");
       // Don't reveal on error — let the user try again
@@ -16768,16 +16768,16 @@ function looksNonEnglish(text) {
   return typeof text === 'string' && NON_ENGLISH_RE.test(text);
 }
 
-// Looks up a Thai word against thai-language.com (a comprehensive free
-// Thai<->English dictionary) via our own /api/thai-dict serverless proxy —
-// see functions/api/thai-dict.js for why this needs a server-side proxy
+// Looks up a Thai word against dictionary-api.com (a comprehensive free
+// English dictionary) via our own /api/dict serverless proxy —
+// see functions/api/dict.js for why this needs a server-side proxy
 // (CORS) and how the entries are parsed. This is a nice-to-have accuracy
 // boost for enrichWords(), never a hard dependency: any failure (network
 // down, endpoint not deployed in local dev, word not found) just resolves to
 // an empty list, and the AI falls back to reasoning from the slide text alone.
-async function fetchDictionaryReference(thaiWord) {
+async function fetchDictionaryReference(englishWord) {
   try {
-    const res = await fetch(`/api/thai-dict?word=${encodeURIComponent(thaiWord)}`);
+    const res = await fetch(`/api/dict?word=${encodeURIComponent(englishWord)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data?.entries) ? data.entries : [];
@@ -16848,7 +16848,7 @@ async function enrichWords(words, aiConfig, categories = CATEGORIES) {
     `You are a Thai language vocabulary expert preparing flashcards from a teacher's PowerPoint.\n` +
     `For each numbered item you get the Thai text, romanization, the raw gloss(es) exactly as typed ` +
     `on the slide (glosses are separated by " | " when the slide listed more than one), and — when ` +
-    `available — a "Dictionary reference" list from thai-language.com, a comprehensive Thai-English ` +
+    `available — a "Dictionary reference" list from dictionary-api.com, a comprehensive Thai-English ` +
     `dictionary, showing that word's real senses as (part-of-speech) gloss pairs.\n\n` +
     `0. The "english" value you output must ALWAYS be English — plain, standard English words only. ` +
     `   Never output Thai script, Portuguese, or any other language, even if the raw slide gloss itself ` +
@@ -24664,7 +24664,7 @@ function ComingSoon({ tab }) {
 // Styles
 // ---------------------------------------------------------------------------
 const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Unicase:wght@600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Noto+Sans+Thai:wght@400;600&family=Poppins:wght@400;600;700&family=Sarabun:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Unicase:wght@600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Noto+Sans+Thai:wght@400;600&family=Poppins:wght@400;600;700&family=Inter:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
   /* ── Core aliases (backward compat) ── */
@@ -24689,8 +24689,8 @@ const styles = `
 
   /* ── Typography scale ── */
   --font-display:  'Fraunces', serif;
-  --font-thai:     'Noto Sans Thai', sans-serif;
-  --font-thai-beginner: 'Sarabun', sans-serif;
+  --font-thai:     'Inter', sans-serif;
+  --font-thai-beginner: 'Inter', sans-serif;
   --font-ui:       'Work Sans', sans-serif;
 
   --text-xs:       10px;
@@ -25523,7 +25523,7 @@ html, body {
   border-radius: 10px; padding: 10px 12px; cursor: pointer; text-align: left; color: var(--ivory); width: 100%;
 }
 .word-row-main { display: flex; flex-direction: column; gap: 2px; }
-.word-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: 17px; font-weight: 600; }
+.word-thai { font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 600; }
 .word-ro { font-family: 'Fraunces', serif; font-style: italic; font-size: 11px; color: var(--saffron); }
 .word-row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .word-en { font-size: 12.5px; opacity: 0.8; }
@@ -25637,7 +25637,7 @@ html, body {
   font-family: 'Work Sans', sans-serif;
 }
 .modal-input:focus { outline: none; border-color: var(--saffron); }
-.thai-input { font-family: 'Noto Sans Thai', sans-serif; font-size: 20px; }
+.thai-input { font-family: 'Inter', sans-serif; font-size: 20px; }
 select.modal-input { appearance: none; }
 
 .ai-status { display: flex; align-items: center; gap: 7px; font-size: 11.5px; padding: 8px 10px; border-radius: 9px; background: rgba(232,163,61,0.1); color: var(--saffron); }
@@ -25710,7 +25710,7 @@ select.modal-input { appearance: none; }
   line-height: 1.2;
 }
 .hero-greeting-thai {
-  font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+  font-family: 'Inter', 'Inter', sans-serif;
   font-size: clamp(20px, 4vw, 28px); font-weight: 700;
   color: var(--ivory);
 }
@@ -25993,7 +25993,7 @@ select.modal-input { appearance: none; }
 /* Back (answer side) — issue #255: now the grid's own 15% top row, see
    the .prac-back .prac-cat-tag rule declared right after .prac-back above */
 .prac-thai-xl {
-  font-family: 'Noto Sans Thai', sans-serif; font-weight: 600;
+  font-family: 'Inter', sans-serif; font-weight: 600;
   font-size: clamp(42px, 14vw, 68px); line-height: 1.1;
 }
 .prac-tap-hint { position: absolute; bottom: 14px; font-size: 10px; opacity: 0.35; }
@@ -26008,7 +26008,7 @@ select.modal-input { appearance: none; }
   background: linear-gradient(90deg, var(--cha-verde), var(--saffron), var(--lacquer));
   transition: width 0.1s linear;
 }
-.prac-thai-sm { font-family: 'Noto Sans Thai', sans-serif; font-weight: 600; font-size: 48px; line-height: 1.15; }
+.prac-thai-sm { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 48px; line-height: 1.15; }
 .prac-ro { font-family: 'Fraunces', serif; font-style: italic; font-size: 15px; color: var(--accent); }
 .prac-en { font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; }
 .prac-pos {
@@ -26030,7 +26030,7 @@ select.modal-input { appearance: none; }
   color: var(--ivory); background: transparent; transition: background 0.15s;
 }
 .prac-btn-inner { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.prac-btn-thai  { font-family: 'Noto Sans Thai', sans-serif; font-size: 18px; font-weight: 600; line-height: 1.2; }
+.prac-btn-thai  { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600; line-height: 1.2; }
 .prac-btn-ro    { font-family: 'Fraunces', serif; font-style: italic; font-size: 10.5px; opacity: 0.7; }
 .prac-btn.dont { border-color: rgba(200,75,49,0.5); }
 .prac-btn.dont:hover { background: rgba(200,75,49,0.15); }
@@ -26071,7 +26071,7 @@ select.modal-input { appearance: none; }
   background: rgba(245,239,230,0.04); border-left: 3px solid var(--accent);
   border-radius: 8px; padding: 9px 10px; margin-bottom: 6px;
 }
-.missed-thai { font-family: 'Noto Sans Thai', sans-serif; font-weight: 600; font-size: 16px; flex: 1; }
+.missed-thai { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; flex: 1; }
 .missed-en   { font-size: 12px; opacity: 0.7; }
 .missed-err  { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 999px; background: rgba(245,239,230,0.08); }
 .missed-err.err-both    { background: rgba(200,75,49,0.2); color: #F0A0A0; }
@@ -26120,7 +26120,7 @@ select.modal-input { appearance: none; }
   text-align: center; position: relative; margin-bottom: 4px;
 }
 .st-card-cat  { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); font-weight: 600; }
-.st-card-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: 46px; font-weight: 600; line-height: 1.15; }
+.st-card-thai { font-family: 'Inter', sans-serif; font-size: 46px; font-weight: 600; line-height: 1.15; }
 .st-card-ro   { font-family: 'Fraunces', serif; font-style: italic; font-size: 15px; color: var(--accent); }
 .st-card-en   { font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; }
 .st-card-pos  { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; background: rgba(245,239,230,0.1); padding: 3px 10px; border-radius: 999px; opacity: 0.7; }
@@ -26145,7 +26145,7 @@ select.modal-input { appearance: none; }
   text-align: center; margin-bottom: 14px;
 }
 .st-prompt-cat { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
-.st-prompt-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: clamp(36px, 12vw, 58px); font-weight: 600; line-height: 1.15; }
+.st-prompt-thai { font-family: 'Inter', sans-serif; font-size: clamp(36px, 12vw, 58px); font-weight: 600; line-height: 1.15; }
 .st-prompt-ro   { font-family: 'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--accent); margin-top: 6px; }
 
 /* Listen card for type A */
@@ -26183,13 +26183,13 @@ select.modal-input { appearance: none; }
 .st-opt.selected { border-color: #E8A33D; background: rgba(232,163,61,0.1); }
 .st-opt.correct  { border-color: #2F6E5C; background: rgba(47,110,92,0.18); color: #8ECFC0; font-weight: 700; }
 .st-opt.wrong    { border-color: #C84B31; background: rgba(200,75,49,0.14); color: #F0A0A0; }
-.st-opt.thai-opt .opt-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: 20px; font-weight: 600; }
+.st-opt.thai-opt .opt-thai { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; }
 .opt-icon { flex-shrink: 0; }
 
 /* Type R — EN->TH recognition options: POS above Thai, romanization below (issue #261) */
 .st-opt.recog-opt { flex-direction: column; gap: 3px; padding: 12px 8px; }
 .recog-opt-pos { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.55; }
-.recog-opt-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: 19px; font-weight: 600; }
+.recog-opt-thai { font-family: 'Inter', sans-serif; font-size: 19px; font-weight: 600; }
 .recog-opt-ro { font-family: 'Fraunces', serif; font-style: italic; font-size: 11px; opacity: 0.6; }
 
 /* Type E — image match grid (issue #102) */
@@ -26227,8 +26227,8 @@ select.modal-input { appearance: none; }
 .st-b-english { font-family: 'Fraunces', serif; font-weight: 700; font-size: 26px; margin-top: 6px; }
 .st-b-pos     { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; background: rgba(245,239,230,0.1); padding: 3px 9px; border-radius: 999px; opacity: 0.7; margin-top: 4px; }
 .st-b-answer  { font-size: 14px; font-weight: 600; }
-.b-correct    { color: #8ECFC0; font-family: 'Noto Sans Thai', sans-serif; font-size: 22px; }
-.b-wrong      { color: #F0A0A0; font-family: 'Noto Sans Thai', sans-serif; font-size: 22px; }
+.b-correct    { color: #8ECFC0; font-family: 'Inter', sans-serif; font-size: 22px; }
+.b-wrong      { color: #F0A0A0; font-family: 'Inter', sans-serif; font-size: 22px; }
 
 /* Tile exercise */
 .b-tiles-area { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
@@ -26240,7 +26240,7 @@ select.modal-input { appearance: none; }
 .b-placed-hint { font-size: 11px; opacity: 0.4; }
 .b-avail-row  { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .b-tile {
-  font-family: 'Noto Sans Thai', sans-serif; font-size: 20px; font-weight: 600;
+  font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600;
   padding: 8px 14px; border-radius: 10px; cursor: pointer; border: 1.5px solid;
   transition: all 0.12s;
 }
@@ -26259,7 +26259,7 @@ select.modal-input { appearance: none; }
 .b-typing-input {
   width: 100%; padding: 14px; border-radius: 13px;
   background: rgba(245,239,230,0.05); border: 1.5px solid rgba(245,239,230,0.2);
-  color: var(--ivory); font-family: 'Noto Sans Thai', sans-serif; font-size: 22px;
+  color: var(--ivory); font-family: 'Inter', sans-serif; font-size: 22px;
   text-align: center;
 }
 .b-typing-input:focus { outline: none; border-color: #2F6E5C; }
@@ -26300,7 +26300,7 @@ select.modal-input { appearance: none; }
   border: 1px solid rgba(245,239,230,0.12);
 }
 .pron-interim-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.4; }
-.pron-interim-text { font-family: 'Noto Sans Thai', sans-serif; font-size: 18px; opacity: 0.7; }
+.pron-interim-text { font-family: 'Inter', sans-serif; font-size: 18px; opacity: 0.7; }
 
 .pron-result {
   display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;
@@ -26527,7 +26527,7 @@ select.modal-input { appearance: none; }
 .import-table td { padding: 9px 10px; border-top: 1px solid rgba(245,239,230,0.06); }
 .import-table tr:hover td { background: rgba(245,239,230,0.04); }
 .td-emoji { font-size: 18px; width: 32px; text-align: center; }
-.td-thai  { font-family: 'Noto Sans Thai', sans-serif; font-size: 17px; font-weight: 600; white-space: nowrap; }
+.td-thai  { font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 600; white-space: nowrap; }
 .td-ro    { font-family: 'Fraunces', serif; font-style: italic; color: var(--saffron); white-space: nowrap; }
 .td-en    { max-width: 180px; }
 .td-ipa   { font-size: 11px; opacity: 0.55; white-space: nowrap; }
@@ -26555,7 +26555,7 @@ select.modal-input { appearance: none; }
 .enr-exclude-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
 .enr-emoji    { font-size: 20px; flex-shrink: 0; }
 .enr-main     { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-.enr-thai     { font-family: 'Noto Sans Thai', sans-serif; font-size: 19px; font-weight: 600; line-height: 1.15; }
+.enr-thai     { font-family: 'Inter', sans-serif; font-size: 19px; font-weight: 600; line-height: 1.15; }
 .enr-ro       { font-family: 'Fraunces', serif; font-style: italic; font-size: 12px; color: var(--accent); }
 .enr-ipa      { font-size: 10.5px; opacity: 0.45; white-space: nowrap; }
 .enr-en       { font-size: 13px; opacity: 0.85; font-weight: 500; }
@@ -26648,7 +26648,7 @@ select.modal-input { appearance: none; }
 .import-dupe-list { margin-bottom: 4px; }
 .dupe-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .dupe-pill {
-  font-family: 'Noto Sans Thai', sans-serif; font-size: 13px;
+  font-family: 'Inter', sans-serif; font-size: 13px;
   padding: 4px 10px; border-radius: 999px;
   background: rgba(245,239,230,0.07); border: 1px solid rgba(245,239,230,0.15);
   opacity: 0.7;
@@ -28128,7 +28128,7 @@ select.modal-input { appearance: none; }
 .meowtong-icon-inline { width: 20px; height: 20px; object-fit: contain; vertical-align: -4px; margin-right: 4px; }
 /* Issue #185 — larger Meowtongs icon specifically for the My Progress streak-row card */
 .meowtong-icon-inline.meowtong-icon-lg { width: 45px; height: 45px; vertical-align: -14px; margin-right: 6px; }
-.meowtong-thai { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; opacity: .7; margin-left: 3px; }
+.meowtong-thai { font-family: 'Inter', sans-serif; font-size: 11px; opacity: .7; margin-left: 3px; }
 .coins-toast-img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; position: relative; z-index: 1; }
 .coins-toast { transition: opacity .3s ease .45s; }
 .coins-toast.is-flying { opacity: 0; }
@@ -28812,7 +28812,7 @@ select.modal-input { appearance: none; }
 /* Back (answer side) — issue #255: now the grid's own 15% top row, see
    the .study-back .study-category-tag rule declared right after .study-back above */
 .study-thai-xl {
-  font-family: 'Noto Sans Thai', sans-serif; font-weight: 600;
+  font-family: 'Inter', sans-serif; font-weight: 600;
   font-size: clamp(42px, 14vw, 72px); line-height: 1.1;
 }
 .study-tap-hint { position: absolute; bottom: 16px; font-size: 10.5px; opacity: 0.35; letter-spacing: 0.04em; }
@@ -28827,7 +28827,7 @@ select.modal-input { appearance: none; }
 .tts-mini-btn:hover { background: rgba(245,239,230,0.14); border-color: rgba(245,239,230,0.35); }
 .tts-mini-btn:active { transform: scale(0.92); }
 
-.study-thai-sm { font-family: 'Noto Sans Thai', sans-serif; font-weight: 600; font-size: 48px; line-height: 1.15; }
+.study-thai-sm { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 48px; line-height: 1.15; }
 .study-ro { font-family: 'Fraunces', serif; font-style: italic; font-size: 16px; color: var(--accent); }
 .study-en { font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; }
 .card-visual {
@@ -28847,7 +28847,7 @@ select.modal-input { appearance: none; }
 .study-spelling {
   /* font-family is set inline per-card via thaiFontForLevel() (issue #108) —
      this is just a fallback in case the inline style is ever missing. */
-  font-family: 'Noto Sans Thai', sans-serif; font-size: 15px; font-weight: 400;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 400;
   color: var(--accent); opacity: 0.85; text-align: center; margin: 2px 0 6px;
   line-height: 1.4; padding: 0 12px;
 }
@@ -28882,7 +28882,7 @@ select.modal-input { appearance: none; }
 /* ── Issue #60 — Stroke animation (guided calligraphy playback) ── */
 .stroke-anim-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .stroke-anim-svg { background: var(--ivory); border-radius: var(--radius-md); border: 1px solid var(--line); }
-.stroke-anim-glyph-guide { font-family: 'Sarabun', sans-serif; fill: rgba(43,48,96,0.12); }
+.stroke-anim-glyph-guide { font-family: 'Inter', sans-serif; fill: rgba(43,48,96,0.12); }
 .stroke-anim-path { stroke: var(--cha-thai); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .stroke-anim-dot { fill: var(--lacquer); }
 
@@ -29745,7 +29745,7 @@ select.modal-input { appearance: none; }
 /* Authoring — char + distractors inputs */
 .lp-step-char-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lp-step-char-label { font-size: 11px; color: #e9f2dd; font-weight: 600; }
-.lp-step-char-input { width: 44px; text-align: center; font-size: 22px; font-family: 'Noto Sans Thai', sans-serif; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); background: #dfe1f2; color: #14172e; padding: 4px; }
+.lp-step-char-input { width: 44px; text-align: center; font-size: 22px; font-family: 'Inter', sans-serif; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); background: #dfe1f2; color: #14172e; padding: 4px; }
 .lp-step-distractors-input { width: 90px; font-size: 20px; }
 .lp-step-char-ok   { font-size: 11px; color: #4caf50; }
 .lp-step-char-warn { font-size: 11px; color: #f0a500; }
@@ -29754,7 +29754,7 @@ select.modal-input { appearance: none; }
 .lp-calli-step { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .lp-calli-phase-label { font-size: 14px; color: var(--ink-soft); }
 .lp-calli-done { display: flex; flex-direction: column; align-items: center; gap: 4px; background: rgba(20,50,30,0.85); border: 2px solid rgba(76,175,80,0.5); border-radius: 16px; padding: 20px 36px; margin: auto; }
-.lp-calli-great-thai { font-family: 'Sarabun', sans-serif; font-size: 52px; font-weight: 700; color: #4caf50; line-height: 1.1; }
+.lp-calli-great-thai { font-family: 'Inter', sans-serif; font-size: 52px; font-weight: 700; color: #4caf50; line-height: 1.1; }
 .lp-calli-great-en   { font-size: 18px; color: #4caf50; opacity: 0.85; }
 /* Player — listen & write step */
 .lp-lw-actions { display: flex; gap: 10px; }

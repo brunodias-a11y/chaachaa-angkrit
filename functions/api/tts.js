@@ -22,9 +22,9 @@
 // Response:      { audio: "data:audio/wav;base64,...", provider: "gemini" }  or  { error: "..." }
 
 const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
-const GEMINI_TTS_VOICE = 'Kore'; // warm, neutral prebuilt voice; handles Thai text well
-const CLOUD_TTS_VOICE = 'th-TH-Neural2-C';
-const CLOUD_TTS_LANGUAGE_CODE = 'th-TH';
+const GEMINI_TTS_VOICE = 'Kore'; // warm, neutral prebuilt voice; handles English text well
+const CLOUD_TTS_VOICE = 'en-US-Neural2-C';
+const CLOUD_TTS_LANGUAGE_CODE = 'en-US';
 
 const corsHeaders = {
   'content-type': 'application/json; charset=utf-8',
