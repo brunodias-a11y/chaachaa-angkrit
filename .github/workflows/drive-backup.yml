@@ -1,0 +1,54 @@
+# Issue #370 (sub-issue of #58, last piece — "agendamento + UI de Settings").
+#
+# Same reasoning as .github/workflows/weekly-report.yml (#336): Cloudflare
+# Pages has no native Cron Trigger, so this reuses GitHub Actions' scheduler
+# instead of standing up a separate Cloudflare Worker just for one scheduled
+# HTTP call. Runs fully independent of the Base44 agent.
+#
+# Requires a repository secret named DRIVE_BACKUP_SECRET (same value as the
+# DRIVE_BACKUP_SECRET Cloudflare Pages env var from #369) under
+# Settings → Secrets and variables → Actions.
+#
+# Frequency: weekly, same cadence as the teacher report (#54/#336) — per the
+# scope decision on #370 (covers the "forgot to export" gap #53's manual
+# export doesn't solve, without burning unnecessary Drive API quota).
+name: Google Drive Word Bank Backup
+
+on:
+  schedule:
+    # 22:00 UTC every Sunday = 05:00 GMT+7 (Bangkok) every Monday — offset by
+    # 1 hour from the weekly report (23:00 UTC) so the two crons never
+    # compete for the same minute.
+    - cron: '0 22 * * 0'
+  workflow_dispatch: {} # allows manual "Run workflow" from the Actions tab for testing
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Drive backup for all connected teachers
+        run: |
+          http_code=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
+            "https://chaachaathai.pages.dev/api/drive-backup" \
+            -H "X-Backup-Secret: ${{ secrets.DRIVE_BACKUP_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"all": true}')
+          echo "HTTP status: $http_code"
+          cat /tmp/response.json
+          echo ""
+          if [ "$http_code" -ne 200 ]; then
+            echo "::error::Drive backup request failed with HTTP $http_code"
+            exit 1
+          fi
+          python3 -c "
+          import json
+          data = json.load(open('/tmp/response.json'))
+          if not data.get('ok'):
+              print('::error::Drive backup endpoint responded ok=false')
+              raise SystemExit(1)
+          results = data.get('results', [])
+          failed = [r for r in results if not r.get('ok')]
+          print(f'{len(results)} teacher(s) processed, {len(failed)} failed.')
+          for r in failed:
+              print(f\"::warning::Backup failed for user {r.get('userId')}: {r.get('error')}\")
+          "

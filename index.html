@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- ── PWA / Web App Manifest ───────────────────────────── -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#E8A33D" />
+
+  <!-- ── Favicon ──────────────────────────────────────────── -->
+  <link rel="icon" type="image/png" sizes="32x32"  href="/icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16"  href="/icons/favicon-16.png" />
+
+  <!-- ── iOS / Safari PWA ─────────────────────────────────── -->
+  <meta name="mobile-web-app-capable"              content="yes" />
+  <meta name="apple-mobile-web-app-capable"        content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title"          content="ช้าช้าไทย" />
+  <link rel="apple-touch-icon"                     href="/icons/apple-touch.png" />
+
+  <!-- iOS Splash Screens (Sprint 8.3) -->
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+    href="/splash/splash-1290x2796.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+    href="/splash/splash-1179x2556.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+    href="/splash/splash-1170x2532.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+    href="/splash/splash-750x1334.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+    href="/splash/splash-2048x2732.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+    href="/splash/splash-1668x2388.png" />
+
+  <!-- ── Open Graph (link previews) ───────────────────────── -->
+  <meta property="og:title"       content="ช้าช้าไทย — Chá Chá Thai" />
+  <meta property="og:description" content="Learn Thai slowly, one word at a time." />
+  <meta property="og:type"        content="website" />
+  <meta property="og:image"       content="/icons/icon-512.png" />
+
+  <!-- ── App title ─────────────────────────────────────────── -->
+  <title>ช้าช้าไทย</title>
+
+  <!-- ── Google Fonts (preconnect for speed) ───────────────── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Noto+Sans+Thai:wght@400;600&family=Sarabun:wght@400;600;700&family=Work+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

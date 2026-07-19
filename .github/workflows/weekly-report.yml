@@ -1,0 +1,41 @@
+# Issue #336 (sub-issue of #54, "relatório semanal do professor" — last piece).
+#
+# Cloudflare Pages has no native Cron Trigger support (that's a Workers-only
+# feature — see the discussion in #336). Rather than stand up a separate
+# Cloudflare Worker just to make one scheduled HTTP call, this reuses GitHub
+# Actions' own cron scheduler: zero new infra, runs fully independent of the
+# Base44 agent (per the decision already recorded on #54 — email delivery
+# must not depend on the agent running or consume agent credits).
+#
+# Requires a repository secret named WEEKLY_REPORT_SECRET (same value as the
+# WEEKLY_REPORT_SECRET Cloudflare Pages env var from #334/#335) under
+# Settings → Secrets and variables → Actions.
+name: Weekly Teacher Report
+
+on:
+  schedule:
+    # 23:00 UTC every Sunday = 06:00 GMT+7 (Bangkok) every Monday.
+    - cron: '0 23 * * 0'
+  workflow_dispatch: {} # allows manual "Run workflow" from the Actions tab for testing
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly report email
+        run: |
+          http_code=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
+            "https://chaachaathai.pages.dev/api/send-weekly-report" \
+            -H "X-Report-Secret: ${{ secrets.WEEKLY_REPORT_SECRET }}")
+          echo "HTTP status: $http_code"
+          cat /tmp/response.json
+          echo ""
+          if [ "$http_code" -ne 200 ]; then
+            echo "::error::Weekly report request failed with HTTP $http_code"
+            exit 1
+          fi
+          ok=$(python3 -c "import json;print(json.load(open('/tmp/response.json')).get('ok'))")
+          if [ "$ok" != "True" ]; then
+            echo "::error::Weekly report endpoint responded ok=false"
+            exit 1
+          fi

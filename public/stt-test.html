@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STT Test — Chaachaathai</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --accent: #0f3460;
+      --primary: #e94560;
+      --text: #eee;
+      --muted: #888;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --border: #30475e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      padding: 16px; max-width: 700px; margin: 0 auto;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    h2 { font-size: 1.1rem; margin: 20px 0 8px; color: var(--primary); }
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .label { color: var(--muted); font-size: 0.85rem; }
+    .value { font-weight: 600; font-size: 0.9rem; text-align: right; }
+    .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+    .badge-ok { background: rgba(74,222,128,0.15); color: var(--ok); }
+    .badge-warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+    .badge-err { background: rgba(248,113,113,0.15); color: var(--err); }
+    textarea {
+      width: 100%; min-height: 80px; background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+      font-size: 0.9rem; resize: vertical;
+    }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    button {
+      padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: var(--accent); color: var(--text); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .recording { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .results { margin-top: 12px; }
+    .result-entry {
+      background: var(--bg); border-radius: 8px; padding: 10px;
+      margin-bottom: 8px; border-left: 3px solid var(--primary);
+    }
+    .transcript { font-size: 1.1rem; margin-bottom: 4px; }
+    .meta { font-size: 0.75rem; color: var(--muted); display: flex; gap: 12px; }
+    .log {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px; font-family: monospace; font-size: 0.8rem; color: var(--muted);
+      max-height: 200px; overflow-y: auto; margin-top: 8px;
+    }
+    .log-entry { padding: 2px 0; }
+    .log-entry.err { color: var(--err); }
+    .log-entry.ok { color: var(--ok); }
+    .log-entry.warn { color: var(--warn); }
+    .word-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+    .word-chip {
+      background: var(--accent); padding: 6px 14px; border-radius: 20px;
+      font-size: 0.85rem; cursor: pointer; transition: background 0.2s;
+    }
+    .word-chip:hover { background: var(--primary); }
+    .word-chip .thai { font-size: 1.1rem; margin-right: 6px; }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+    #exportBtn { margin-top: 20px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<h1>🎤 STT Test — Chaachaathai</h1>
+<p class="subtitle">Feasibility spike #69 — Teste de SpeechRecognition com th-TH</p>
+
+<!-- ===== ENVIRONMENT ===== -->
+<h2>1. Ambiente</h2>
+<div class="card">
+  <div class="row"><span class="label">Browser</span><span class="value" id="env-browser">—</span></div>
+  <div class="row"><span class="label">OS</span><span class="value" id="env-os">—</span></div>
+  <div class="row"><span class="label">PWA Mode</span><span class="value" id="env-pwa">—</span></div>
+  <div class="row"><span class="label">Online</span><span class="value" id="env-online">—</span></div>
+  <div class="row"><span class="label">SpeechRecognition</span><span class="value" id="env-sr">—</span></div>
+  <div class="row"><span class="label">webkitSpeechRecognition</span><span class="value" id="env-wsr">—</span></div>
+  <div class="row"><span class="label">processLocally support</span><span class="value" id="env-pl">—</span></div>
+  <div class="row"><span class="label">User Agent</span><span class="value" id="env-ua" style="font-size:0.7rem;word-break:break-all;max-width:60%">—</span></div>
+</div>
+
+<!-- ===== AVAILABILITY ===== -->
+<h2>2. Disponibilidade da API</h2>
+<div class="card">
+  <div id="api-status">Verificando…</div>
+</div>
+
+<!-- ===== TEST CONTROLS ===== -->
+<h2>3. Teste de Reconhecimento (th-TH)</h2>
+<div class="card">
+  <p style="margin-bottom:8px;color:var(--muted);font-size:0.85rem">
+    Toque numa palavra e fale ela em voz alta. O resultado aparece abaixo.
+  </p>
+
+  <div class="word-grid" id="wordGrid"></div>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="processLocally">
+    <label for="processLocally" style="font-size:0.85rem">processLocally: true (on-device, Chrome 139+)</label>
+  </div>
+  <div class="checkbox-row">
+    <input type="checkbox" id="continuous" checked>
+    <label for="continuous" style="font-size:0.85rem">continuous (mantém escutando)</label>
+  </div>
+  <div class="checkbox-row">
+    <input type="checkbox" id="interim" checked>
+    <label for="interim" style="font-size:0.85rem">interimResults (resultados parciais)</label>
+  </div>
+
+  <div class="controls">
+    <button class="btn-primary" id="startBtn" onclick="startRec()">🎤 Iniciar</button>
+    <button class="btn-secondary" id="stopBtn" onclick="stopRec()" disabled>⏹ Parar</button>
+    <button class="btn-outline" id="clearBtn" onclick="clearResults()">🗑 Limpar</button>
+  </div>
+
+  <div class="results" id="results"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<!-- ===== LATENCY ===== -->
+<h2>4. Métricas</h2>
+<div class="card">
+  <div class="row"><span class="label">Tempo total de gravação</span><span class="value" id="metric-duration">—</span></div>
+  <div class="row"><span class="label">Tempo até primeiro resultado</span><span class="value" id="metric-first">—</span></div>
+  <div class="row"><span class="label">Tempo até resultado final</span><span class="value" id="metric-final">—</span></div>
+  <div class="row"><span class="label">Nº de resultados</span><span class="value" id="metric-count">0</span></div>
+  <div class="row"><span class="label">Confiança média</span><span class="value" id="metric-confidence">—</span></div>
+  <div class="row"><span class="label">Erros</span><span class="value" id="metric-errors">0</span></div>
+</div>
+
+<!-- ===== OFFLINE TEST ===== -->
+<h2>5. Teste Offline</h2>
+<div class="card">
+  <p style="font-size:0.85rem;color:var(--muted);margin-bottom:8px">
+    Desligue a internet do dispositivo, toque "Iniciar" e fale uma palavra.
+    Anote se funciona ou não. Depois ligue a internet novamente.
+  </p>
+  <div class="row"><span class="label">Status de rede no teste</span><span class="value" id="offline-status">—</span></div>
+  <div class="checkbox-row">
+    <input type="checkbox" id="offline-result">
+    <label for="offline-result" style="font-size:0.85rem">STT funcionou offline</label>
+  </div>
+</div>
+
+<!-- ===== SUBMIT TO GITHUB ===== -->
+<h2>6. Enviar Resultados</h2>
+<div class="card">
+  <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+    Selecione a sub-issue correspondente ao teste realizado e envie os resultados
+    diretamente como comentário no GitHub.
+  </p>
+  <div class="row">
+    <span class="label">Sub-issue alvo</span>
+    <select id="issueSelect" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.85rem">
+      <option value="">— Selecione —</option>
+      <option value="84">#84 — Chrome (Desktop + Android)</option>
+      <option value="78">#78 — Safari (iOS + macOS)</option>
+      <option value="79">#79 — Firefox + Edge + Opera</option>
+      <option value="83">#83 — Offline impact</option>
+      <option value="82">#82 — PWA microphone permission (iOS)</option>
+    </select>
+  </div>
+  <div class="controls">
+    <button class="btn-primary" id="submitBtn" onclick="submitToGitHub()" disabled>📤 Submit to GitHub Issue</button>
+    <button class="btn-outline" id="exportBtn" onclick="exportResults()">📋 Export JSON (manual)</button>
+  </div>
+  <div id="submitStatus" style="margin-top:8px"></div>
+  <div id="exportArea" class="hidden">
+    <textarea id="exportText" readonly style="margin-top:12px"></textarea>
+    <button class="btn-outline" onclick="copyExport()" style="margin-top:8px">Copiar</button>
+  </div>
+</div>
+
+<script>
+// ===== Thai test words =====
+const TEST_WORDS = [
+  { thai: 'สวัสดี', eng: 'hello', syllables: 3 },
+  { thai: 'ขอบคุณ', eng: 'thank you', syllables: 2 },
+  { thai: 'ใช่', eng: 'yes', syllables: 1 },
+  { thai: 'ไม่', eng: 'no', syllables: 1 },
+  { thai: 'น้ำ', eng: 'water', syllables: 1 },
+  { thai: 'กิน', eng: 'to eat', syllables: 1 },
+  { thai: 'เรียน', eng: 'to study', syllables: 1 },
+  { thai: 'ครู', eng: 'teacher', syllables: 1 },
+  { thai: 'หนังสือ', eng: 'book', syllables: 2 },
+  { thai: 'อาหาร', eng: 'food', syllables: 2 },
+  { thai: 'รถไฟ', eng: 'train', syllables: 2 },
+  { thai: 'อากาศ', eng: 'weather/air', syllables: 2 },
+];
+
+// ===== State =====
+let recognition = null;
+let isRecording = false;
+let recStart = 0;
+let firstResultTime = 0;
+let finalResultTime = 0;
+let resultCount = 0;
+let errorCount = 0;
+let confidences = [];
+let selectedWord = null;
+let micStream = null; // Keep getUserMedia stream alive during recognition
+
+// ===== Environment detection =====
+function detectEnv() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isMac = /Macintosh|MacIntel/.test(ua) && !isIOS;
+  const isAndroid = /Android/.test(ua);
+  const isWindows = /Windows/.test(ua);
+  const isChrome = /Chrome/.test(ua) && !/Edg/.test(ua) && !/OPR/.test(ua);
+  const isEdge = /Edg/.test(ua);
+  const isSafari = /Safari/.test(ua) && !isChrome && !isEdge;
+  const isFirefox = /Firefox/.test(ua);
+  const isOpera = /OPR/.test(ua);
+
+  let browser = 'Unknown';
+  if (isFirefox) browser = 'Firefox';
+  else if (isEdge) browser = 'Edge';
+  else if (isOpera) browser = 'Opera';
+  else if (isChrome) browser = 'Chrome';
+  else if (isSafari) browser = 'Safari';
+
+  let os = 'Unknown';
+  if (isIOS) os = 'iOS';
+  else if (isAndroid) os = 'Android';
+  else if (isMac) os = 'macOS';
+  else if (isWindows) os = 'Windows';
+
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const hasSR = 'SpeechRecognition' in window;
+  const hasWSR = 'webkitSpeechRecognition' in window;
+  const hasProcessLocally = hasSR && 'processLocally' in SpeechRecognition.prototype;
+
+  document.getElementById('env-browser').textContent = browser;
+  document.getElementById('env-os').textContent = os;
+  document.getElementById('env-pwa').innerHTML = isPWA
+    ? '<span class="ok">Instalada (PWA)</span>'
+    : '<span class="warn">Aba do navegador</span>';
+  document.getElementById('env-online').innerHTML = navigator.onLine
+    ? '<span class="ok">Online</span>'
+    : '<span class="err">Offline</span>';
+  document.getElementById('env-sr').innerHTML = hasSR
+    ? '<span class="badge badge-ok">Disponível</span>'
+    : '<span class="badge badge-err">Não</span>';
+  document.getElementById('env-wsr').innerHTML = hasWSR
+    ? '<span class="badge badge-ok">Disponível</span>'
+    : '<span class="badge badge-err">Não</span>';
+  document.getElementById('env-pl').innerHTML = hasProcessLocally
+    ? '<span class="badge badge-ok">Sim</span>'
+    : '<span class="badge badge-warn">Não suportado</span>';
+  document.getElementById('env-ua').textContent = ua;
+
+  return { browser, os, isPWA, hasSR, hasWSR, hasProcessLocally };
+}
+
+// ===== API status =====
+function checkAPI(env) {
+  const el = document.getElementById('api-status');
+  if (env.hasSR || env.hasWSR) {
+    el.innerHTML = '<span class="ok">✅ SpeechRecognition disponível</span><br>' +
+      '<span style="font-size:0.85rem;color:var(--muted)">Prefix: ' +
+      (env.hasSR ? 'SpeechRecognition' : 'webkitSpeechRecognition') + '</span>';
+  } else {
+    el.innerHTML = '<span class="err">❌ SpeechRecognition NÃO disponível neste browser.</span><br>' +
+      '<span style="font-size:0.85rem;color:var(--muted)">Graceful degradation será necessário (#73).</span>';
+    document.getElementById('startBtn').disabled = true;
+  }
+}
+
+// ===== Word grid =====
+function renderWordGrid() {
+  const grid = document.getElementById('wordGrid');
+  grid.innerHTML = '';
+  TEST_WORDS.forEach(w => {
+    const chip = document.createElement('div');
+    chip.className = 'word-chip';
+    chip.innerHTML = `<span class="thai">${w.thai}</span><span style="color:var(--muted)">${w.eng} (${w.syllables} syll.)</span>`;
+    chip.onclick = () => {
+      selectedWord = w;
+      document.querySelectorAll('.word-chip').forEach(c => c.style.background = 'var(--accent)');
+      chip.style.background = 'var(--primary)';
+      log('Selected: ' + w.thai + ' (' + w.eng + ')', 'ok');
+    };
+    grid.appendChild(chip);
+  });
+}
+
+// ===== Logging =====
+function log(msg, type = '') {
+  const el = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  const time = new Date().toLocaleTimeString();
+  entry.textContent = `[${time}] ${msg}`;
+  el.appendChild(entry);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ===== Recognition =====
+async function startRec() {
+  const env = detectEnv();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { log('SpeechRecognition não disponível', 'err'); return; }
+
+  // Guard against double-start
+  if (isRecording) { log('Already recording — stop first', 'warn'); return; }
+
+  // Explicitly request microphone permission via getUserMedia
+  // This triggers the browser permission prompt in all browsers (including Opera)
+  // SpeechRecognition.start() only triggers it implicitly in Chrome
+  // IMPORTANT: keep the stream alive while recognition runs — stopping it too
+  // early causes Opera to release the mic before SpeechRecognition can capture
+  try {
+    log('Requesting microphone permission…', '');
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    log('Microphone permission granted', 'ok');
+  } catch(e) {
+    log('Microphone permission denied: ' + e.name + ' — ' + e.message, 'err');
+    return;
+  }
+
+  try {
+    recognition = new SR();
+  } catch(e) {
+    log('Erro ao criar SpeechRecognition: ' + e.message, 'err');
+    return;
+  }
+
+  recognition.lang = 'th-TH';
+  recognition.continuous = document.getElementById('continuous').checked;
+  recognition.interimResults = document.getElementById('interim').checked;
+  recognition.maxAlternatives = 3;
+
+  // processLocally (Chrome 139+)
+  if (document.getElementById('processLocally').checked) {
+    try {
+      recognition.processLocally = true;
+      log('processLocally: true (on-device)', 'ok');
+    } catch(e) {
+      log('processLocally não suportado: ' + e.message, 'warn');
+    }
+  }
+
+  recognition.onstart = () => {
+    isRecording = true;
+    recStart = Date.now();
+    firstResultTime = 0;
+    finalResultTime = 0;
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('startBtn').classList.add('recording');
+    document.getElementById('stopBtn').disabled = false;
+    log('Recognition started (lang=th-TH)', 'ok');
+  };
+
+  recognition.onaudiostart = () => log('Audio capture started', '');
+  recognition.onaudioend = () => log('Audio capture ended', '');
+
+  recognition.onerror = (event) => {
+    errorCount++;
+    document.getElementById('metric-errors').textContent = errorCount;
+    log('Error: ' + event.error + (event.message ? ' — ' + event.message : ''), 'err');
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      log('Microphone permission denied! Check browser settings.', 'err');
+    }
+    if (event.error === 'no-speech') {
+      log('No speech detected. Try speaking louder/closer to mic.', 'warn');
+    }
+    if (event.error === 'network') {
+      log('Network error — STT requires internet (server-based).', 'err');
+    }
+  };
+
+  recognition.onresult = (event) => {
+    if (!firstResultTime) firstResultTime = Date.now();
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      const isFinal = result.isFinal;
+      const transcript = result[0].transcript;
+      const confidence = result[0].confidence;
+
+      if (isFinal) {
+        finalResultTime = Date.now();
+        resultCount++;
+        if (confidence !== undefined && confidence > 0) confidences.push(confidence);
+
+        const entry = document.createElement('div');
+        entry.className = 'result-entry';
+        let html = `<div class="transcript">"${transcript}"</div>`;
+        html += `<div class="meta">`;
+        html += `<span>Confidence: ${confidence !== undefined ? (confidence * 100).toFixed(1) + '%' : 'N/A'}</span>`;
+        html += `<span>${isFinal ? 'FINAL' : 'interim'}</span>`;
+        if (selectedWord) {
+          const match = transcript.trim() === selectedWord.thai;
+          html += `<span class="${match ? 'ok' : 'err'}">Expected: ${selectedWord.thai} (${selectedWord.eng}) → ${match ? 'MATCH ✅' : 'NO MATCH ❌'}</span>`;
+        }
+        html += `</div>`;
+
+        // Show alternatives
+        if (result.length > 1) {
+          html += '<div class="meta" style="margin-top:4px">Alternatives: ';
+          for (let j = 1; j < Math.min(result.length, 3); j++) {
+            html += `"${result[j].transcript}" (${(result[j].confidence * 100).toFixed(0)}%) `;
+          }
+          html += '</div>';
+        }
+
+        entry.innerHTML = html;
+        document.getElementById('results').appendChild(entry);
+
+        log(`Result: "${transcript}" conf=${confidence !== undefined ? (confidence*100).toFixed(0)+'%' : 'N/A'}`, isFinal ? 'ok' : '');
+      } else {
+        log(`Interim: "${transcript}"`, '');
+      }
+    }
+    updateMetrics();
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    // Release the getUserMedia stream now that recognition is done
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('startBtn').classList.remove('recording');
+    document.getElementById('stopBtn').disabled = true;
+    // Guard: if onstart never fired, recStart is 0 — don't show absurd duration
+    if (recStart > 0) {
+      const duration = finalResultTime ? ((finalResultTime - recStart) / 1000).toFixed(2) : ((Date.now() - recStart) / 1000).toFixed(2);
+      log(`Recognition ended (duration: ${duration}s)`, '');
+    } else {
+      log('Recognition ended (onstart never fired — browser may not support th-TH STT)', 'warn');
+    }
+    updateMetrics();
+  };
+
+  try {
+    recognition.start();
+    document.getElementById('offline-status').innerHTML = navigator.onLine
+      ? '<span class="ok">Online</span>'
+      : '<span class="err">Offline</span>';
+  } catch(e) {
+    log('Failed to start: ' + e.message, 'err');
+  }
+}
+
+function stopRec() {
+  if (recognition) recognition.stop();
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+}
+
+function clearResults() {
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('log').innerHTML = '';
+  resultCount = 0;
+  errorCount = 0;
+  confidences = [];
+  firstResultTime = 0;
+  finalResultTime = 0;
+  updateMetrics();
+}
+
+function updateMetrics() {
+  const dur = recStart > 0 ? ((finalResultTime || Date.now()) - recStart) / 1000 : 0;
+  document.getElementById('metric-duration').textContent = dur.toFixed(2) + 's';
+  document.getElementById('metric-first').textContent = firstResultTime ? ((firstResultTime - recStart) / 1000).toFixed(2) + 's' : '—';
+  document.getElementById('metric-final').textContent = finalResultTime ? ((finalResultTime - recStart) / 1000).toFixed(2) + 's' : '—';
+  document.getElementById('metric-count').textContent = resultCount;
+  const avgConf = confidences.length ? (confidences.reduce((a,b) => a+b, 0) / confidences.length * 100).toFixed(1) + '%' : '—';
+  document.getElementById('metric-confidence').textContent = avgConf;
+  document.getElementById('metric-errors').textContent = errorCount;
+}
+
+// ===== Export =====
+function exportResults() {
+  const env = detectEnv();
+  const data = {
+    timestamp: new Date().toISOString(),
+    environment: {
+      browser: env.browser,
+      os: env.os,
+      pwa: env.isPWA,
+      online: navigator.onLine,
+      userAgent: navigator.userAgent,
+      speechRecognition: env.hasSR,
+      webkitSpeechRecognition: env.hasWSR,
+      processLocallySupport: env.hasProcessLocally,
+    },
+    testConfig: {
+      lang: 'th-TH',
+      continuous: document.getElementById('continuous').checked,
+      interimResults: document.getElementById('interim').checked,
+      processLocally: document.getElementById('processLocally').checked,
+    },
+    metrics: {
+      totalDuration: document.getElementById('metric-duration').textContent,
+      timeToFirstResult: document.getElementById('metric-first').textContent,
+      timeToFinalResult: document.getElementById('metric-final').textContent,
+      resultCount,
+      averageConfidence: document.getElementById('metric-confidence').textContent,
+      errorCount,
+    },
+    offlineTest: {
+      networkStatus: document.getElementById('offline-status').textContent,
+      workedOffline: document.getElementById('offline-result').checked,
+    },
+    results: Array.from(document.querySelectorAll('.result-entry')).map(el => {
+      const transcript = el.querySelector('.transcript')?.textContent || '';
+      const meta = el.querySelector('.meta')?.textContent || '';
+      return { transcript, meta };
+    }),
+    log: Array.from(document.querySelectorAll('.log-entry')).map(el => el.textContent),
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  document.getElementById('exportText').value = json;
+  document.getElementById('exportArea').classList.remove('hidden');
+  log('Results exported to JSON', 'ok');
+}
+
+function copyExport() {
+  const text = document.getElementById('exportText');
+  text.select();
+  document.execCommand('copy');
+  log('Copied to clipboard', 'ok');
+}
+
+// ===== Submit to GitHub =====
+function buildResultsObject() {
+  const env = detectEnv();
+  return {
+    timestamp: new Date().toISOString(),
+    environment: {
+      browser: env.browser,
+      os: env.os,
+      pwa: env.isPWA,
+      online: navigator.onLine,
+      userAgent: navigator.userAgent,
+      speechRecognition: env.hasSR,
+      webkitSpeechRecognition: env.hasWSR,
+      processLocallySupport: env.hasProcessLocally,
+    },
+    testConfig: {
+      lang: 'th-TH',
+      continuous: document.getElementById('continuous').checked,
+      interimResults: document.getElementById('interim').checked,
+      processLocally: document.getElementById('processLocally').checked,
+    },
+    metrics: {
+      totalDuration: document.getElementById('metric-duration').textContent,
+      timeToFirstResult: document.getElementById('metric-first').textContent,
+      timeToFinalResult: document.getElementById('metric-final').textContent,
+      resultCount,
+      averageConfidence: document.getElementById('metric-confidence').textContent,
+      errorCount,
+    },
+    offlineTest: {
+      networkStatus: document.getElementById('offline-status').textContent,
+      workedOffline: document.getElementById('offline-result').checked,
+    },
+    results: Array.from(document.querySelectorAll('.result-entry')).map(el => {
+      const transcript = el.querySelector('.transcript')?.textContent || '';
+      const meta = el.querySelector('.meta')?.textContent || '';
+      return { transcript, meta };
+    }),
+    log: Array.from(document.querySelectorAll('.log-entry')).map(el => el.textContent),
+  };
+}
+
+async function submitToGitHub() {
+  const issueNumber = document.getElementById('issueSelect').value;
+  if (!issueNumber) { alert('Selecione uma sub-issue primeiro.'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  const status = document.getElementById('submitStatus');
+  btn.disabled = true;
+  btn.textContent = '📤 Enviando…';
+  status.innerHTML = '<span style="color:var(--muted)">Enviando resultados para #' + issueNumber + '…</span>';
+
+  const results = buildResultsObject();
+
+  try {
+    const res = await fetch('/api/stt-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issueNumber: parseInt(issueNumber), results }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      status.innerHTML = '<span class="ok">✅ Resultados postados! <a href="' + data.commentUrl + '" target="_blank" style="color:var(--primary)">Ver comentário →</a></span>';
+      log('Results submitted to #' + issueNumber + ': ' + data.commentUrl, 'ok');
+    } else {
+      status.innerHTML = '<span class="err">❌ Erro: ' + (data.error || 'unknown') + '</span>';
+      log('Submit failed: ' + (data.error || 'unknown'), 'err');
+    }
+  } catch(e) {
+    status.innerHTML = '<span class="err">❌ Erro de rede: ' + e.message + '</span>';
+    log('Submit network error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📤 Submit to GitHub Issue';
+  }
+}
+
+document.getElementById('issueSelect').addEventListener('change', function() {
+  document.getElementById('submitBtn').disabled = !this.value;
+});
+
+// ===== Init =====
+const env = detectEnv();
+checkAPI(env);
+renderWordGrid();
+window.addEventListener('online', () => { detectEnv(); });
+window.addEventListener('offline', () => { detectEnv(); });
+log('Test page loaded. Browser: ' + env.browser + ' / OS: ' + env.os, 'ok');
+</script>
+
+</body>
+</html>

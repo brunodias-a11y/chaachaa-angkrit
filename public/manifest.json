@@ -1,0 +1,76 @@
+{
+  "name": "ช้าช้าไทย",
+  "short_name": "ช้าช้าไทย",
+  "description": "ช้าช้าไทย — Learn Thai slowly, one word at a time.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#14172E",
+  "theme_color": "#E8A33D",
+  "lang": "en",
+  "categories": [
+    "education",
+    "language"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/favicon-16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Practice",
+      "short_name": "Practice",
+      "description": "Start today's practice lesson",
+      "url": "/?tab=practice",
+      "icons": [
+        {
+          "src": "/icons/shortcut-practice.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Study",
+      "short_name": "Study",
+      "description": "Browse the word bank",
+      "url": "/?tab=study",
+      "icons": [
+        {
+          "src": "/icons/shortcut-study.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
