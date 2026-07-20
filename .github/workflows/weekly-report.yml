@@ -25,7 +25,7 @@ jobs:
       - name: Trigger weekly report email
         run: |
           http_code=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
-            "https://chaachaathai.pages.dev/api/send-weekly-report" \
+            "https://chaachaa-angkrit.pages.dev/api/send-weekly-report" \
             -H "X-Report-Secret: ${{ secrets.WEEKLY_REPORT_SECRET }}")
           echo "HTTP status: $http_code"
           cat /tmp/response.json
