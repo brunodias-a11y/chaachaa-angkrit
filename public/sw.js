@@ -14,8 +14,8 @@
 // ============================================================
 
 const CACHE_VERSION  = "v2";
-const STATIC_CACHE   = `angrueit-static-${CACHE_VERSION}`;
-const FONT_CACHE     = `angrueit-fonts-${CACHE_VERSION}`;
+const STATIC_CACHE   = `angkrit-static-${CACHE_VERSION}`;
+const FONT_CACHE     = `angkrit-fonts-${CACHE_VERSION}`;
 
 // Assets to precache on install (adjust paths after Vite build)
 const PRECACHE_URLS = [

@@ -83,15 +83,21 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, reason: "wrong-answer" });
   }
 
-  // 3. Look up the user's Supabase auth id by email (we store email as username@chaa.app)
-  const email = `${slug}@chaachaathai-app.com`;
-  const userRes = await supabaseFetch(supabaseUrl, serviceRoleKey,
-    `/auth/v1/admin/users?email=${encodeURIComponent(email)}`
-  );
-  if (!userRes.ok) return json({ ok: false, reason: "server-error" }, 500);
-
-  const userBody = await userRes.json();
-  const user = userBody?.users?.[0];
+  // 3. Look up the user's Supabase auth id by email. AUTH_DOMAIN was renamed
+  //    from chaachaa-angrueit-app.com to chaachaa-angkrit-app.com — this was
+  //    previously hardcoded to the wrong (pre-fork chaachaathai) domain
+  //    entirely, so PIN recovery was broken; try current + legacy domains.
+  const AUTH_DOMAINS = ["chaachaa-angkrit-app.com", "chaachaa-angrueit-app.com"];
+  let user = null;
+  for (const domain of AUTH_DOMAINS) {
+    const email = `${slug}@${domain}`;
+    const userRes = await supabaseFetch(supabaseUrl, serviceRoleKey,
+      `/auth/v1/admin/users?email=${encodeURIComponent(email)}`
+    );
+    if (!userRes.ok) return json({ ok: false, reason: "server-error" }, 500);
+    const userBody = await userRes.json();
+    if (userBody?.users?.[0]?.id) { user = userBody.users[0]; break; }
+  }
   if (!user?.id) return json({ ok: false, reason: "user-not-found" });
 
   // 4. Reset the password via the admin API

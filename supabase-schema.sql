@@ -2,7 +2,7 @@
 -- Safe to run multiple times (idempotent). Run in: Supabase Dashboard → SQL Editor → Run.
 --
 -- Sprint 11 — Real per-student accounts (name + PIN).
--- Every account is a Supabase Auth user (email = "<name>@chaachaa-angrueit.local",
+-- Every account is a Supabase Auth user (email = "<name>@chaachaa-angkrit-app.com",
 -- password = the student's 4-digit PIN). This lets Postgres restrict each
 -- row to its owner via auth.uid(), instead of trusting a plain-text
 -- `username` column that anyone with the public anon key could read or edit.

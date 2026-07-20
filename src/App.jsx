@@ -29,16 +29,22 @@ const LessonPathFeature = React.lazy(() =>
 // Supabase Anonymous Auth has no way to "log back in" to the same identity
 // from a different device with just a name, so each account is a real
 // email/password Supabase Auth user under the hood — the "email" is just
-// `<name>@chaachaa-angrueit.local` (never a real mailbox) and the "password" is
+// `<name>@chaachaa-angkrit-app.com` (never a real mailbox) and the "password" is
 // the student's 4-digit PIN. This gives every student a stable, unique
 // auth.uid() that Postgres Row-Level-Security can lock their data to,
 // instead of the old plain-text `username` column anyone could read/write.
 // ---------------------------------------------------------------------------
-const AUTH_DOMAIN         = "chaachaa-angrueit-app.com"; // NOTE: fake per-student email domain, never
+const AUTH_DOMAIN         = "chaachaa-angkrit-app.com"; // NOTE: fake per-student email domain, never
                                                      // actually sent to. Must NOT be a reserved/
                                                      // special-use TLD (.local, .test, .example,
                                                      // .invalid, .internal, etc) — Supabase Auth
                                                      // rejects those as "invalid" on signUp.
+const LEGACY_AUTH_DOMAINS = ["chaachaa-angrueit-app.com"]; // Pre-rename domain (Angrueit → Angkrit).
+                                                     // Accounts created before the rename still have
+                                                     // this as their real Supabase Auth email domain —
+                                                     // kept as a login fallback so those students
+                                                     // aren't locked out. New accounts always use
+                                                     // AUTH_DOMAIN above.
 const PIN_PASSWORD_PREFIX = "chaa-pin-"; // pads the 4-digit PIN past Supabase's min password length
 const ACCOUNT_PREFIX      = "account:";  // shared_kv account:<slug> -> { createdAt } (marks "PIN already set")
 
@@ -47,7 +53,7 @@ function slugifyUsername(username) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
     .trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "user";
 }
-function usernameToEmail(username) { return `${slugifyUsername(username)}@${AUTH_DOMAIN}`; }
+function usernameToEmail(username, domain = AUTH_DOMAIN) { return `${slugifyUsername(username)}@${domain}`; }
 function pinToPassword(pin)        { return `${PIN_PASSWORD_PREFIX}${pin}`; }
 
 function sessionStorageKey(slug) { return `sb-session:${slug}`; }
@@ -89,7 +95,21 @@ async function authenticateAccount(username, pin) {
   const hasAccount = await storageGet(`${ACCOUNT_PREFIX}${slug}`, true);
 
   if (hasAccount) {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    let signInResult = await client.auth.signInWithPassword({ email, password });
+
+    // Accounts created before the Angkrit rename live under LEGACY_AUTH_DOMAINS
+    // instead of AUTH_DOMAIN — retry with each before giving up (see ADR on the
+    // Angrueit → Angkrit migration in docs/decisions.md).
+    if (signInResult.error || !signInResult.data?.user) {
+      for (const domain of LEGACY_AUTH_DOMAINS) {
+        const legacyResult = await client.auth.signInWithPassword({
+          email: usernameToEmail(username, domain), password,
+        });
+        if (!legacyResult.error && legacyResult.data?.user) { signInResult = legacyResult; break; }
+      }
+    }
+
+    const { data, error } = signInResult;
     if (error || !data?.user) throw new Error("Incorrect PIN for this name.");
     setStorageAuthState(data.user, username);
     saveSession(slug, data.session);
@@ -3683,11 +3703,11 @@ function wordsToCSV(words) {
 }
 
 function exportWordsAsCSV(words) {
-  downloadBlob(`chaachaa-angrueit-word-bank-${todayStr()}.csv`, wordsToCSV(words), "text/csv;charset=utf-8;");
+  downloadBlob(`chaachaa-angkrit-word-bank-${todayStr()}.csv`, wordsToCSV(words), "text/csv;charset=utf-8;");
 }
 
 function exportWordsAsJSON(words) {
-  downloadBlob(`chaachaa-angrueit-word-bank-${todayStr()}.json`, JSON.stringify(words, null, 2), "application/json");
+  downloadBlob(`chaachaa-angkrit-word-bank-${todayStr()}.json`, JSON.stringify(words, null, 2), "application/json");
 }
 function daysAgo(dateStr) {
   if (!dateStr) return 9999;
@@ -18121,12 +18141,19 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen }) {
     setResetting(student.username);
     try {
       const client = await getSupabaseClient();
-      const email  = usernameToEmail(student.username);
       const slug   = slugifyUsername(student.username);
-      const { data, error } = await client.rpc("reset_student_account", { p_email: email, p_slug: slug });
-      if (error) throw error;
+
+      // Try AUTH_DOMAIN first, then each legacy (pre-rename) domain — the
+      // stuck account could be under either depending on when it was created.
+      let didReset = false;
+      for (const domain of [AUTH_DOMAIN, ...LEGACY_AUTH_DOMAINS]) {
+        const email = usernameToEmail(student.username, domain);
+        const { data, error } = await client.rpc("reset_student_account", { p_email: email, p_slug: slug });
+        if (error) throw error;
+        if (data) { didReset = true; break; }
+      }
       alert(
-        data
+        didReset
           ? `${student.username}'s login was reset. They can log in again with any new PIN.`
           : `No stuck account found for ${student.username} — they may just need to try logging in again with the PIN they originally chose.`
       );

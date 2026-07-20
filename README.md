@@ -1,4 +1,4 @@
-# Chá Chá Angkrit (chaachaa-angrueit)
+# Chá Chá Angkrit (chaachaa-angkrit)
 
 Learn English slowly, one word at a time — a language learning app for Thai students.
 
