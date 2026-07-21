@@ -3270,7 +3270,7 @@ async function claimPendingAvatarGift(profile) {
 
   return {
     grant: {
-      criterion: { id: `avatar_gift_${gift.avatarId}_${Date.now()}`, title: "Gift from your teacher!", desc: `Your teacher gave you ${avatar.name} 🎁` },
+      criterion: { id: `avatar_gift_${gift.avatarId}_${Date.now()}`, title: "ของขวัญจากคุณครู!", desc: `คุณครูให้ ${avatar.name} กับคุณ 🎁` },
       avatar,
     },
     profile: updatedProfile,
@@ -9372,8 +9372,8 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
           <CheckCircle size={18} />
           <span>
             {examForced && !(levelProg && examThreshold != null && levelProg.percent >= examThreshold)
-              ? "Your teacher unlocked the level exam for you!"
-              : `Ready for exam! You've mastered ${levelProg.percent}% of ${levelProg.level}.`}
+              ? "คุณครูปลดล็อกข้อสอบระดับนี้ให้คุณแล้ว!"
+              : `พร้อมสอบแล้ว! คุณเรียนผ่านแล้ว ${levelProg.percent}% ของระดับ ${levelProg.level}`}
           </span>
           <button className="cta-btn" style={{ marginLeft: "auto" }} onClick={onGoToExam}>Start exam</button>
         </div>
@@ -11718,7 +11718,7 @@ function WordBankScreen({ words, wordsLoaded, profile, allCategories, onAdd, onE
           return (
             <EmptyState
               title="No words yet"
-              subtitle="Your teacher will prepare them for you"
+              subtitle="คุณครูกำลังเตรียมคำศัพท์ให้อยู่นะ"
               image="/mascote-empty-bank.png"
               compact
             />
@@ -11728,7 +11728,7 @@ function WordBankScreen({ words, wordsLoaded, profile, allCategories, onAdd, onE
           return (
             <EmptyState
               title="This category is empty"
-              subtitle="No words registered here yet — try another category."
+              subtitle="ยังไม่มีคำศัพท์ในหมวดนี้ — ลองเปลี่ยนหมวดดูนะ"
               image="/mascote-empty-category.png"
               compact
             />
@@ -11737,7 +11737,7 @@ function WordBankScreen({ words, wordsLoaded, profile, allCategories, onAdd, onE
         return (
           <EmptyState
             title="Nothing matches"
-            subtitle="Try a different search or category filter."
+            subtitle="ลองค้นหาด้วยคำอื่น หรือเปลี่ยนหมวดดูนะ"
             image="/mascote.png"
             compact
           />
@@ -12376,7 +12376,7 @@ function StudyModeScreen({ words, wordsLoaded, progMap, profile, aiConfig, allCa
     <div className="screen-pad center-content">
       <EmptyState
         title="No words yet"
-        subtitle="Your teacher will prepare them for you"
+        subtitle="คุณครูกำลังเตรียมคำศัพท์ให้อยู่นะ"
         image="/mascote-empty-bank.png"
         compact
       />
@@ -14025,7 +14025,7 @@ function PracticeModeScreen({ words, wordsLoaded, progMap, streak, profile, onPr
     <div className="screen-pad center-content">
       <EmptyState
         title="No words yet"
-        subtitle="Your teacher will prepare them for you"
+        subtitle="คุณครูกำลังเตรียมคำศัพท์ให้อยู่นะ"
         image="/mascote-empty-bank.png"
         compact
       />
@@ -14036,7 +14036,7 @@ function PracticeModeScreen({ words, wordsLoaded, progMap, streak, profile, onPr
     <div className="screen-pad center-content">
       <EmptyState
         title="Something went wrong"
-        subtitle="Try to refresh the page or logout/login to reload your Word Bank"
+        subtitle="ลอง refresh หน้าหรือ logout แล้ว login ใหม่นะ"
         image="/mascote-crying.png"
         compact
       />
@@ -19416,18 +19416,18 @@ function CoinGiftModal({ student, onClose, onSent }) {
 
 // #613 — curated milestone list for the Milestones tab (subset of ACHIEVEMENTS + journey marker)
 const MILESTONES_DEF = [
-  { id: "ms_journey",   title: "Journey Started",       desc: "The beginning of an amazing language journey!", icon: "🌟", cat: "Learning",      achId: null },
-  { id: "ms_first",     title: "First Practice",         desc: "Complete your first lesson",                   icon: "📖", cat: "Learning",      achId: "prac_1" },
-  { id: "ms_path_first", title: "First Step",           desc: "Complete your first Path Mode lesson",         icon: "🗺️", cat: "Learning",      achId: "path_first" },
-  { id: "ms_word",      title: "First Word",             desc: "Learn your first word",                        icon: "☕", cat: "Learning",      achId: "words_1" },
-  { id: "ms_streak7",   title: "7-Day Streak",           desc: "Study 7 days in a row",                        icon: "🔥", cat: "Streak",        achId: "streak_7" },
-  { id: "ms_streak30",  title: "30-Day Streak",          desc: "Maintain a 30-day streak",                     icon: "🏆", cat: "Streak",        achId: "streak_30" },
-  { id: "ms_legendary", title: "First Legendary",        desc: "Obtain your first Legendary avatar",           icon: "👑", cat: "Achievements",  achId: "first_legendary" },
-  { id: "ms_sunday",    title: "Sunday Test Perfect",    desc: "Score 100% on a Sunday Test",                  icon: "📜", cat: "Achievements",  achId: "secret_flawless" },
-  { id: "ms_master100", title: "100 Mastered Words",     desc: "Master 100 words",                             icon: "⭐", cat: "Learning",      achId: "secret_sage" },
-  { id: "ms_coins10k",  title: "10,000 Meowtong",        desc: "Earn 10,000 Meowtong",                         icon: "🪙", cat: "Special",       achId: null },
-  { id: "ms_prea1",     title: "Pre-A1 Complete",        desc: "Complete all lessons in Pre-A1 level",         icon: "🎓", cat: "Learning",      achId: null },
-  { id: "ms_a1",        title: "Reach A1 Level",         desc: "Complete all A1 lessons",                      icon: "🎓", cat: "Learning",      achId: null },
+  { id: "ms_journey",   title: "Journey Started",       desc: "จุดเริ่มต้นของการเรียน English ที่น่าตื่นเต้น!", icon: "🌟", cat: "Learning",      achId: null },
+  { id: "ms_first",     title: "First Practice",         desc: "เรียนบทแรกเสร็จแล้ว",                          icon: "📖", cat: "Learning",      achId: "prac_1" },
+  { id: "ms_path_first", title: "First Step",           desc: "เรียน Path Mode บทแรกเสร็จแล้ว",               icon: "🗺️", cat: "Learning",      achId: "path_first" },
+  { id: "ms_word",      title: "First Word",             desc: "เรียนคำศัพท์คำแรกแล้ว",                        icon: "☕", cat: "Learning",      achId: "words_1" },
+  { id: "ms_streak7",   title: "7-Day Streak",           desc: "เรียนติดต่อกัน 7 วัน",                         icon: "🔥", cat: "Streak",        achId: "streak_7" },
+  { id: "ms_streak30",  title: "30-Day Streak",          desc: "รักษา streak ต่อเนื่อง 30 วัน",                icon: "🏆", cat: "Streak",        achId: "streak_30" },
+  { id: "ms_legendary", title: "First Legendary",        desc: "ได้รับ avatar ระดับ Legendary ตัวแรก",         icon: "👑", cat: "Achievements",  achId: "first_legendary" },
+  { id: "ms_sunday",    title: "Sunday Test Perfect",    desc: "ได้ 100% ใน Sunday Test",                      icon: "📜", cat: "Achievements",  achId: "secret_flawless" },
+  { id: "ms_master100", title: "100 Mastered Words",     desc: "จำคำศัพท์ได้แม่น 100 คำ",                     icon: "⭐", cat: "Learning",      achId: "secret_sage" },
+  { id: "ms_coins10k",  title: "10,000 Meowtong",        desc: "สะสม Meowtong ครบ 10,000",                     icon: "🪙", cat: "Special",       achId: null },
+  { id: "ms_prea1",     title: "Pre-A1 Complete",        desc: "เรียนครบทุกบทในระดับ Pre-A1",                  icon: "🎓", cat: "Learning",      achId: null },
+  { id: "ms_a1",        title: "Reach A1 Level",         desc: "เรียนครบทุกบทในระดับ A1",                      icon: "🎓", cat: "Learning",      achId: null },
 ];
 const MILESTONE_CATS = ["All", "Learning", "Streak", "Achievements", "Special"];
 const CEFR_LEVELS = ["Pre-A1", "A1", "A2", "B1", "B2", "C1"];
@@ -19652,7 +19652,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                 <div className="prg2-cotm-eyebrow">👑 CAT OF THE MONTH</div>
                 <div className="prg2-cotm-name">{monthCatAvatar?.name || "Coming Soon"}</div>
                 {monthCatAvatar && <div className="prg2-cotm-rarity">{monthCatAvatar.rarity?.toUpperCase() || "SPECIAL"}</div>}
-                <div className="prg2-cotm-tagline">{monthCatOwned ? "You own this cat! 🎉" : "Let's keep learning together!"}</div>
+                <div className="prg2-cotm-tagline">{monthCatOwned ? "คุณมีแมวตัวนี้แล้ว! 🎉" : "มาเรียนต่อกันเลยนะ!"}</div>
                 {monthCatAvatar && (
                   <button className="prg2-cotm-detail-btn" onClick={() => { setDetailCotM({ avatar: monthCatAvatar, origin: "collection" }); getActiveBoosts().then(setDetailCotMBoosts); }}>
                     View details →
@@ -22683,7 +22683,7 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
     const result = await onBuy(avatar.id);
     if (result?.ok) { onClose(); return; }
     setBusy(false);
-    setBuyMsg(result?.reason === "insufficient-coins" ? "Not enough Meowtongs" : "Couldn't complete the purchase");
+    setBuyMsg(result?.reason === "insufficient-coins" ? "Meowtongs ไม่พอนะ" : "ทำรายการไม่สำเร็จ — ลองใหม่อีกครั้ง");
   }
 
   async function handleActivate(slot) {
@@ -22691,10 +22691,10 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
     const result = await onActivatePower(slot);
     if (result?.ok) {
       setLocalBoosts(prev => ({ ...(prev || {}), [slot]: result.boost || true }));
-      setActivateMsg(prev => ({ ...prev, [slot]: "Activated!" }));
+      setActivateMsg(prev => ({ ...prev, [slot]: "เปิดใช้แล้ว!" }));
     } else {
-      const msgs = { already_active: "Already active", on_cooldown: "On cooldown", no_power_assigned: "No power assigned" };
-      setActivateMsg(prev => ({ ...prev, [slot]: msgs[result?.reason] || "Couldn't activate" }));
+      const msgs = { already_active: "กำลังทำงานอยู่แล้ว", on_cooldown: "ยังอยู่ใน cooldown", no_power_assigned: "ไม่มีพลังที่กำหนดไว้" };
+      setActivateMsg(prev => ({ ...prev, [slot]: msgs[result?.reason] || "เปิดใช้ไม่ได้ — ลองใหม่นะ" }));
     }
     setTimeout(() => setActivateMsg(prev => { const n = { ...prev }; delete n[slot]; return n; }), 2500);
   }
@@ -22886,7 +22886,7 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
     const result = await onBuy(avatar.id);
     if (result?.ok) { onClose(); return; }
     setBusy(false);
-    setBuyMsg(result?.reason === "insufficient-coins" ? "Not enough Meowtongs" : "Couldn't complete the purchase");
+    setBuyMsg(result?.reason === "insufficient-coins" ? "Meowtongs ไม่พอนะ" : "ทำรายการไม่สำเร็จ — ลองใหม่อีกครั้ง");
   }
 
   async function handleActivate(slot) {
@@ -22894,10 +22894,10 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
     const result = await onActivatePower(slot);
     if (result?.ok) {
       setLocalBoosts(prev => ({ ...(prev || {}), [slot]: result.boost || true }));
-      setActivateMsg(prev => ({ ...prev, [slot]: "Activated!" }));
+      setActivateMsg(prev => ({ ...prev, [slot]: "เปิดใช้แล้ว!" }));
     } else {
-      const msgs = { already_active: "Already active", on_cooldown: "On cooldown", no_power_assigned: "No power assigned" };
-      setActivateMsg(prev => ({ ...prev, [slot]: msgs[result?.reason] || "Couldn't activate" }));
+      const msgs = { already_active: "กำลังทำงานอยู่แล้ว", on_cooldown: "ยังอยู่ใน cooldown", no_power_assigned: "ไม่มีพลังที่กำหนดไว้" };
+      setActivateMsg(prev => ({ ...prev, [slot]: msgs[result?.reason] || "เปิดใช้ไม่ได้ — ลองใหม่นะ" }));
     }
     setTimeout(() => setActivateMsg(prev => { const n = { ...prev }; delete n[slot]; return n; }), 2500);
   }
