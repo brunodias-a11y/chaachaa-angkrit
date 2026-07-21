@@ -7682,13 +7682,13 @@ export default function App() {
 // Login
 const LEVELS = ["Pre-A1","A1","A2","B1","B2","C1","C2"];
 const LEVEL_META = {
-  "Pre-A1": { subtitle: "ก Gaw Gai",         icon: "ก",  color: "#6B9E78" },
-  "A1":     { subtitle: "Wai Master",         icon: "🙏", color: "#7B9EC0" },
-  "A2":     { subtitle: "Tuk-tuk Navigator",  icon: "🛺", color: "#C0A04A" },
-  "B1":     { subtitle: "Sabai Sabai",        icon: "🌴", color: "#8E7BC0" },
+  "Pre-A1": { subtitle: "Learning ABC",       icon: "ก",  color: "#6B9E78" },
+  "A1":     { subtitle: "I'm fine and you?",  icon: "🙏", color: "#7B9EC0" },
+  "A2":     { subtitle: "Not shy anymore",    icon: "🛺", color: "#C0A04A" },
+  "B1":     { subtitle: "An English wannabe", icon: "🌴", color: "#8E7BC0" },
   "B2":     { subtitle: "City Speaker",       icon: "🏙", color: "#C07B6B" },
   "C1":     { subtitle: "Cultural Master",    icon: "🎭", color: "#9E6BC0" },
-  "C2":     { subtitle: "Thai Sage",          icon: "📜", color: "#C0A06B" },
+  "C2":     { subtitle: "English Sage",       icon: "📜", color: "#C0A06B" },
 };
 const SHOW_ROMANIZATION_LEVELS = new Set(["Pre-A1","A1","A2","B1"]);
 
