@@ -113,7 +113,7 @@ async function authenticateAccount(username, pin) {
     }
 
     const { data, error } = signInResult;
-    if (error || !data?.user) throw new Error("Incorrect PIN for this name.");
+    if (error || !data?.user) throw new Error("PIN ไม่ถูกต้องสำหรับชื่อนี้");
     setStorageAuthState(data.user, username);
     saveSession(slug, data.session);
     return data.user;
@@ -144,7 +144,7 @@ async function authenticateAccount(username, pin) {
         await storageSet(`${ACCOUNT_PREFIX}${slug}`, { createdAt: Date.now() }, true); // backfill marker
         return retry.data.user;
       }
-      throw new Error("This name is already registered — please enter your existing PIN.");
+      throw new Error("ชื่อนี้มีอยู่แล้ว — กรุณาใส่ PIN เดิมของคุณ");
     }
     throw new Error("Could not create your account: " + (error?.message || "unknown error"));
   }
@@ -8072,12 +8072,12 @@ function ForgotPinModal({ onClose }) {
     try {
       const res = await loadSecurityQuestion(username);
       if (!res) {
-        setError("No recovery question found for this name. Set one up in Settings after logging in, or contact your teacher.");
+        setError("ไม่พบคำถามสำรองสำหรับชื่อนี้ — ตั้งค่าได้ใน Settings หลังเข้าสู่ระบบ หรือติดต่อครู");
       } else {
         setQuestion(res.question);
         setStep(2);
       }
-    } catch { setError("Couldn't reach the server. Check your connection and try again."); }
+    } catch { setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ลองตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"); }
     setLoading(false);
   }
 
@@ -8090,11 +8090,11 @@ function ForgotPinModal({ onClose }) {
       const slug = username.trim().toLowerCase();
       const stored = await storageGet(SECURITY_QUESTION_KEY(slug), true);
       if (!stored?.answerHash || stored.answerHash !== answerHash) {
-        setError("Incorrect answer. Please try again.");
+        setError("คำตอบไม่ถูกต้อง — ลองใหม่อีกครั้ง");
       } else {
         setStep(3);
       }
-    } catch { setError("Something went wrong. Please try again."); }
+    } catch { setError("เกิดข้อผิดพลาด — ลองใหม่อีกครั้ง"); }
     setLoading(false);
   }
 
@@ -8112,12 +8112,12 @@ function ForgotPinModal({ onClose }) {
       if (body.ok) {
         setDone(true);
       } else if (body.reason === "wrong-answer") {
-        setError("Security answer mismatch. Please start over.");
+        setError("คำตอบไม่ตรงกัน — กรุณาเริ่มใหม่");
         setStep(1);
       } else {
-        setError("PIN reset failed. Please try again or contact your teacher.");
+        setError("รีเซ็ต PIN ไม่สำเร็จ — ลองใหม่หรือติดต่อครู");
       }
-    } catch { setError("Couldn't reach the server. Check your connection."); }
+    } catch { setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ลองตรวจสอบอินเทอร์เน็ต"); }
     setLoading(false);
   }
 
@@ -8125,14 +8125,14 @@ function ForgotPinModal({ onClose }) {
     <ModalOverlay onClose={onClose}>
       <div className="modal-card" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
         <div className="modal-head">
-          <h2 style={{ fontSize: 16 }}>🔐 Reset your PIN</h2>
+          <h2 style={{ fontSize: 16 }}>🔐 รีเซ็ต PIN</h2>
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body" style={{ padding: "16px 20px 20px" }}>
           {done ? (
             <>
-              <p style={{ textAlign: "center", marginBottom: 16 }}>✅ PIN reset successfully! You can now log in with your new PIN.</p>
-              <button className="login-btn" style={{ width: "100%" }} onClick={onClose}>Back to login</button>
+              <p style={{ textAlign: "center", marginBottom: 16 }}>✅ รีเซ็ต PIN สำเร็จแล้ว! เข้าสู่ระบบด้วย PIN ใหม่ได้เลย</p>
+              <button className="login-btn" style={{ width: "100%" }} onClick={onClose}>กลับไปเข้าสู่ระบบ</button>
             </>
           ) : (
             <>
@@ -8144,47 +8144,47 @@ function ForgotPinModal({ onClose }) {
 
               {step === 1 && (
                 <>
-                  <p className="page-sub" style={{ marginBottom: 12 }}>Enter your username to find your recovery question.</p>
-                  <input className="login-input" placeholder="Your name" value={username}
+                  <p className="page-sub" style={{ marginBottom: 12 }}>พิมพ์ชื่อของคุณเพื่อค้นหาคำถามสำรอง</p>
+                  <input className="login-input" placeholder="ชื่อของคุณ" value={username}
                     onChange={e => { setUsername(e.target.value); setError(""); }} autoFocus />
                   {error && <p className="login-error">{error}</p>}
                   <button className="login-btn" style={{ width: "100%", marginTop: 10 }}
                     disabled={!username.trim() || loading} onClick={handleLookup}>
-                    {loading ? "Looking up…" : "Continue →"}
+                    {loading ? "กำลังค้นหา…" : "ถัดไป →"}
                   </button>
                 </>
               )}
 
               {step === 2 && (
                 <>
-                  <p className="page-sub" style={{ marginBottom: 4 }}>Answer your security question:</p>
+                  <p className="page-sub" style={{ marginBottom: 4 }}>ตอบคำถามความปลอดภัยของคุณ:</p>
                   <p style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>{question}</p>
-                  <input className="login-input" placeholder="Your answer" value={answer}
+                  <input className="login-input" placeholder="คำตอบของคุณ" value={answer}
                     onChange={e => { setAnswer(e.target.value); setError(""); }} autoFocus />
                   {error && <p className="login-error">{error}</p>}
                   <button className="login-btn" style={{ width: "100%", marginTop: 10 }}
                     disabled={!answer.trim() || loading} onClick={handleVerify}>
-                    {loading ? "Verifying…" : "Verify →"}
+                    {loading ? "กำลังตรวจสอบ…" : "ยืนยัน →"}
                   </button>
                 </>
               )}
 
               {step === 3 && (
                 <>
-                  <p className="page-sub" style={{ marginBottom: 12 }}>Choose a new 4-digit PIN.</p>
-                  <input className="login-input" placeholder="New PIN" type="password" inputMode="numeric"
+                  <p className="page-sub" style={{ marginBottom: 12 }}>เลือก PIN ใหม่ 4 หลัก</p>
+                  <input className="login-input" placeholder="PIN ใหม่" type="password" inputMode="numeric"
                     maxLength={4} value={newPin}
                     onChange={e => { setNewPin(e.target.value.replace(/\D/g,"").slice(0,4)); setError(""); }} autoFocus />
-                  <input className="login-input" placeholder="Confirm new PIN" type="password" inputMode="numeric"
+                  <input className="login-input" placeholder="ยืนยัน PIN ใหม่" type="password" inputMode="numeric"
                     maxLength={4} value={newPin2} style={{ marginTop: 8 }}
                     onChange={e => { setNewPin2(e.target.value.replace(/\D/g,"").slice(0,4)); setError(""); }} />
                   {newPin.length === 4 && newPin2.length === 4 && newPin !== newPin2 && (
-                    <p className="login-error">PINs don't match.</p>
+                    <p className="login-error">PIN ไม่ตรงกัน</p>
                   )}
                   {error && <p className="login-error">{error}</p>}
                   <button className="login-btn" style={{ width: "100%", marginTop: 10 }}
                     disabled={newPin.length !== 4 || newPin !== newPin2 || loading} onClick={handleReset}>
-                    {loading ? "Resetting…" : "Reset PIN"}
+                    {loading ? "กำลังรีเซ็ต…" : "รีเซ็ต PIN"}
                   </button>
                 </>
               )}
@@ -8197,7 +8197,10 @@ function ForgotPinModal({ onClose }) {
 }
 
 function buildLoginGreeting(snap) {
-  if (!snap) return { title: "Hello!", sub: "Enter your name and create your PIN to get started." };
+  if (!snap) return {
+    title: "สวัสดี! 👋",
+    sub:   "พิมพ์ชื่อและสร้าง PIN เพื่อเริ่มต้นเลย",
+  };
   const { username, streak, streakLastDate, energy, lastSeen } = snap;
   const firstName = username?.split(" ")[0] || username;
   const hoursAgo  = (Date.now() - lastSeen) / 3_600_000;
@@ -8209,27 +8212,37 @@ function buildLoginGreeting(snap) {
     const streakAlive = streakLastDate === today || streakLastDate === yesterday;
     if (!streakAlive && daysSince >= 2) {
       return {
-        title: `It's been ${Math.floor(daysSince)} days, ${firstName}…`,
-        sub:   `Your ${streak}-day streak is gone, but your progress isn't. Let's rebuild! 💪`,
+        title: `ไม่เป็นไรนะ ${firstName} 😊`,
+        sub:   `streak ${streak} วันหายไปแล้ว แต่ความรู้ยังอยู่ — มาเริ่มใหม่กันเลย! 💪`,
       };
     }
     if (streakAlive && streak >= 3) {
       return {
-        title: `Welcome back, ${firstName}! 🔥`,
-        sub:   `Your ${streak}-day streak is waiting — don't break it now!`,
+        title: `${firstName} เก่งมาก! 🔥`,
+        sub:   `${streak} วันติดต่อกันแล้ว — อย่าหยุดนะ, keep going!`,
       };
     }
   }
   if (typeof energy === "number" && energy <= 3 && hoursAgo < 48) {
     return {
-      title: `Welcome back, ${firstName}!`,
-      sub:   `You had ${energy} energy left last time. Time to recharge! ⚡`,
+      title: `ยินดีต้อนรับกลับมา ${firstName}!`,
+      sub:   `ครั้งที่แล้วเหลือพลังงาน ${energy} — มาชาร์จใหม่กันเลย ⚡`,
     };
   }
-  return {
-    title: `Welcome back, ${firstName}!`,
-    sub:   "Let's continue your Thai journey.",
-  };
+  // General — rotates by day-of-week so it varies across the week
+  // but stays the same all day (no jarring mid-session change).
+  const hour = new Date().getHours();
+  const timeHello = hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น";
+  const generals = [
+    { title: `${timeHello}, ${firstName}! ☀️`,        sub: "มาฝึก English กันต่อเลย 🇬🇧" },
+    { title: `ยินดีต้อนรับกลับมา ${firstName}!`,      sub: "ทีละนิดๆ ก็พูด English ได้นะ 🌱" },
+    { title: `${firstName} มาแล้ว! 😄`,               sub: "วันนี้จะได้เรียนอะไรใหม่บ้างนะ? ✨" },
+    { title: `สวัสดี ${firstName}! 👋`,               sub: "English ไม่ได้น่ากลัวอย่างที่คิดหรอก 😊" },
+    { title: `ยินดีต้อนรับกลับมา ${firstName}!`,      sub: "Ready? Let's go! — เราทำได้! 🚀" },
+    { title: `${firstName}! รอคุณอยู่เลย 🐾`,         sub: "มาต่อกันเลยนะ — one sip at a time 🌟" },
+    { title: `${timeHello}, ${firstName}! 🌸`,        sub: "ภาษาอังกฤษรอคุณอยู่ — ไปกันเลย!" },
+  ];
+  return generals[new Date().getDay() % generals.length];
 }
 
 function LoginScreen({ onLogin }) {
@@ -8296,7 +8309,7 @@ function LoginScreen({ onLogin }) {
             <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
             <input
               className="login-input"
-              placeholder="Your Name"
+              placeholder="ชื่อของคุณ"
               value={name}
               onChange={e => { setName(e.target.value); setError(""); }}
               autoComplete="off"
@@ -8309,7 +8322,7 @@ function LoginScreen({ onLogin }) {
             <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
             <input
               className="login-input"
-              placeholder="4-digit PIN"
+              placeholder="PIN 4 หลัก"
               type={showPin ? "text" : "password"}
               inputMode="numeric"
               pattern="[0-9]*"
@@ -8328,7 +8341,7 @@ function LoginScreen({ onLogin }) {
           </div>
 
           <p className="login-pin-hint">
-            First time here? This PIN will protect your name from now on.
+            มาครั้งแรกใช่ไหม? PIN นี้จะปกป้องชื่อของคุณตั้งแต่นี้เป็นต้นไป
           </p>
 
           {showTeacher && (
@@ -8353,7 +8366,7 @@ function LoginScreen({ onLogin }) {
             className="login-btn"
             disabled={!canSubmit}
           >
-            {loading ? "Logging in…" : <><span className="login-btn-star">✦</span> Continue <span className="login-btn-star">✦</span></>}
+            {loading ? "กำลังเข้าสู่ระบบ…" : <><span className="login-btn-star">✦</span> Continue <span className="login-btn-star">✦</span></>}
           </button>
 
           {!showTeacher && (
@@ -8371,7 +8384,7 @@ function LoginScreen({ onLogin }) {
           )}
           {showTeacher && (
             <button type="button" className="teacher-toggle" onClick={() => { setShowTeacher(false); setTeacherCode(""); }}>
-              ← Back to student login
+              ← กลับไปหน้านักเรียน
             </button>
           )}
 
@@ -8379,7 +8392,7 @@ function LoginScreen({ onLogin }) {
           {!showTeacher && (
             <button type="button" className="forgot-pin-link"
               onClick={() => setShowForgotPin(true)}>
-              Forgot your PIN?
+              ลืม PIN ใช่ไหม?
             </button>
           )}
         </form>
@@ -8399,13 +8412,13 @@ function LoginScreen({ onLogin }) {
 // #695 — redesigned tour: 21 steps in narrative order
 const TOUR_STEPS = [
   { tab: "home",     selector: null,                              title: "Welcome to Chá Chá Angkrit! 👋",  desc: "Let me give you a quick tour of the app. It'll only take a few seconds!" },
-  { tab: "home",     selector: "[data-tour='hero-banner']",       title: "Your Dashboard 🌟",          desc: "This banner greets you every day with a phrase in Thai. Tap the button here to go straight to your Lesson Path — the fastest way to start learning." },
+  { tab: "home",     selector: "[data-tour='hero-banner']",       title: "Your Dashboard 🌟",          desc: "This banner greets you every day with an encouraging message. Tap the button here to go straight to your Lesson Path — the fastest way to start learning." },
   { tab: "home",     selector: ".stat-grid",                      title: "Your Vocabulary 📚",         desc: "Words practiced, new ones available, and words you've mastered. These numbers grow every time you study." },
   { tab: "home",     selector: ".level-progress-card",            title: "Level Progress 📊",          desc: "Your mastery of the current level. Study consistently and this bar will fill up!" },
   { tab: "home",     selector: null,                              title: "Proficiency Exam 🎓",        desc: "Once your mastery reaches 100%, a proficiency exam unlocks. Pass it and you advance to the next level — with a new set of vocabulary and harder challenges." },
   { tab: "home",     selector: ".hqc-mission",                    title: "Daily Mission 🎁",           desc: "Practice once today to complete your daily mission. Once done, a reward appears here — tap it to collect! Rewards include Meowtongs or Gacha tickets. Miss it and it auto-converts at midnight." },
   { tab: "practice", selector: "[data-tour='nav-practice']",      title: "Practice Tab 🎯",            desc: "Smart flashcards with spaced repetition (SRS) — the app automatically picks the right words for you to review today." },
-  { tab: "path",     selector: "[data-tour='nav-path']",          title: "Lesson Path Tab 🗺️",        desc: "Structured lessons created by your teacher. Follow the trail to learn Thai step by step." },
+  { tab: "path",     selector: "[data-tour='nav-path']",          title: "Lesson Path Tab 🗺️",        desc: "Structured lessons created by your teacher. Follow the trail to learn English step by step." },
   { tab: "path",     selector: ".lp-energy-bar",                  title: "Energy ⚡",                  desc: "Each lesson costs 2 energy. You start with 20 and it refills automatically — 1 point every 15 minutes. Run out? Just come back later and it'll be ready." },
   { tab: "progress", selector: "[data-tour='nav-progress']",      title: "Progress Tab 📈",            desc: "Track your unlocked achievements, weekly activity, and overall progress over time." },
   { tab: "progress", selector: "[data-tour='weekly-card']",       title: "This Week 📅",               desc: "Your practice activity for the current week — days you studied, vocabulary reviewed, and lessons completed. Keep the habit going!",
@@ -8426,7 +8439,7 @@ const TOUR_STEPS = [
 function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false }) {
   const s = TOUR_STEPS[step];
   const isLast = step === TOUR_STEPS.length - 1;
-  const desc = resumed ? `I hope you don't skip me this time! ${s.desc}` : s.desc;
+  const desc = resumed ? `หวังว่าคราวนี้จะไม่ skip นะ! ${s.desc}` : s.desc;
   const hasSpot = !!(targetRect && s.selector);
   const pad = 10;
 
@@ -8543,54 +8556,52 @@ function getHeroBannerGreeting(name, streak, profile) {
   const hour = new Date().getHours();
 
   const isNew = profile?.joinedAt && (Date.now() - profile.joinedAt) < 10 * 60 * 1000;
-  if (isNew) return { thai: "สวัสดีครับ,", sub: "Welcome to Chá Chá Angkrit! 🙏" };
+  if (isNew) return { thai: "สวัสดีครับ,", sub: "ยินดีต้อนรับสู่ Chá Chá Angkrit! 🙏" };
 
   const lastDate = streak?.lastDate;
   if (lastDate) {
     const today = new Date(); today.setHours(0,0,0,0);
     const last  = new Date(lastDate); last.setHours(0,0,0,0);
     const daysMissed = Math.round((today - last) / 86400000) - 1;
-    if (daysMissed > 1) return { thai: "Welcome back,", sub: pick([
-      `The cats were starting to forget your name. 🐱`,
-      `${daysMissed} days away? The vocab wasn't going to learn itself… 🙃`,
-      `Your streak is gone, but your progress isn't. Let's rebuild! 💪`,
-      `Oh wow, you exist! Thai missed you (a little). 😏`,
+    if (daysMissed > 1) return { thai: "ยินดีต้อนรับกลับมา,", sub: pick([
+      `แมวๆ เริ่มลืมชื่อคุณแล้วนะ 🐱`,
+      `${daysMissed} วันหายไป — vocab รอคุณอยู่นะ 🙃`,
+      `streak หายแล้ว แต่ความรู้ยังอยู่ — มาเริ่มใหม่! 💪`,
+      `อ้าว กลับมาแล้ว! เราคิดถึงนะ (นิดหน่อย) 😏`,
     ])};
-    if (daysMissed === 1) return { thai: "Welcome back,", sub: pick([
-      `Missed yesterday? No worries — today counts! 💪`,
-      `One missed day is just a warm-up. 🔥`,
-      `Streaks break — champions restart. Let's go! ⚡`,
+    if (daysMissed === 1) return { thai: "ยินดีต้อนรับกลับมา,", sub: pick([
+      `เมื่อวานพลาดไป? ไม่เป็นไร — วันนี้นับใหม่! 💪`,
+      `หยุดวันเดียวแค่นั้น — warm-up แล้วไปต่อ! 🔥`,
+      `streak หยุดได้ แต่ champion restart เสมอ. Let's go! ⚡`,
     ])};
   }
 
   if (hour < 12) return { thai: "อรุณสวัสดิ์,", sub: pick([
-    `Ready for today's adventure? ☀️`,
-    `Morning Thai session? Let's go! 🍵`,
-    `Rise and practise! The cats are waiting. 🌅`,
-    `A great day starts with a great lesson. ✨`,
+    `พร้อมสำหรับวันใหม่แล้วหรือยัง? ☀️`,
+    `เช้านี้เรียน English กันก่อนเลย! 🍵`,
+    `Rise and practise! แมวๆ รอคุณอยู่ 🌅`,
+    `วันดีๆ เริ่มต้นด้วยบทเรียนดีๆ ✨`,
   ])};
   if (hour < 17) return { thai: "สวัสดีตอนบ่าย,", sub: pick([
-    `Ready for today's adventure? 🌤️`,
-    `Afternoon grind time. Let's do this! 📖`,
-    `Keep the momentum going! ✨`,
-    `A quick session goes a long way. 💡`,
+    `พร้อมลุยแล้วหรือยัง? 🌤️`,
+    `ช่วงบ่าย — one sip at a time! 📖`,
+    `keep the momentum — อย่าหยุดนะ! ✨`,
+    `เรียนนิดเดียวก็ได้ผลนะ 💡`,
   ])};
   return { thai: "สวัสดีตอนเย็น,", sub: pick([
-    `One more session tonight? 🌙`,
-    `Night owl Thai session — let's go! 🦉`,
-    `End the day with something learned. 🌟`,
-    `ราตรีสวัสดิ์ soon — but first, Thai! 🌙`,
+    `เย็นนี้เรียนอีกรอบได้นะ? 🌙`,
+    `night owl session — one sip at a time 🦉`,
+    `จบวันด้วยสิ่งที่เรียนรู้ใหม่ 🌟`,
+    `ราตรีสวัสดิ์ใกล้แล้ว — แต่ก่อนนั้น English รอ! 🌙`,
   ])};
 }
 
 function getHomeGreeting(name, streak, profile) {
   const hour = new Date().getHours();
 
-  // New student: joinedAt within the last 10 minutes, never practiced
   const isNew = profile?.joinedAt && (Date.now() - profile.joinedAt) < 10 * 60 * 1000;
   if (isNew) return `สวัสดีครับ, ${name}! Welcome! 🙏`;
 
-  // Missed more than 1 day — sarcastic but funny
   const lastDate = streak?.lastDate;
   if (lastDate) {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -8598,36 +8609,35 @@ function getHomeGreeting(name, streak, profile) {
     const daysMissed = Math.round((today - last) / 86400000) - 1;
     if (daysMissed > 1) {
       const sarcastic = [
-        `${name}… the cats were starting to forget your name. 🐱`,
-        `Oh wow, ${name} exists! Thai missed you (a little). 😏`,
-        `${name} has returned! The streak is gone, but hope isn't. 💀`,
-        `${name}! ${daysMissed} days away? The vocab wasn't going to learn itself… 🙃`,
+        `${name}… แมวๆ เริ่มลืมชื่อคุณแล้วนะ 🐱`,
+        `อ้าว ${name} กลับมาแล้ว! เราคิดถึงนะ (นิดหน่อย) 😏`,
+        `${name} has returned! streak หายแล้ว แต่ความหวังยังมี 💀`,
+        `${name}! ${daysMissed} วันหายไป — vocab รอคุณอยู่นะ 🙃`,
       ];
       return sarcastic[Math.floor(Math.random() * sarcastic.length)];
     }
     if (daysMissed === 1) {
       const motivational = [
-        `Missed yesterday, ${name}? No worries — today counts! 💪`,
-        `Back on track, ${name}! One missed day is just a warm-up. 🔥`,
+        `เมื่อวานพลาดไป, ${name}? ไม่เป็นไร — วันนี้นับใหม่! 💪`,
+        `กลับมาแล้ว, ${name}! หยุดวันเดียวแค่นั้น — warm-up แล้วไปต่อ! 🔥`,
         `${name}, streaks break — champions restart. Let's go! ⚡`,
       ];
       return motivational[Math.floor(Math.random() * motivational.length)];
     }
   }
 
-  // Returning student — time-based Thai greeting or "Welcome back"
   const greetings = hour < 12 ? [
     `อรุณสวัสดิ์, ${name}! Good morning! ☀️`,
     `สวัสดีตอนเช้า, ${name}! Rise and practise! 🌅`,
-    `Welcome back, ${name}! Morning Thai session? 🍵`,
+    `ยินดีต้อนรับกลับมา, ${name}! เช้านี้เรียน English กันก่อนเลย 🍵`,
   ] : hour < 17 ? [
     `สวัสดีตอนบ่าย, ${name}! Good afternoon! 🌤️`,
-    `Welcome back, ${name}! Afternoon grind time. 📖`,
-    `ยินดีต้อนรับ, ${name}! Keep the momentum. ✨`,
+    `ยินดีต้อนรับกลับมา, ${name}! one sip at a time 📖`,
+    `ยินดีต้อนรับ, ${name}! keep the momentum — อย่าหยุดนะ ✨`,
   ] : [
     `สวัสดีตอนเย็น, ${name}! Good evening! 🌙`,
-    `Welcome back, ${name}! Night owl session? 🦉`,
-    `ราตรีสวัสดิ์ soon, ${name} — but first, Thai! 🌟`,
+    `ยินดีต้อนรับกลับมา, ${name}! เรียนอีกรอบก่อนนอนนะ 🦉`,
+    `ราตรีสวัสดิ์ใกล้แล้ว, ${name} — แต่ก่อนนั้น English รอ! 🌟`,
   ];
   return greetings[Math.floor(Math.random() * greetings.length)];
 }
@@ -9388,12 +9398,12 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
             <img src={avatarImg} alt={avatar.name} className="boost-suggestion-avatar" />
             <div className="boost-suggestion-text">
               {alreadyEquipped
-                ? <><strong>{avatar.name}</strong> is right here waiting for you — or are you going to waste a good {pct}% coins boost? 😼</>
-                : <><strong>{avatar.name}</strong> is inviting you for {windowLabel} practice with {pct}% more coins! 🐱</>
+                ? <><strong>{avatar.name}</strong> รอคุณอยู่นะ — จะปล่อย coins boost {pct}% ทิ้งเลยเหรอ? 😼</>
+                : <><strong>{avatar.name}</strong> ชวนคุณฝึก{windowLabel}เพื่อรับ coins เพิ่ม {pct}%! 🐱</>
               }
             </div>
             {!alreadyEquipped && (
-              <button className="cta-btn" onClick={() => onSwitchAndPractice?.(avatar.id, "path")}>Let's go</button>
+              <button className="cta-btn" onClick={() => onSwitchAndPractice?.(avatar.id, "path")}>ไปเลย!</button>
             )}
           </div>
         );
@@ -9425,7 +9435,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
               <span className="hqc-card-title-text">Daily Mission</span>
             </div>
             <div className="hqc-mission-text">
-              {dailyMissionDone ? "Mission complete! 🎉" : "Practice once today"}
+              {dailyMissionDone ? "ภารกิจสำเร็จแล้ว! 🎉" : "ฝึกวันนี้ครั้งเดียวก็พอ"}
             </div>
             <div className="hqc-mission-bar-wrap">
               <div className="hqc-mission-bar">
@@ -9438,7 +9448,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
             <div className="hqc-mission-bottom">
               {rewardPending ? (
                 <>
-                  <button className="hqc-cta hqc-cta-open" onClick={handleCollectDailyReward}>🎁 Collect Reward</button>
+                  <button className="hqc-cta hqc-cta-open" onClick={handleCollectDailyReward}>🎁 รับรางวัล</button>
                   <div className="hqc-mission-gift-wrap">
                     <div className="hqc-mission-gift-halo" />
                     <img src="/reward-collect.png" alt="" className="hqc-mission-gift" />
@@ -9446,13 +9456,13 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                 </>
               ) : rewardCollected ? (
                 <>
-                  <div className="hqc-mission-reward-collected">Reward collected, come back in {midnightCountdown}</div>
+                  <div className="hqc-mission-reward-collected">รับรางวัลแล้ว — กลับมาใหม่ใน {midnightCountdown}</div>
                   <img src="/reward-collected.png" alt="" className="hqc-mission-gift" aria-hidden="true" />
                 </>
               ) : (
                 <>
                   <div className="hqc-mission-reward-row">
-                    <span className="hqc-reward-label">Reward:</span>
+                    <span className="hqc-reward-label">รางวัล:</span>
                     <span className={"hqc-reward-pill hqc-reward-" + displayReward.type}>
                       {displayReward.type === "coins"
                         ? <><img src="/coins/catcoin.png" alt="" className="hqc-reward-catcoin" />{displayReward.value}</>
@@ -9531,7 +9541,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                         <Star key={i} size={12} fill={i < starsLit ? "currentColor" : "none"} className={"hqc-star" + (i < starsLit ? " hqc-star-lit" : "")} />
                       ))}
                     </div>
-                    <div className="hqc-monthly-cta">Check your progress →</div>
+                    <div className="hqc-monthly-cta">ดูความคืบหน้า →</div>
                   </div>
                 </div>
               </div>
@@ -9546,8 +9556,8 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                 <span className="hqc-garden-title">📖 Vocabulary Garden</span>
               </div>
               <img src="/vocabulary-garden-cat.png" alt="" className="hqc-garden-cat" />
-              <div className="hqc-garden-desc">Review and grow<br />your vocabulary</div>
-              <button className="hqc-cta hqc-cta-open" onClick={e => { e.stopPropagation(); onGoToBank(); }}>Open →</button>
+              <div className="hqc-garden-desc">ทบทวนและเพิ่ม<br />คำศัพท์ของคุณ</div>
+              <button className="hqc-cta hqc-cta-open" onClick={e => { e.stopPropagation(); onGoToBank(); }}>เปิด →</button>
             </div>
           )}
           {c1l2 === "monthly" && (() => {
@@ -9569,7 +9579,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                         <Star key={i} size={12} fill={i < starsLit ? "currentColor" : "none"} className={"hqc-star" + (i < starsLit ? " hqc-star-lit" : "")} />
                       ))}
                     </div>
-                    <div className="hqc-monthly-cta">Check your progress →</div>
+                    <div className="hqc-monthly-cta">ดูความคืบหน้า →</div>
                   </div>
                 </div>
               </div>
@@ -9582,15 +9592,15 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
             const isFull = currentEnergy >= energyMax;
             const hoursLeft = Math.floor(minsToFull / 60);
             const minsLeft  = minsToFull % 60;
-            const countdown = isFull ? "Full!" : hoursLeft > 0 ? `${hoursLeft}h ${minsLeft}m to full` : `${minsLeft}m to full`;
+            const countdown = isFull ? "เต็มแล้ว!" : hoursLeft > 0 ? `${hoursLeft}ชม. ${minsLeft}น. จะเต็ม` : `${minsLeft}น. จะเต็ม`;
             return (
               <div className="hqc hqc-energy">
                 <div className="hqc-header">
                   <div className="hqc-header-left">
                     <span className="hqc-energy-bolt">⚡</span>
-                    <span className="hqc-card-title-text" style={{fontSize:15}}>Your Energy</span>
+                    <span className="hqc-card-title-text" style={{fontSize:15}}>พลังงาน</span>
                   </div>
-                  {isFull && <span className="hqc-badge-done">Full!</span>}
+                  {isFull && <span className="hqc-badge-done">เต็มแล้ว!</span>}
                 </div>
                 <div className="hqc-energy-count">
                   <span className="hqc-energy-num">{currentEnergy}</span>
@@ -9608,7 +9618,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
           {/* C2L2 — Achievements (always) */}
           <div className="hqc hqc-achievements" onClick={onGoToProgress}>
             <div className="hqc-card-title">
-              <span className="hqc-card-title-text">Achievements</span>
+              <span className="hqc-card-title-text">ความสำเร็จ</span>
             </div>
             <div className="hqc-ach-body">
               <div className="hqc-ach-content">
@@ -9617,7 +9627,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                   <span className="hqc-ach-sep">/</span>
                   <span className="hqc-ach-total">{ACHIEVEMENTS.filter(a => a.cat !== "secret" || unlockedAchIds.includes(a.id)).length}</span>
                 </div>
-                <div className="hqc-ach-unlocked-label">Unlocked</div>
+                <div className="hqc-ach-unlocked-label">ปลดล็อกแล้ว</div>
               </div>
               <div className="hqc-asset-col">
                 <img src="/achievements-icon.png" alt="" className="hqc-asset-img" aria-hidden="true" />
@@ -14541,15 +14551,15 @@ function PracticeSession({ lesson, words, progMap, showRomanization, thaiFont, l
 // batched migration in #400.1-#400.6.
 function DifficultyModal({ onSelect, onClose }) {
   const opts = [
-    { id: "reading", emoji: "👁",  label: "Reading",  desc: "Couldn't read or pronounce it" },
-    { id: "meaning", emoji: "💭", label: "Meaning",  desc: "Didn't remember the meaning" },
-    { id: "both",    emoji: "❌", label: "Both",     desc: "Reading and meaning were unclear" },
+    { id: "reading", emoji: "👁",  label: "การอ่าน",   desc: "อ่านหรือออกเสียงไม่ได้" },
+    { id: "meaning", emoji: "💭", label: "ความหมาย", desc: "จำความหมายไม่ได้" },
+    { id: "both",    emoji: "❌", label: "ทั้งคู่",    desc: "ทั้งอ่านและความหมายยังไม่แน่ใจ" },
   ];
   return (
     <ModalOverlay onClose={onClose}>
       <div className="modal-card" onClick={e => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>What was difficult?</h2>
+          <h2>ติดตรงไหน?</h2>
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="diff-opts">
@@ -14588,30 +14598,30 @@ function SessionComplete({ lesson, words, streak, allCategories, onGoToBerserk }
     <div className="screen-pad">
       <div className="complete-top">
         <div className="complete-emoji">{emoji}</div>
-        <h1 className="page-title">Lesson complete!</h1>
+        <h1 className="page-title">เรียนจบแล้ว!</h1>
         {streak.count > 0 && (
-          <div className="streak-badge big">🔥 {streak.count}-day streak</div>
+          <div className="streak-badge big">🔥 streak {streak.count} วัน</div>
         )}
       </div>
 
       <div className="complete-stats">
         <div className="cstat jade">
           <div className="cstat-n">{gotIt}</div>
-          <div className="cstat-l">Got it</div>
+          <div className="cstat-l">จำได้</div>
         </div>
         <div className="cstat lacquer">
           <div className="cstat-n">{dontRecall}</div>
-          <div className="cstat-l">Don't recall</div>
+          <div className="cstat-l">จำไม่ได้</div>
         </div>
         <div className="cstat saffron">
           <div className="cstat-n">{pct}%</div>
-          <div className="cstat-l">Score</div>
+          <div className="cstat-l">คะแนน</div>
         </div>
       </div>
 
       {dontRecall > 0 && (
         <div className="missed-section">
-          <div className="missed-title">Marked for review tomorrow:</div>
+          <div className="missed-title">จะทบทวนพรุ่งนี้:</div>
           {lesson.ids
             .filter(id => results[id]?.result === "dont_recall")
             .map(id => {
@@ -14639,7 +14649,7 @@ function SessionComplete({ lesson, words, streak, allCategories, onGoToBerserk }
       <div className="complete-relax">
         <img src="/mascote-sunday.png" alt="" className="complete-mascot" />
         <p className="complete-note">
-          You finished for today. You can relax or study using the Word Bank
+          เรียนครบวันนี้แล้ว! พักได้เลย หรือจะทบทวนเพิ่มใน Word Bank ก็ได้นะ
         </p>
       </div>
     </div>
@@ -16001,7 +16011,7 @@ function SundaySession({ lesson, wordMap, progMap, showRomanization, thaiFont, o
         {exType === "W" && <span className="ex-badge b">⌨️ Type the Thai word</span>}
         {exType === "E" && !isEFallback && <span className="ex-badge c">🖼️ Match the image</span>}
         {exType === "R" && <span className="ex-badge c">🔎 Pick the right word</span>}
-        {exType === "D" && <span className="ex-badge d">🎤 Fale a palavra</span>}
+        {exType === "D" && <span className="ex-badge d">🎤 Say the word</span>}
       </div>
 
       {/* ── TYPE C: See Thai → pick English translation (also used as Type E's fallback) ── */}
