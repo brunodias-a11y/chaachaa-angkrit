@@ -358,7 +358,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               {(() => {
                 const w = words.find(x => x.id === step.wordId);
                 return w
-                  ? <><span className="lp-preview-thai">{w.thai}</span> <span className="lp-preview-en">{w.romanization} · {w.english}</span></>
+                  ? <><span className="lp-preview-en">{w.english}</span> <span className="lp-preview-thai">{w.romanization} · {w.thai}</span></>
                   : <span className="lp-preview-en">Word ID: {step.wordId}</span>;
               })()}
               <button className="icon-btn" onClick={() => onChange({ ...step, wordId: null })} title="Change word">
@@ -380,8 +380,8 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
                 <div className="lp-word-results">
                   {filtered.map(w => (
                     <button key={w.id} className="lp-word-result-row" onClick={() => { onChange({ ...step, wordId: w.id }); setQuery(""); }}>
-                      <span className="lp-preview-thai">{w.thai}</span>
-                      <span className="lp-preview-en">{w.romanization} · {w.english}</span>
+                      <span className="lp-preview-en">{w.english}</span>
+                      <span className="lp-preview-thai">{w.romanization} · {w.thai}</span>
                     </button>
                   ))}
                 </div>
@@ -1281,7 +1281,7 @@ function playVictorySfx() {
   } catch (_) {}
 }
 
-function CalligraphyStep({ step, onDone, speakThai }) {
+function CalligraphyStep({ step, onDone, speakEnglish }) {
   const [phase, setPhase] = useState("watch");
   const [done, setDone] = useState(false);
   if (!step.char) return <div className="lp-tip-text">No character set for this step.</div>;
@@ -1289,7 +1289,7 @@ function CalligraphyStep({ step, onDone, speakThai }) {
     <div className="lp-calli-step">
       <div className="lp-calli-phase-label">{phase === "watch" ? "Watch the stroke order" : "Now trace it"}</div>
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1342,7 +1342,7 @@ function CalligraphyStep({ step, onDone, speakThai }) {
 //     to update if tone/translation changes.
 // ---------------------------------------------------------------------------
 
-function ListenWriteStep({ step, speakThai, onDone }) {
+function ListenWriteStep({ step, speakEnglish, onDone }) {
   const svgRef = useRef(null);
   const isDrawingRef = useRef(false);
   const rawPointsRef = useRef([]);
@@ -1397,7 +1397,7 @@ function ListenWriteStep({ step, speakThai, onDone }) {
   return (
     <div className="lp-calli-step">
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1435,7 +1435,7 @@ function ListenWriteStep({ step, speakThai, onDone }) {
   );
 }
 
-function MemoryCheckStep({ step, speakThai, onDone }) {
+function MemoryCheckStep({ step, speakEnglish, onDone }) {
   const svgRef = useRef(null);
   const isDrawingRef = useRef(false);
   const rawPointsRef = useRef([]);
@@ -1493,7 +1493,7 @@ function MemoryCheckStep({ step, speakThai, onDone }) {
         <img src={step.imageUrl} alt="prompt" className="lp-mc-image" />
       )}
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1531,14 +1531,14 @@ function MemoryCheckStep({ step, speakThai, onDone }) {
   );
 }
 
-function WriteWordStep({ step, speakThai, onDone }) {
+function WriteWordStep({ step, speakEnglish, onDone }) {
   const [done, setDone] = useState(false);
   if (!step.word?.trim()) return <div className="lp-tip-text">No word set for this step.</div>;
   return (
     <div className="lp-calli-step">
       <div className="lp-calli-phase-label">Write the word</div>
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1560,14 +1560,14 @@ function WriteWordStep({ step, speakThai, onDone }) {
 
 // Listen & Write Word: o aluno ouve o TTS e depois escreve a palavra sem vê-la.
 // A palavra só é revelada como confirmação após concluir todos os traços.
-function ListenWriteWordStep({ step, speakThai, onDone }) {
+function ListenWriteWordStep({ step, speakEnglish, onDone }) {
   const [done, setDone] = useState(false);
   if (!step.word?.trim()) return <div className="lp-tip-text">No word set for this step.</div>;
   return (
     <div className="lp-calli-step">
       <div className="lp-calli-phase-label">Listen and write the word</div>
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1589,14 +1589,14 @@ function ListenWriteWordStep({ step, speakThai, onDone }) {
 
 // Match & Write Word: mostra imagem de referência e o aluno escreve a palavra.
 // A imagem fica visível durante a escrita; a palavra é revelada ao concluir.
-function MatchWriteWordStep({ step, speakThai, onDone }) {
+function MatchWriteWordStep({ step, speakEnglish, onDone }) {
   const [done, setDone] = useState(false);
   if (!step.word?.trim()) return <div className="lp-tip-text">No word set for this step.</div>;
   return (
     <div className="lp-calli-step">
       <div className="lp-calli-phase-label">Match the image — write the word</div>
       {step.speakText && (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
@@ -1624,7 +1624,7 @@ function MatchWriteWordStep({ step, speakThai, onDone }) {
   );
 }
 
-function ChoiceStep({ correct, distractors, speakThai, speakText, imageUrl, removeWrongOption = false, catName = null, onDone, onAutoNext }) {
+function ChoiceStep({ correct, distractors, speakEnglish, speakText, imageUrl, removeWrongOption = false, catName = null, onDone, onAutoNext }) {
   const [{ options, wrongRemoved }] = useState(() => {
     const all = shuffle([correct, ...pickDistractors(correct, distractors?.length ? distractors : null)]);
     if (!removeWrongOption || all.length <= 2) return { options: all, wrongRemoved: false };
@@ -1663,8 +1663,8 @@ function ChoiceStep({ correct, distractors, speakThai, speakText, imageUrl, remo
       {wrongRemoved && catName && (
         <div className="lp-cat-flag">🐱 {catName} skill — Removed one wrong answer</div>
       )}
-      {speakThai ? (
-        <button className="tts-btn lp-listen-round" onClick={() => speakThai(speakText || correct)} aria-label="Play sound">
+      {speakEnglish ? (
+        <button className="tts-btn lp-listen-round" onClick={() => speakEnglish(speakText || correct)} aria-label="Play sound">
           <Volume2 size={28} />
         </button>
       ) : imageUrl ? (
@@ -1703,13 +1703,13 @@ function ChoiceStep({ correct, distractors, speakThai, speakText, imageUrl, remo
 // Props:
 //   lesson     — lesson definition object (from getLessonDef / listLessonsByClassCode)
 //   words      — full word bank array (to resolve wordIds → word objects)
-//   speakThai  — async function(thaiText) — passed from App.jsx (not exported)
+//   speakEnglish  — async function(thaiText) — passed from App.jsx (not exported)
 //   onComplete — async function() — called after "Practice now!" to trigger LP6
 //   onPracticeNow(wordIds) — tells App.jsx to launch Practice Mode with these words
 //   onClose    — close without completing
 // ---------------------------------------------------------------------------
 
-export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPracticeNow, onClose, removeWrongOption = false, profile = null, avatarCatalog = [], coinsToAward = 0, energy = null, energyMax = S0_ENERGY_MAX, energyCostPer5 = 2, energyCostEvery = 5, onEnergySpend = null }) {
+export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onPracticeNow, onClose, removeWrongOption = false, profile = null, avatarCatalog = [], coinsToAward = 0, energy = null, energyMax = S0_ENERGY_MAX, energyCostPer5 = 2, energyCostEvery = 5, onEnergySpend = null }) {
   const steps   = lesson?.steps || [];
   const [index, setIndex]       = useState(0);
   const [ttsPlayed, setTtsPlayed] = useState(false);
@@ -1754,15 +1754,15 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
   useEffect(() => {
     if (ttsScheduledRef.current || ttsPlayed) return;
     const text =
-      (step?.type === "vocab" && word?.thai) ? word.thai :
+      (step?.type === "vocab" && word?.english) ? word.english :
       ((step?.type === "tip" || step?.type === "listening" || step?.type === "image-match" || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && step?.speakText) ? step.speakText :
       null;
     if (!text) return;
     ttsScheduledRef.current = true;
-    const t = setTimeout(() => { speakThai?.(text); setTtsPlayed(true); }, 400);
+    const t = setTimeout(() => { speakEnglish?.(text); setTtsPlayed(true); }, 400);
     return () => { clearTimeout(t); ttsScheduledRef.current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, step?.type, step?.speakText, word?.thai, ttsPlayed]);
+  }, [index, step?.type, step?.speakText, word?.english, ttsPlayed]);
 
   function navigate(dir) {
     setAnimDir(dir);
@@ -1844,13 +1844,13 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
       <div className={`lp-step-content${visible ? " lp-step-in" : " lp-step-out"} lp-slide-${animDir}`}>
         {step?.type === "vocab" && (
           <div className="lp-vocab-card">
-            <div className="lp-vocab-thai">{word?.thai ?? "—"}</div>
+            <div className="lp-vocab-english">{word?.english ?? "—"}</div>
             <div className="lp-vocab-roman">{word?.romanization ?? ""}</div>
-            <div className="lp-vocab-english">{word?.english ?? ""}</div>
+            <div className="lp-vocab-thai">{word?.thai ?? ""}</div>
             {word?.pos && <div className="lp-vocab-pos">{word.pos}</div>}
             <button
               className="tts-btn lp-tts-btn"
-              onClick={() => { speakThai?.(word?.thai); }}
+              onClick={() => { speakEnglish?.(word?.english); }}
               aria-label="Play pronunciation"
             >
               <Volume2 size={18} />
@@ -1866,7 +1866,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
                 <div className="lp-tip-text-col">
                   {step.text && <div className="lp-tip-text">{step.text}</div>}
                   {step.speakText && (
-                    <button className="tts-btn lp-listen-round" onClick={() => speakThai(step.speakText)} aria-label="Listen again">
+                    <button className="tts-btn lp-listen-round" onClick={() => speakEnglish(step.speakText)} aria-label="Listen again">
                       <Volume2 size={28} />
                     </button>
                   )}
@@ -1877,7 +1877,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
                 <Lightbulb size={32} className="lp-tip-icon" />
                 {step.text && <div className="lp-tip-text">{step.text}</div>}
                 {step.speakText && (
-                  <button className="tts-btn lp-listen-round" onClick={() => speakThai(step.speakText)} aria-label="Listen again">
+                  <button className="tts-btn lp-listen-round" onClick={() => speakEnglish(step.speakText)} aria-label="Listen again">
                     <Volume2 size={28} />
                   </button>
                 )}
@@ -1887,7 +1887,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
         )}
 
         {step?.type === "calligraphy" && (
-          <CalligraphyStep key={index} step={step} speakThai={speakThai} onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, calligraphy: c.calligraphy + 1})); }} />
+          <CalligraphyStep key={index} step={step} speakEnglish={speakEnglish} onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, calligraphy: c.calligraphy + 1})); }} />
         )}
 
         {step?.type === "listening" && (
@@ -1900,7 +1900,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
               key={index}
               correct={step.char}
               distractors={step.distractors}
-              speakThai={speakThai}
+              speakEnglish={speakEnglish}
               speakText={step.speakText}
               removeWrongOption={removeWrongOption}
               catName={catName}
@@ -1913,7 +1913,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
         {step?.type === "image-match" && (
           <>
             {step.speakText && (
-              <button className="tts-btn lp-listen-round" onClick={() => speakThai?.(step.speakText)} aria-label="Listen again">
+              <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
                 <Volume2 size={28} />
               </button>
             )}
@@ -1934,7 +1934,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
           <ListenWriteStep
             key={index}
             step={step}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, listenWrite: c.listenWrite + 1})); autoNext(); }}
           />
         )}
@@ -1943,7 +1943,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
           <MemoryCheckStep
             key={index}
             step={step}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, memoryCheck: c.memoryCheck + 1})); autoNext(); }}
           />
         )}
@@ -1952,7 +1952,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
           <WriteWordStep
             key={index}
             step={step}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, writeWord: c.writeWord + 1})); }}
           />
         )}
@@ -1961,7 +1961,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
           <ListenWriteWordStep
             key={index}
             step={step}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, listenWriteWord: c.listenWriteWord + 1})); }}
           />
         )}
@@ -1970,7 +1970,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
           <MatchWriteWordStep
             key={index}
             step={step}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, matchWriteWord: c.matchWriteWord + 1})); }}
           />
         )}

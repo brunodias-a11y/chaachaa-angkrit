@@ -7097,7 +7097,7 @@ export default function App() {
             classCode={enabledClassCodes?.[0]}
             profile={profile}
             words={words}
-            speakThai={speakThai}
+            speakEnglish={speakEnglish}
             avatarCatalog={getFullAvatarCatalog()}
             appClassCodes={appClassCodes}
             teacher={!!teacher}
@@ -15114,7 +15114,7 @@ function buildOptions(correct, distractors, field) {
 }
 
 // TTS — speak Thai text
-// ── TTS: speakThai() with server-side fallback ──
+// ── TTS: speakEnglish() with server-side fallback ──
 // Tries server-side Google Cloud TTS (native Thai Neural2 voice) first;
 // falls back to browser SpeechSynthesis with Thai voice selection if
 // the server is unavailable or no API key is configured.
@@ -15149,7 +15149,7 @@ function _speakBrowser(text) {
   window.speechSynthesis.speak(utt);
 }
 
-async function speakThai(text) {
+async function speakEnglish(text) {
   // Try server-side TTS first (native-quality Thai)
   try {
     const res = await fetch("/api/tts", {
@@ -15183,7 +15183,7 @@ async function speakThai(text) {
 
 // ---------------------------------------------------------------------------
 // Issue #71 — Core STT engine: SpeechRecognition wrapper + scorer de pronúncia
-// listenThai() mirrors speakThai() but in listen mode. Returns a promise that
+// listenThai() mirrors speakEnglish() but in listen mode. Returns a promise that
 // resolves with { transcript, confidence, score, error }.
 //
 // Usage:
@@ -15562,7 +15562,7 @@ function TtsButton({ text, className = "" }) {
     <button
       type="button"
       className={"tts-mini-btn " + className}
-      onClick={(e) => { e.stopPropagation(); speakThai(text); }}
+      onClick={(e) => { e.stopPropagation(); speakEnglish(text); }}
       aria-label="Play pronunciation"
     >
       <Volume2 size={16} />
@@ -15774,7 +15774,7 @@ function SundaySession({ lesson, wordMap, progMap, showRomanization, thaiFont, o
   // Auto-play TTS when exercise type A loads
   useEffect(() => {
     if (exType === "A" && current && !ttsPlayed) {
-      setTimeout(() => { speakThai(current.thai); setTtsPlayed(true); }, 400);
+      setTimeout(() => { speakEnglish(current.thai); setTtsPlayed(true); }, 400);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, exType]);
@@ -16038,7 +16038,7 @@ function SundaySession({ lesson, wordMap, progMap, showRomanization, thaiFont, o
         <>
           <div className="st-listen-card" style={{ "--accent": "#8E6BAE" }}>
             <div className="st-prompt-cat">{cat?.name}</div>
-            <button className="tts-btn" onClick={() => speakThai(current.thai)}>
+            <button className="tts-btn" onClick={() => speakEnglish(current.thai)}>
               <span className="tts-icon">🔊</span>
               <span className="tts-label">Play word</span>
             </button>
@@ -16290,7 +16290,7 @@ function SundaySession({ lesson, wordMap, progMap, showRomanization, thaiFont, o
             <div className="st-prompt-cat">{cat?.name}</div>
             <div className="st-pron-english">{current.english}</div>
             <div className="st-prompt-ro">{current.romanization}</div>
-            <button className="tts-btn" onClick={() => speakThai(current.thai)} aria-label="Play pronunciation">
+            <button className="tts-btn" onClick={() => speakEnglish(current.thai)} aria-label="Play pronunciation">
               <span className="tts-icon">🔊</span>
               <span className="tts-label">Play word</span>
             </button>
@@ -29614,8 +29614,8 @@ select.modal-input { appearance: none; }
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-radius: 8px; padding: 6px 10px;
 }
-.lp-preview-thai { font-size: 18px; }
-.lp-preview-en   { font-size: 12px; color: var(--ink-soft); flex: 1; }
+.lp-preview-en   { font-family: var(--font-english); font-size: 18px; font-weight: 600; }
+.lp-preview-thai { font-family: var(--font-thai); font-size: 12px; color: var(--ink-soft); flex: 1; }
 .lp-word-search  { display: flex; flex-direction: column; gap: 4px; }
 .lp-word-search-input-wrap {
   display: flex; align-items: center; gap: 6px;
@@ -29703,9 +29703,9 @@ select.modal-input { appearance: none; }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   text-align: center; width: 100%;
 }
-.lp-vocab-thai    { font-size: clamp(42px, 12vw, 64px); line-height: 1.1; }
+.lp-vocab-english { font-family: var(--font-english); font-size: clamp(42px, 12vw, 64px); font-weight: 700; line-height: 1.1; }
 .lp-vocab-roman   { font-size: 18px; color: var(--ink-soft); }
-.lp-vocab-english { font-size: 20px; font-weight: 600; }
+.lp-vocab-thai    { font-family: var(--font-thai); font-size: 18px; color: var(--ink-soft); }
 .lp-vocab-pos {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
   color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);

@@ -117,7 +117,7 @@ function EnergyInsufficientModal({ energy, energyMax, needed, waitStr, powers = 
 //   classCode       — student's first enabled class code (string | undefined)
 //   profile         — user profile object
 //   words           — full word list
-//   speakThai       — TTS function (text: string) => void
+//   speakEnglish       — TTS function (text: string) => void
 //   avatarCatalog   — result of getFullAvatarCatalog()
 //   appClassCodes   — teacher's class codes array (for ManageLessonsModal)
 //   teacher         — boolean
@@ -137,7 +137,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     classCode,
     profile,
     words,
-    speakThai,
+    speakEnglish,
     avatarCatalog,
     appClassCodes,
     teacher,
@@ -511,7 +511,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
         <LessonPlayerModal
           lesson={activeLessonPlayer.lesson}
           words={words}
-          speakThai={speakThai}
+          speakEnglish={speakEnglish}
           profile={profile}
           avatarCatalog={avatarCatalog}
           removeWrongOption={catSkillEffects.removeWrongOption}
