@@ -3,100 +3,13 @@ import { useRef, useState, useEffect } from "react";
 import { ENGLISH_STROKES } from './data/englishStrokes.js';
 
 // ---------------------------------------------------------------------------
-// #835 — ThaiWordDecomposer
-// Decompõe uma string Thai em slots de sílaba prontos para o WordLayoutEngine.
-//
-// Output por slot:
-//   { consonant: "ก", parts: [{ ch, type }], tone: "่" | null }
-//
-// Types de part: "preposed" | "above" | "below" | "postposed" | "compound"
+// #835 — EnglishWordDecomposer
+// Each letter becomes one slot: { consonant: ch, parts: [], tone: null }.
+// English has no diacritics, preposed vowels, or tone marks.
 // ---------------------------------------------------------------------------
 
-const PREPOSED  = new Set(["เ", "แ", "โ", "ใ", "ไ"]);
-const ABOVE     = new Set(["ั", "ิ", "ี", "ึ", "ื", "็"]);
-const TONE      = new Set(["่", "้", "๊", "๋"]);
-const BELOW     = new Set(["ุ", "ู"]);
-// ว e ย podem ser vogal final ou consoante final — tratamos como postposed
-// dentro de um slot; o lookup de stroke resolve pelo contexto (compound vs consonant)
-const POSTPOSED = new Set(["า", "ำ", "ะ", "อ", "ว", "ย", "ๅ"]);
-// Especiais funcionam como consoante-âncora do próprio slot
-const SPECIAL   = new Set(["ฤ", "ฦ"]);
-
-// English has no multi-char compound vowels; keep Set empty for compatibility.
-const COMPOUNDS = new Set();
-
-function charType(ch) {
-  if (PREPOSED.has(ch))  return "preposed";
-  if (ABOVE.has(ch))     return "above";
-  if (TONE.has(ch))      return "tone";
-  if (BELOW.has(ch))     return "below";
-  if (POSTPOSED.has(ch)) return "postposed";
-  if (SPECIAL.has(ch))   return "special";
-  return "consonant";
-}
-
-// Tenta combinar partes individuais do slot em um composto multi-char.
-// Preferência pelo composto mais longo que existe em THAI_VOWEL_TONES.
-function resolveCompounds(slot) {
-  const preStr   = slot.parts.filter(p => p.type === "preposed").map(p => p.ch).join("");
-  const aboveStr = slot.parts.filter(p => p.type === "above").map(p => p.ch).join("");
-  const postStr  = slot.parts.filter(p => p.type === "postposed").map(p => p.ch).join("");
-
-  const candidates = [
-    preStr + aboveStr + postStr,
-    preStr + postStr,
-    aboveStr + postStr,
-  ]
-    .filter(s => s.length > 1 && COMPOUNDS.has(s))
-    .sort((a, b) => b.length - a.length); // mais longo primeiro
-
-  if (candidates.length === 0) return;
-
-  const match = candidates[0];
-  const matchChars = new Set([...match]);
-
-  // Remove as partes individuais que formam o composto e insere o composto
-  slot.parts = slot.parts.filter(p => !matchChars.has(p.ch));
-  slot.parts.push({ ch: match, type: "compound" });
-}
-
-export function thaiWordDecomposer(word) {
-  const chars = [...word]; // spread Unicode-safe (lida com code points >U+FFFF)
-  const slots = [];
-  let pendingPreposed = [];
-
-  for (const ch of chars) {
-    const type = charType(ch);
-
-    if (type === "preposed") {
-      pendingPreposed.push(ch);
-      continue;
-    }
-
-    if (type === "consonant" || type === "special") {
-      slots.push({
-        consonant: ch,
-        parts: pendingPreposed.map(p => ({ ch: p, type: "preposed" })),
-        tone: null,
-      });
-      pendingPreposed = [];
-      continue;
-    }
-
-    // Diacrítico/vogal sem consoante precedente — descarta silenciosamente
-    if (slots.length === 0) continue;
-
-    const slot = slots[slots.length - 1];
-
-    if (type === "tone") {
-      slot.tone = ch;
-    } else {
-      slot.parts.push({ ch, type });
-    }
-  }
-
-  slots.forEach(resolveCompounds);
-  return slots;
+export function englishWordDecomposer(word) {
+  return [...word].map(ch => ({ consonant: ch, parts: [], tone: null }));
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +39,6 @@ export function strokesFor(ch) {
 
 const VIEWBOX_WIDTH  = 92;   // unidades normalizadas (460px / scale=5)
 const SLOT_GAP       = 6;    // espaço entre slots em unidades normalizadas
-const PREPOSED_DX    = -30;  // shift x para vogais prepostas (coloca à esq. da consoante)
 const CANVAS_SCALE   = 5;    // px por unidade normalizada (igual ao authoring tool)
 
 function shiftStrokes(strokes, dx, dy = 0) {
@@ -150,39 +62,19 @@ function strokesBoundingBox(strokesList) {
   return { xMin: isFinite(xMin) ? xMin : 0, xMax: isFinite(xMax) ? xMax : 0 };
 }
 
-// Monta os grupos de um slot com offsets por tipo de vogal,
-// mas SEM o offset cumulativo de slot (aplicado depois).
+// Builds groups for one slot. English slots have only a letter (consonant),
+// no parts or tone, so this reduces to a single group per letter.
 function buildSlotGroups(slot, slotIndex) {
   const groups = [];
-
-  const push = (ch, type, rawStrokes, dx = 0) => {
-    if (!rawStrokes?.length) return;
+  const entry = strokesFor(slot.consonant);
+  if (entry) {
     groups.push({
-      char: ch,
-      type,
+      char: slot.consonant,
+      type: "consonant",
       slotIndex,
-      strokes: shiftStrokes(rawStrokes, dx),
+      strokes: shiftStrokes(entry.strokes, 0),
     });
-  };
-
-  // Consoante
-  const cEntry = strokesFor(slot.consonant);
-  if (cEntry) push(slot.consonant, "consonant", cEntry.strokes);
-
-  // Partes (preposed, above, below, postposed, compound)
-  for (const part of slot.parts) {
-    const entry = strokesFor(part.ch);
-    if (!entry) continue;
-    const dx = part.type === "preposed" ? PREPOSED_DX : 0;
-    push(part.ch, part.type, entry.strokes, dx);
   }
-
-  // Tom
-  if (slot.tone) {
-    const entry = strokesFor(slot.tone);
-    if (entry) push(slot.tone, "tone", entry.strokes);
-  }
-
   return groups;
 }
 
@@ -520,7 +412,7 @@ export class StrokeOrderTracker {
 // Componente React que integra os 4 layers anteriores num canvas interativo.
 //
 // Props:
-//   word           {string}   — palavra Thai a escrever
+//   word           {string}   — English word to write
 //   containerWidth {number}   — largura disponível em px (para needsLandscape)
 //   onComplete     {function} — callback(results) ao concluir todos os traços
 //
@@ -546,7 +438,7 @@ export function WordWritingCanvas({ word, containerWidth = 460, onComplete }) {
   // Inicializa tracker e layout quando a palavra muda
   useEffect(() => {
     if (!word) return;
-    const slots  = thaiWordDecomposer(word);
+    const slots  = englishWordDecomposer(word);
     const layout = wordLayoutEngine(slots, { containerWidth });
     layoutRef.current  = layout;
     trackerRef.current = new StrokeOrderTracker(layout.groups);
@@ -688,7 +580,7 @@ export function WordWritingCanvas({ word, containerWidth = 460, onComplete }) {
         }}>
           <span style={{ fontSize: 32 }}>📱↔️</span>
           <p style={{ margin: 0, fontSize: 14, color: "#4a5568" }}>
-            Vire o dispositivo para o modo paisagem para escrever esta palavra.
+            Rotate your device to landscape to write this word.
           </p>
         </div>
       )}
@@ -701,7 +593,7 @@ export function WordWritingCanvas({ word, containerWidth = 460, onComplete }) {
           padding: "4px 16px", borderRadius: 20,
           fontSize: 13, fontWeight: 600, zIndex: 10, whiteSpace: "nowrap",
         }}>
-          Palavra concluída!
+          Word complete!
         </div>
       )}
 
@@ -713,7 +605,7 @@ export function WordWritingCanvas({ word, containerWidth = 460, onComplete }) {
           padding: "3px 10px", borderRadius: 12,
           fontSize: 12, fontWeight: 600,
         }}>
-          Comece por: {hintState.hintChar}
+          Start with: {hintState.hintChar}
         </div>
       )}
 
