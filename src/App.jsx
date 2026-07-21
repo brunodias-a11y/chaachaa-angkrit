@@ -25013,8 +25013,10 @@ html, body {
 .login-card {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   text-align: center; max-width: 340px; width: 100%;
-  background: transparent;
-  border: none;
+  background: rgba(6, 8, 32, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 24px; padding: 28px 24px 32px;
 }
 .login-brand-img {
@@ -25098,7 +25100,7 @@ html, body {
     padding: 20px 18px 32px;
     gap: 12px;
     margin-top: -16px;
-    background: rgba(6, 8, 32, 0.55);
+    background: rgba(6, 8, 32, 0.60);
   }
 }
 
