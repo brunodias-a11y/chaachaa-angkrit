@@ -14804,10 +14804,10 @@ function SundayTestScreen({ words, wordsLoaded, progMap, streak, profile, onProg
     <div className="screen-pad center-content">
       {/* Issue #157 — surprised-cat mascot replaces the mailbox emoji */}
       <img src="/mascots/gatinho-surpreso.png" alt="" className="st-empty-mascot" />
-      <h2 className="st-lock-title">Nothing to review yet</h2>
+      <h2 className="st-lock-title">ยังไม่มีอะไรทบทวน</h2>
       <p className="st-lock-desc">
-        No words were practiced this week (Monday–Saturday).<br />
-        Complete at least one Practice Mode lesson first.
+        สัปดาห์นี้ยังไม่ได้ฝึกคำศัพท์เลย (จันทร์–เสาร์)<br />
+        เรียน Practice Mode อย่างน้อยหนึ่งครั้งก่อนนะ
       </p>
     </div>
   );
@@ -14868,15 +14868,15 @@ function SundayTestScreen({ words, wordsLoaded, progMap, streak, profile, onProg
       <div className="st-header">
         <span className="st-eyebrow">Sunday Test</span>
         <h1 className="page-title">สอบวันอาทิตย์</h1>
-        <p className="st-sub">Weekly review of everything you studied this week.</p>
+        <p className="st-sub">ทบทวนทุกคำศัพท์ที่เรียนในสัปดาห์นี้</p>
       </div>
 
       <div className="st-overview">
         <div className="sto-week">{monday} → {saturday}</div>
         <div className="sto-count">{lesson.ids.length}</div>
-        <div className="sto-label">words to review</div>
+        <div className="sto-label">คำที่จะทบทวน</div>
         <div className="sto-note">
-          Correct answers update your progress. Wrong answers carry no penalty — this is a review, not a test.
+          ตอบถูกจะอัปเดต progress — ตอบผิดไม่มีโทษ เป็นแค่การทบทวน ไม่ใช่สอบ
         </div>
       </div>
 
@@ -14884,22 +14884,22 @@ function SundayTestScreen({ words, wordsLoaded, progMap, streak, profile, onProg
         <div className="st-type-card">
           <span className="st-type-icon">🔊</span>
           <div className="st-type-name">Listen</div>
-          <div className="st-type-desc">Hear the word, pick the right option</div>
+          <div className="st-type-desc">ฟังคำแล้วเลือกคำตอบ</div>
         </div>
         <div className="st-type-card">
           <span className="st-type-icon">✍️</span>
           <div className="st-type-name">Write</div>
-          <div className="st-type-desc">See the meaning, recall the Thai</div>
+          <div className="st-type-desc">เห็นความหมาย แล้วเขียนคำ English</div>
         </div>
         <div className="st-type-card">
           <span className="st-type-icon">🎯</span>
           <div className="st-type-name">Choose</div>
-          <div className="st-type-desc">See Thai, pick the translation</div>
+          <div className="st-type-desc">เห็นคำ English แล้วเลือกความหมาย</div>
         </div>
       </div>
 
       <button className="cta-btn" onClick={() => setPhase("preActivity")}>
-        <CalendarDays size={16} /> Begin Sunday Test
+        <CalendarDays size={16} /> เริ่มสอบวันอาทิตย์
       </button>
     </div>
   );
@@ -16440,41 +16440,41 @@ function SundayComplete({
         <div className="st-recommend">
           <p className="complete-note">
             {praticaRealizada
-              ? `${pct}% (${grade}) — below 75%. Head to Study Mode to review these words before next week.`
-              : `${pct}% (${grade}) — below 75%. Head to Practice Mode to keep working on today's lesson.`}
+              ? `${pct}% (${grade}) — ต่ำกว่า 75% ไปทบทวนใน Study Mode ก่อนสัปดาห์หน้านะ`
+              : `${pct}% (${grade}) — ต่ำกว่า 75% ไปฝึกต่อใน Practice Mode เลย`}
           </p>
           <button className="cta-btn" onClick={praticaRealizada ? onGoToStudy : onGoToPractice}>
-            {praticaRealizada ? "Go to Study Mode" : "Go to Practice Mode"}
+            {praticaRealizada ? "ไปที่ Study Mode" : "ไปที่ Practice Mode"}
           </button>
         </div>
       )}
 
       {passed && !canOfferStreak && (
         <p className="complete-note">
-          {pct}% ({grade}) — nice work! Today's streak is already locked in from your Practice session.
+          {pct}% ({grade}) — เก่งมาก! streak วันนี้ถูกบันทึกแล้วจาก Practice session
         </p>
       )}
 
       {passed && canOfferStreak && streakDecision === null && (
         <div className="st-streak-prompt">
           <p className="complete-note">
-            {pct}% ({grade}) — great score! You haven't done today's Practice yet — want to count this as today's streak?
+            {pct}% ({grade}) — ได้คะแนนดีมาก! วันนี้ยังไม่ได้ทำ Practice — จะนับ Sunday Test นี้เป็น streak วันนี้ไหม?
           </p>
           <div className="st-streak-actions">
-            <button className="cta-btn" onClick={() => onStreakChoice(true)}>Yes, count it</button>
-            <button className="cta-btn secondary" onClick={() => onStreakChoice(false)}>No, I'll practice separately</button>
+            <button className="cta-btn" onClick={() => onStreakChoice(true)}>นับเลย!</button>
+            <button className="cta-btn secondary" onClick={() => onStreakChoice(false)}>ไม่ ฉันจะ practice แยก</button>
           </div>
         </div>
       )}
       {passed && canOfferStreak && streakDecision === true && (
-        <p className="complete-note">🔥 Streak updated for today!</p>
+        <p className="complete-note">🔥 อัปเดต streak วันนี้แล้ว!</p>
       )}
       {passed && canOfferStreak && streakDecision === false && (
-        <p className="complete-note">No problem — streak wasn't changed. Complete Practice Mode to keep it going.</p>
+        <p className="complete-note">โอเค — streak ไม่เปลี่ยน ทำ Practice Mode เพื่อรักษา streak ต่อนะ</p>
       )}
 
       <div className="st-type-breakdown">
-        <div className="stb-title">Accuracy by exercise type</div>
+        <div className="stb-title">ความแม่นยำแต่ละประเภท</div>
         {[...EX_TYPES, "D"].map(t => {
           const d = byType[t];
           if (d.total === 0) return null;
@@ -16492,7 +16492,7 @@ function SundayComplete({
       </div>
 
       <p className="complete-note">
-        Correct answers updated your SRS intervals. Missed words carry no penalty — they'll reappear naturally in upcoming Practice lessons.
+        คำที่ตอบถูกจะอัปเดต SRS interval — คำที่พลาดไม่มีโทษ จะกลับมาใน Practice เองตามธรรมชาติ
       </p>
     </div>
   );
@@ -16674,12 +16674,12 @@ function ExamScreen({
       <img src="/mascots/teacher-cat.png" alt="" className="st-lock-mascot" />
       <h2 className="st-lock-title">Level Exam — {profile?.level || "Pre-A1"}</h2>
       <p className="st-lock-desc">
-        Covers all the vocabulary you've unlocked for this level so far.<br />
-        Doesn't affect your daily streak or word progress — take it whenever you're ready.
+        ครอบคลุมคำศัพท์ทั้งหมดที่ปลดล็อกในระดับนี้<br />
+        ไม่กระทบ streak หรือ progress คำศัพท์ — ทำเมื่อพร้อมได้เลย
       </p>
       <div className="home-cta-grid" style={{ marginTop: 20 }}>
-        <button className="cta-btn" onClick={() => setPhase("preActivity")}>Start exam</button>
-        <button className="cta-btn secondary" onClick={onClose}>Not now</button>
+        <button className="cta-btn" onClick={() => setPhase("preActivity")}>เริ่มสอบ</button>
+        <button className="cta-btn secondary" onClick={onClose}>ยังไม่พร้อม</button>
       </div>
     </div>
   );
@@ -16700,29 +16700,29 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
     <div className="screen-pad">
       <div className="complete-top">
         <div className="complete-emoji">{emoji}</div>
-        <h1 className="page-title">{passed ? "Exam passed!" : "Exam complete"}</h1>
-        <p className="st-sub" style={{ marginTop: 6 }}>{lesson.level} proficiency exam — weighted score.</p>
+        <h1 className="page-title">{passed ? "ผ่านแล้ว! 🏆" : "สอบเสร็จแล้ว"}</h1>
+        <p className="st-sub" style={{ marginTop: 6 }}>proficiency exam {lesson.level} — weighted score</p>
       </div>
 
       <div className="complete-stats">
-        <div className="cstat jade"><div className="cstat-n">{correct}</div><div className="cstat-l">Correct</div></div>
-        <div className="cstat lacquer"><div className="cstat-n">{total - correct}</div><div className="cstat-l">Missed</div></div>
-        <div className="cstat saffron"><div className="cstat-n">{pct}%</div><div className="cstat-l">Weighted score</div></div>
+        <div className="cstat jade"><div className="cstat-n">{correct}</div><div className="cstat-l">ถูก</div></div>
+        <div className="cstat lacquer"><div className="cstat-n">{total - correct}</div><div className="cstat-l">พลาด</div></div>
+        <div className="cstat saffron"><div className="cstat-n">{pct}%</div><div className="cstat-l">คะแนน</div></div>
       </div>
 
       {passed ? (
         <p className="complete-note">
-          🎉 You've passed the {lesson.level} exam with a weighted score of {pct}%. Your teacher will see this result too.
+          🎉 ผ่านการสอบ {lesson.level} แล้ว ด้วย weighted score {pct}% — ครูจะเห็นผลนี้ด้วยนะ
         </p>
       ) : (
         <div className="st-recommend">
-          <p className="complete-note">{pct}% — below the passing threshold. Keep practicing and try again when you're ready.</p>
-          <button className="cta-btn" onClick={onGoToPractice}>Go to Practice Mode</button>
+          <p className="complete-note">{pct}% — ยังไม่ถึงเกณฑ์ผ่าน ฝึกต่อแล้วกลับมาสอบใหม่เมื่อพร้อมนะ</p>
+          <button className="cta-btn" onClick={onGoToPractice}>ไปที่ Practice Mode</button>
         </div>
       )}
 
       <div className="st-type-breakdown">
-        <div className="stb-title">Accuracy by exercise type</div>
+        <div className="stb-title">ความแม่นยำแต่ละประเภท</div>
         {[...EX_TYPES, "D"].map(t => {
           const d = byType[t];
           if (d.total === 0) return null;
@@ -16738,19 +16738,19 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
       </div>
 
       <p className="complete-note">
-        This exam is separate from daily Practice — it doesn't change your SRS word progress or your streak.
+        การสอบนี้แยกจาก Practice ประจำวัน — ไม่กระทบ SRS หรือ streak นะ
       </p>
 
       {/* ── Issue #44 — AI-generated personalized feedback ── */}
       <div className="exam-feedback-card">
-        <div className="stb-title">🤖 Personalized feedback</div>
+        <div className="stb-title">🤖 Feedback จาก AI</div>
         {feedbackLoading && (
-          <div className="empty-state" style={{ padding: '10px 0' }}>Analyzing your exam…</div>
+          <div className="empty-state" style={{ padding: '10px 0' }}>กำลังวิเคราะห์ผลสอบ…</div>
         )}
         {!feedbackLoading && feedbackError && (
           <div className="exam-feedback-error">
-            <p className="complete-note" style={{ margin: 0 }}>Couldn't generate feedback right now — your exam result is saved either way.</p>
-            <button className="cta-btn secondary" onClick={onRetryFeedback}>Try again</button>
+            <p className="complete-note" style={{ margin: 0 }}>สร้าง feedback ไม่ได้ตอนนี้ — แต่ผลสอบถูกบันทึกแล้วนะ</p>
+            <button className="cta-btn secondary" onClick={onRetryFeedback}>ลองใหม่</button>
           </div>
         )}
         {!feedbackLoading && !feedbackError && feedback && (
@@ -16758,7 +16758,7 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
             <p className="exam-feedback-summary">{feedback.summary}</p>
             {feedback.strengths.length > 0 && (
               <div className="exam-feedback-section">
-                <div className="exam-feedback-section-label jade">💪 Strengths</div>
+                <div className="exam-feedback-section-label jade">💪 จุดแข็ง</div>
                 <ul className="exam-feedback-list">
                   {feedback.strengths.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
@@ -16766,7 +16766,7 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
             )}
             {feedback.weaknesses.length > 0 && (
               <div className="exam-feedback-section">
-                <div className="exam-feedback-section-label lacquer">🎯 Weaknesses</div>
+                <div className="exam-feedback-section-label lacquer">🎯 จุดที่ต้องพัฒนา</div>
                 <ul className="exam-feedback-list">
                   {feedback.weaknesses.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
@@ -16774,7 +16774,7 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
             )}
             {feedback.tips.length > 0 && (
               <div className="exam-feedback-section">
-                <div className="exam-feedback-section-label saffron">💡 Practice tips</div>
+                <div className="exam-feedback-section-label saffron">💡 เคล็ดลับการฝึก</div>
                 <ul className="exam-feedback-list">
                   {feedback.tips.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
@@ -16784,7 +16784,7 @@ function ExamComplete({ lesson, outcome, feedback, feedbackLoading, feedbackErro
         )}
       </div>
 
-      <button className="cta-btn secondary" style={{ marginTop: 16 }} onClick={onClose}>Back to Home</button>
+      <button className="cta-btn secondary" style={{ marginTop: 16 }} onClick={onClose}>กลับหน้าหลัก</button>
     </div>
   );
 }
