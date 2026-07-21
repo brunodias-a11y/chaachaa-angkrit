@@ -9226,14 +9226,14 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
           <img src={lbCatForTeaser.image} alt={lbCatForTeaser.name} className="lb-teaser-avatar" />
           <div className="lb-teaser-text">
             <span className="lb-teaser-title">Daily Login Bonus</span>
-            <span className="lb-teaser-desc">Get <strong>{lbCatForTeaser.name}</strong> in your collection to unlock daily rewards!</span>
+            <span className="lb-teaser-desc">รับ <strong>{lbCatForTeaser.name}</strong> มาไว้ในคอลเลกชันเพื่อปลดล็อก daily rewards!</span>
           </div>
           <button
             className={"hqc-cta lb-teaser-btn" + (tryLuckInCooldown ? " lb-teaser-btn--cooldown" : " hqc-cta-open")}
             onClick={handleTryYourLuckLocal}
             disabled={tryLuckInCooldown}
           >
-            {tryLuckInCooldown ? tryLuckLabel : "Try your luck 🎲"}
+            {tryLuckInCooldown ? tryLuckLabel : "ลองดวง 🎲"}
           </button>
         </div>
       )}
@@ -9270,7 +9270,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
             <div className="hqc hqc-login-bonus">
               <div className="hqc-header">
                 <span className="hqc-label">Login Bonus</span>
-                {weekDone && <span className="hqc-badge-live">WEEK DONE</span>}
+                {weekDone && <span className="hqc-badge-live">ครบสัปดาห์!</span>}
               </div>
               <div className="lb-slots">
                 {pool.map((item, i) => {
@@ -9280,7 +9280,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                     <div
                       key={i}
                       className={"lb-slot" + (isCollected ? " lb-collected" : isCurrent ? " lb-current" : " lb-future")}
-                      title={isCollected ? "Collected" : isCurrent ? "Today's bonus" : "Future"}
+                      title={isCollected ? "รับแล้ว" : isCurrent ? "รางวัลวันนี้" : "รอรับ"}
                     >
                       {isCollected ? "✅" : item === "ticket" ? (() => { const t = resolveLoginBonusTicket(weekKey, i); return <img src={GACHA_TICKET_CATALOG[t.type]?.image} alt={t.type} className="lb-ticket-icon" />; })() : <><img src="/coins/catcoin.png" alt="" className="lb-coin-icon" />{item}</>}
                     </div>
@@ -9289,15 +9289,15 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
               </div>
               <div className="hqc-mission-bottom hqc-mission-bottom--center">
                 {weekDone ? (
-                  <div className="hqc-mission-reward-collected">All bonuses collected this week! 🎉</div>
+                  <div className="hqc-mission-reward-collected">รับรางวัลครบสัปดาห์แล้ว! 🎉</div>
                 ) : collectedToday ? (
-                  <div className="hqc-mission-reward-collected">Collected! Come back tomorrow.</div>
+                  <div className="hqc-mission-reward-collected">รับแล้ว! กลับมาพรุ่งนี้นะ</div>
                 ) : eligible ? (
                   <button className="hqc-cta hqc-cta-open" onClick={handleCollectLoginBonus}>
-                    🎁 Collect Day {nextSlot + 1}
+                    🎁 รับรางวัลวันที่ {nextSlot + 1}
                   </button>
                 ) : (
-                  <div className="hqc-mission-reward-collected">🔒 Practice today to unlock tomorrow's bonus</div>
+                  <div className="hqc-mission-reward-collected">🔒 ฝึกวันนี้เพื่อปลดล็อกรางวัลพรุ่งนี้</div>
                 )}
               </div>
             </div>
@@ -19783,14 +19783,14 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                           );
                         })}
                       </div>
-                      {weekStudyMs > 0 && <div className="prg2-week-msg">Great job! You're building a strong habit!</div>}
-                      {weekStudyMs === 0 && <div className="prg2-week-msg">Start a session to build your streak!</div>}
+                      {weekStudyMs > 0 && <div className="prg2-week-msg">เยี่ยมมาก! กำลังสร้างนิสัยที่ดีอยู่เลย!</div>}
+                      {weekStudyMs === 0 && <div className="prg2-week-msg">เริ่ม session แรกเพื่อสร้าง streak ได้เลย!</div>}
                     </>
                   )}
                   {wcTab === "challenges" && (
                     <div className="prg2-wc-panel">
                       {allThreeDone ? (
-                        <div className="wc-all-done">👑 Triple Crown! All challenges done this week.</div>
+                        <div className="wc-all-done">👑 Triple Crown! ทำครบทุก challenge สัปดาห์นี้แล้ว!</div>
                       ) : (
                         <div className="wc-list">
                           {weekChallenges.map(c => {
@@ -19824,13 +19824,13 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
             {/* Sunday Test History */}
             <div className="prg2-card prg2-card--wide">
               <div className="prg2-card-head"><span className="prg2-card-icon">📋</span><span className="prg2-card-title">Sunday Test History</span></div>
-              {loading && <div className="prg2-empty">Loading…</div>}
+              {loading && <div className="prg2-empty">กำลังโหลด…</div>}
               {!loading && stHistory.length === 0 && (
                 <div className="prg2-sunday-empty">
                   <img src="/icons/exam.png" alt="" className="prg2-sunday-empty-img" onError={e => e.target.style.display='none'} />
-                  <div className="prg2-sunday-empty-title">No Sunday Test completed yet.</div>
-                  <div className="prg2-sunday-empty-desc">Complete the Sunday Test every week to track your progress!</div>
-                  {isSunday() && <button className="prg2-sunday-empty-btn" onClick={onGoToSunday}>Take Sunday Test →</button>}
+                  <div className="prg2-sunday-empty-title">ยังไม่เคยทำ Sunday Test เลย</div>
+                  <div className="prg2-sunday-empty-desc">ทำทุกสัปดาห์เพื่อดูความคืบหน้าของตัวเอง!</div>
+                  {isSunday() && <button className="prg2-sunday-empty-btn" onClick={onGoToSunday}>ทำ Sunday Test →</button>}
                 </div>
               )}
               {!loading && stHistory.length > 0 && (
@@ -19860,20 +19860,20 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                 <div className="prg2-qstat">
                   <div className="prg2-qstat-icon">⏱️</div>
                   <div className="prg2-qstat-val">{weekStudyMs > 0 ? fmtStudyTime(weekStudyMs) : "—"}</div>
-                  <div className="prg2-qstat-label">Study Time</div>
-                  <div className="prg2-qstat-sub">Total this week</div>
+                  <div className="prg2-qstat-label">เวลาเรียน</div>
+                  <div className="prg2-qstat-sub">รวมสัปดาห์นี้</div>
                 </div>
                 <div className="prg2-qstat">
                   <div className="prg2-qstat-icon">⚡</div>
                   <div className="prg2-qstat-val">{weekEnergySpent > 0 ? weekEnergySpent : "—"}</div>
-                  <div className="prg2-qstat-label">Energy Spent</div>
-                  <div className="prg2-qstat-sub">Path Mode this week</div>
+                  <div className="prg2-qstat-label">พลังงานที่ใช้</div>
+                  <div className="prg2-qstat-sub">Path Mode สัปดาห์นี้</div>
                 </div>
                 <div className="prg2-qstat">
                   <div className="prg2-qstat-icon">⭐</div>
                   <div className="prg2-qstat-val">{weekAccuracy !== null ? `${weekAccuracy}%` : "—"}</div>
-                  <div className="prg2-qstat-label">Accuracy</div>
-                  <div className="prg2-qstat-sub">Average this week</div>
+                  <div className="prg2-qstat-label">ความแม่นยำ</div>
+                  <div className="prg2-qstat-sub">เฉลี่ยสัปดาห์นี้</div>
                 </div>
               </div>
             </div>
@@ -19881,7 +19881,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
 
           {/* Tip bar */}
           <div className="prg2-tip">
-            💡 <span className="prg2-tip-text">Tip: Keep a daily streak and complete weekly challenges to earn more Meowtong!</span>
+            💡 <span className="prg2-tip-text">เคล็ดลับ: รักษา streak ทุกวันและทำ weekly challenges เพื่อรับ Meowtong เพิ่มขึ้น!</span>
             <img src="/coins/catcoin.png" alt="" className="prg2-tip-coins" />
           </div>
         </div>
@@ -19894,9 +19894,9 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
           <div className="prg2-ach-header">
             <img src="/achievements-icon.png" alt="" className="prg2-ach-trophy-img" aria-hidden="true" />
             <div className="prg2-ach-summary">
-              <div className="prg2-ach-summary-label">ACHIEVEMENT PROGRESS</div>
+              <div className="prg2-ach-summary-label">ความสำเร็จ</div>
               <div className="prg2-ach-summary-count">{unlockedCount} <span className="prg2-ach-summary-total">/ {visibleAchievementsTotal}</span></div>
-              <div className="prg2-ach-summary-pct">{pct(unlockedCount, visibleAchievementsTotal)}% Completed</div>
+              <div className="prg2-ach-summary-pct">{pct(unlockedCount, visibleAchievementsTotal)}% ปลดล็อกแล้ว</div>
               <div className="prg2-ach-prog-bar"><div className="prg2-ach-prog-fill" style={{width:`${pct(unlockedCount,visibleAchievementsTotal)}%`}}/></div>
             </div>
           </div>
@@ -19905,7 +19905,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
           <div className="prg2-ach-body">
             <div className="prg2-ach-sidebar">
               <button className={"prg2-ach-sidebar-btn"+(achCat==="all"?" active":"")} onClick={() => setAchCat("all")}>
-                <span>All Achievements</span>
+                <span>ทั้งหมด</span>
                 <span className="prg2-ach-sidebar-count">{unlockedCount} / {visibleAchievementsTotal}</span>
               </button>
               {achCatKeys.filter(k => k !== "secret").map(k => {
@@ -19955,7 +19955,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                   </div>
                 </div>
               ))}
-              {achToShow.length === 0 && <div className="prg2-empty">No achievements here yet. Keep going!</div>}
+              {achToShow.length === 0 && <div className="prg2-empty">ยังไม่มีความสำเร็จที่นี่ — ไปฝึกกันเลย!</div>}
             </div>
           </div>
         </div>
@@ -19974,20 +19974,20 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                 })()}
                 {!profile?.avatar && <img src="/mascote.png" alt="" className="prg2-ms-avatar" />}
               </div>
-              <div className="prg2-ms-journey-title">Journey Started</div>
+              <div className="prg2-ms-journey-title">เริ่มต้นการเดินทาง</div>
               {journeyStart && <div className="prg2-ms-journey-date">{journeyStart}</div>}
-              <div className="prg2-ms-journey-desc">The beginning of an amazing language journey!</div>
+              <div className="prg2-ms-journey-desc">จุดเริ่มต้นของการเดินทางสู่ English!</div>
             </div>
             <div className="prg2-ms-panel-card">
-              <div className="prg2-ms-prog-label">⭐ Milestone Progress</div>
+              <div className="prg2-ms-prog-label">⭐ ความคืบหน้า</div>
               <div className="prg2-ms-prog-count">{msCount} <span className="prg2-ms-prog-total">/ {msTotal}</span></div>
-              <div className="prg2-ms-prog-sub">Milestones Unlocked</div>
+              <div className="prg2-ms-prog-sub">Milestones ปลดล็อกแล้ว</div>
               <div className="prg2-ms-prog-bar"><div className="prg2-ms-prog-fill" style={{width:`${pct(msCount,msTotal)}%`}} /></div>
               <div className="prg2-ms-prog-pct">{pct(msCount,msTotal)}%</div>
             </div>
             {nextMs && (
               <div className="prg2-ms-panel-card">
-                <div className="prg2-ms-prog-label">⭐ Next Milestone</div>
+                <div className="prg2-ms-prog-label">⭐ Milestone ถัดไป</div>
                 <div className="prg2-ms-next-icon">{nextMs.icon}</div>
                 <div className="prg2-ms-next-title">{nextMs.title}</div>
                 <div className="prg2-ms-next-desc">{nextMs.desc}</div>
