@@ -4664,13 +4664,13 @@ function ErrorScreen({ message, onRetry, fullScreen = false }) {
       <div className="es-mascot-wrap">
         <img src="/mascote-crying.png" alt="" className="es-mascot" />
       </div>
-      <div className="es-title">Something went wrong</div>
+      <div className="es-title">เกิดข้อผิดพลาด</div>
       <div className="es-sub">
-        {message || "An unexpected error occurred while loading this section."}
+        {message || "โหลดส่วนนี้ไม่สำเร็จ — ลองใหม่อีกครั้ง"}
       </div>
       {onRetry && (
         <div className="es-sub" style={{ marginTop: 4, opacity: 0.4 }}>
-          Retrying in {countdown}s…
+          กำลังลองใหม่ใน {countdown}วินาที…
         </div>
       )}
     </div>
@@ -6514,7 +6514,7 @@ export default function App() {
       <style>{styles}</style>
       <ErrorScreen
         fullScreen
-        message="Couldn't connect to the server. Check your internet connection and try again."
+        message="เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ลองตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"
         onRetry={() => { setLoadError(false); setLoaded(false); setLoadKey(k => k + 1); }}
       />
     </div>
@@ -15472,23 +15472,23 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
     <ModalOverlay onClose={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Microphone</h2>
+          <h2>ไมโครโฟน</h2>
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
-          {permission === "checking" && <p className="release-modal-hint">Requesting microphone access…</p>}
+          {permission === "checking" && <p className="release-modal-hint">กำลังขอสิทธิ์ใช้ไมโครโฟน…</p>}
 
           {permission === "denied" && (
             <p className="release-modal-hint">
-              Microphone permission was denied. Enable it in your browser's site settings, then reopen this screen.
+              ถูกปฏิเสธสิทธิ์ไมโครโฟน — เปิดใน Site Settings ของเบราว์เซอร์แล้วเปิดหน้านี้ใหม่
             </p>
           )}
 
           {permission === "granted" && step === "pick" && (
             <>
-              <p className="release-modal-hint">Choose which microphone to use for pronunciation exercises.</p>
+              <p className="release-modal-hint">เลือกไมโครโฟนที่ใช้สำหรับฝึกออกเสียง</p>
               <div className="mic-device-list">
-                {devices.length === 0 && <p className="release-modal-hint">No microphones found.</p>}
+                {devices.length === 0 && <p className="release-modal-hint">ไม่พบไมโครโฟน</p>}
                 {devices.map((d, i) => (
                   <label key={d.deviceId} className="mic-device-row">
                     <input
@@ -15503,12 +15503,10 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
               </div>
               {errorMsg && <p className="release-modal-hint" style={{ color: "var(--rose, #c0455f)" }}>{errorMsg}</p>}
               <p className="mic-calibration-note">
-                Note: the pronunciation test below always listens through your browser's default
-                microphone — browsers don't allow pointing speech recognition at a specific device.
-                The level meter, however, does test the exact microphone you pick above.
+                หมายเหตุ: การทดสอบออกเสียงจะฟังผ่านไมโครโฟนเริ่มต้นของเบราว์เซอร์เสมอ — เบราว์เซอร์ไม่อนุญาตให้เลือกอุปกรณ์เฉพาะสำหรับ speech recognition มิเตอร์เสียงจะทดสอบไมโครโฟนที่เลือกไว้จริงๆ
               </p>
               <button className="cta-btn" style={{ marginTop: 12 }} onClick={handleTest} disabled={devices.length === 0}>
-                <Mic size={16} /> Test this microphone
+                <Mic size={16} /> ทดสอบไมโครโฟนนี้
               </button>
             </>
           )}
@@ -15517,7 +15515,7 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
             <div className="mic-calibration-test">
               <div className="mic-level-meter"><div className="mic-level-fill" style={{ width: level + "%" }} /></div>
               <p className="release-modal-hint" style={{ marginTop: 14 }}>
-                {sttState === "idle" ? "Getting your microphone ready…" : <>Say <strong lang="th">{"hello"}</strong> ("chá") now…</>}
+                {sttState === "idle" ? "กำลังเตรียมไมโครโฟน…" : <>พูด <strong lang="th">{"hello"}</strong> ได้เลย…</>}
               </p>
               {transcript && <p className="release-modal-hint">Heard: "{transcript}"</p>}
             </div>
@@ -15527,8 +15525,8 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
             <>
               <p className="release-modal-hint">{errorMsg}</p>
               <div className="gacha-modal-actions">
-                <button className="delete-btn" onClick={() => setStep("pick")}>Try another microphone</button>
-                <button className="save-btn" onClick={handleTest}>Retry</button>
+                <button className="delete-btn" onClick={() => setStep("pick")}>ลองไมโครโฟนอื่น</button>
+                <button className="save-btn" onClick={handleTest}>ลองใหม่</button>
               </div>
             </>
           )}
@@ -15536,23 +15534,22 @@ function MicCalibrationModal({ initialDevice, onClose, onSave }) {
           {step === "scored" && sttState === "done" && (
             <>
               <div className={"pron-verdict " + (passed ? "pass" : "fail")}>
-                {passed ? `Sounds good! ${score}% match ✓` : `Weak recognition — ${score}% match`}
+                {passed ? `เสียงชัดดี! ${score}% ✓` : `จับเสียงได้น้อย — ${score}%`}
               </div>
               {transcript && (
                 <p className="release-modal-hint" style={{ fontSize: 11, opacity: 0.6 }}>
-                  Heard: "{transcript}" · Target: "{"hello"}"
+                  ได้ยิน: "{transcript}" · เป้าหมาย: "{"hello"}"
                 </p>
               )}
               {!passed && (
                 <p className="release-modal-hint">
-                  This microphone might not pick up your voice well during pronunciation exercises.
-                  You can still use it, or try a different one.
+                  ไมโครโฟนนี้อาจจับเสียงได้ไม่ดีนักในการฝึกออกเสียง — ใช้ต่อได้หรือลองเปลี่ยนอุปกรณ์
                 </p>
               )}
               <div className="gacha-modal-actions">
-                <button className="delete-btn" onClick={() => setStep("pick")}>Try another microphone</button>
+                <button className="delete-btn" onClick={() => setStep("pick")}>ลองไมโครโฟนอื่น</button>
                 <button className="save-btn" onClick={confirmDevice}>
-                  {passed ? "Use this microphone" : "Use it anyway"}
+                  {passed ? "ใช้ไมโครโฟนนี้" : "ใช้ต่อไป"}
                 </button>
               </div>
             </>
@@ -15604,8 +15601,7 @@ function SttUnsupportedNotice() {
     <div className="stt-notice">
       <AlertCircle size={15} className="stt-notice-ic" />
       <span className="stt-notice-text">
-        Pronunciation practice needs microphone access (SpeechRecognition).
-        Your browser doesn't support it — try Chrome or Edge for full features.
+        การฝึกออกเสียงต้องการสิทธิ์ไมโครโฟน (SpeechRecognition) — เบราว์เซอร์นี้ไม่รองรับ ลอง Chrome หรือ Edge เพื่อฟีเจอร์ครบ
       </span>
       <button className="stt-notice-close" onClick={dismiss} aria-label="Dismiss">×</button>
     </div>
@@ -15639,13 +15635,13 @@ const PronunciationPractice = forwardRef(function PronunciationPractice({ target
     if (result.error && result.error !== "no-speech") {
       setState("error");
       const msgs = {
-        "not-supported": "Speech recognition not available in this browser.",
-        "timeout": "No speech detected within 8 seconds. Try again.",
-        "audio-capture": "Microphone not accessible. Check permissions.",
-        "not-allowed": "Microphone permission denied.",
-        "network": "Network error during recognition.",
+        "not-supported": "เบราว์เซอร์นี้ไม่รองรับ speech recognition",
+        "timeout": "ไม่ได้ยินเสียงภายใน 8 วินาที — ลองใหม่",
+        "audio-capture": "เข้าถึงไมโครโฟนไม่ได้ — ตรวจสอบสิทธิ์",
+        "not-allowed": "ถูกปฏิเสธสิทธิ์ไมโครโฟน",
+        "network": "เกิดข้อผิดพลาดเครือข่ายระหว่างการรับฟัง",
       };
-      setErrorMsg(msgs[result.error] || result.errorMsg || "Recognition failed.");
+      setErrorMsg(msgs[result.error] || result.errorMsg || "จับเสียงไม่สำเร็จ");
       return;
     }
 
@@ -15668,14 +15664,14 @@ const PronunciationPractice = forwardRef(function PronunciationPractice({ target
       {state === "idle" && !hideTrigger && (
         <button className="pron-retry-btn" onClick={handleListen}>
           <Mic size={13} style={{ verticalAlign: "-2px", marginRight: 5 }} />
-          Say it!
+          พูดเลย!
         </button>
       )}
       {state === "listening" && (
         <>
           <div className="pron-listening-indicator">
             <Mic size={16} className="pulse" />
-            <span>Listening…</span>
+            <span>กำลังฟัง…</span>
           </div>
           {transcript && (
             <div className="pron-interim" style={{ fontSize: thaiFont ? 18 : 14, fontFamily: thaiFont }}>
@@ -15687,16 +15683,16 @@ const PronunciationPractice = forwardRef(function PronunciationPractice({ target
       {state === "scored" && (
         <>
           <div className={"pron-verdict " + (score >= 70 ? "pass" : "fail")}>
-            {score >= 70 ? "Great pronunciation! ✓" : "Try again — " + score + "% match"}
+            {score >= 70 ? "ออกเสียงดีมาก! ✓" : "ลองใหม่ — " + score + "% match"}
           </div>
           {transcript && (
             <div style={{ fontSize: 11, opacity: 0.5 }}>
-              Heard: "{transcript}" · Target: "{targetWord}"
+              ได้ยิน: "{transcript}" · เป้าหมาย: "{targetWord}"
             </div>
           )}
           <button className="pron-retry-btn" onClick={handleListen}>
             <RotateCcw size={13} style={{ verticalAlign: "-2px", marginRight: 5 }} />
-            Try again
+            ลองใหม่
           </button>
         </>
       )}
@@ -15705,7 +15701,7 @@ const PronunciationPractice = forwardRef(function PronunciationPractice({ target
           <div className="pron-error-text">{errorMsg}</div>
           <button className="pron-retry-btn" onClick={handleListen}>
             <RotateCcw size={13} style={{ verticalAlign: "-2px", marginRight: 5 }} />
-            Retry
+            ลองใหม่
           </button>
         </div>
       )}
