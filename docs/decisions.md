@@ -653,6 +653,62 @@ Events with `noSuspense: false` / omitted (keep animation):
 
 ---
 
+## ADR-025: Bilingual UI message library — `desc` (Thai) + `descEn` (English) + `getDesc` helper
+
+**Date:** 2026-07-21
+
+### Problem
+
+Several shared data arrays (`CHALLENGE_POOL`, `MONTHLY_CHALLENGE_POOL`, `ACHIEVEMENTS`, `MILESTONES_DEF`) are
+consumed by both student-facing UI and teacher-facing admin panels. After translating `desc` fields to Thai for
+student comfort, the teacher's challenge configuration dropdowns and previews began showing Thai text — which
+breaks teacher UX since the admin area must stay in English.
+
+### Decision
+
+Every shared data array that carries user-visible description text must have **two description fields**:
+
+| Field | Language | Audience |
+|-------|----------|----------|
+| `desc` | Thai | Students |
+| `descEn` | English | Teachers / admin panels |
+
+A single helper function mediates access at every render site:
+
+```js
+// ADR-025 — i18n helper for shared data arrays (challenges, achievements, milestones).
+// Pass isTeacher=true in teacher-only render sites to get the English description.
+function getDesc(item, isTeacher = false) {
+  return isTeacher ? (item.descEn ?? item.desc) : item.desc;
+}
+```
+
+**Render-site rules:**
+- **Student-facing UI** (Events tab, Achievements gallery, Milestones panel): call `getDesc(item)` or `getDesc(item, false)` — returns `desc` (Thai).
+- **Teacher/admin UI** (challenge scheduler dropdowns, challenge slot previews): call `getDesc(item, true)` — returns `descEn`, falling back to `desc` if `descEn` is missing.
+
+**Arrays covered by this ADR:**
+- `CHALLENGE_POOL` — weekly challenge definitions
+- `MONTHLY_CHALLENGE_POOL` — monthly challenge definitions
+- `ACHIEVEMENTS` — achievement definitions
+- `MILESTONES_DEF` — milestone definitions
+
+### Rationale
+
+- The teacher area must stay in English (admin context, shared with non-Thai speakers).
+- Students benefit from reading challenge and achievement descriptions in Thai for comprehension and motivation.
+- A single `getDesc` helper keeps the branching logic in one place; render sites stay declarative.
+- The `?? item.desc` fallback in `getDesc` means that any new entry added without `descEn` degrades gracefully to Thai rather than crashing.
+
+### Consequences
+
+- **Any new entry** added to the arrays above must include both `desc` (Thai) and `descEn` (English).
+- **Any new teacher render site** that displays description text from a shared array must call `getDesc(item, true)`.
+- **Student render sites** that already call `.desc` directly should be migrated to `getDesc(item)` opportunistically — both produce the same result, but `getDesc` makes the intent explicit and makes future language changes easier.
+- If a third language is ever needed, add a `descLang` field and extend `getDesc` with a `lang` parameter rather than adding more boolean flags.
+
+---
+
 ## ADR-023: Portal-based `<ModalOverlay>` instead of per-modal inline overlay divs
 
 **Date:** 2026-07-09 · **Issues:** #400, #400.1, #400.2, #403
