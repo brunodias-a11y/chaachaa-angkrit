@@ -5,10 +5,8 @@
 // ---------------------------------------------------------------------------
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Play, RotateCcw } from "lucide-react";
-import { THAI_STROKES } from "./data/thaiStrokes";
-import { THAI_VOWEL_TONES } from "./data/thaiVowelTones";
-// #356 — merged dataset: vowels/tones extend consonants, consonants take priority on conflict
-const ALL_THAI_STROKES = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
+import { ENGLISH_STROKES } from "./data/englishStrokes";
+const ALL_THAI_STROKES = { ...ENGLISH_STROKES };
 import { getStroke } from "perfect-freehand";
 import { normalizeStroke, scoreStroke } from "./utils/unistrokeRecognizer";
 

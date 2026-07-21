@@ -1,7 +1,6 @@
 // Word Writing Activity — Phase 10 (#835–839) + Phase 21 (#840–842)
 import { useRef, useState, useEffect } from "react";
-import { THAI_VOWEL_TONES } from './data/thaiVowelTones.js';
-import { THAI_STROKES }     from './data/thaiStrokes.js';
+import { ENGLISH_STROKES } from './data/englishStrokes.js';
 
 // ---------------------------------------------------------------------------
 // #835 — ThaiWordDecomposer
@@ -23,10 +22,8 @@ const POSTPOSED = new Set(["า", "ำ", "ะ", "อ", "ว", "ย", "ๅ"]);
 // Especiais funcionam como consoante-âncora do próprio slot
 const SPECIAL   = new Set(["ฤ", "ฦ"]);
 
-// Compostos multi-char presentes em THAI_VOWEL_TONES
-const COMPOUNDS = new Set(
-  Object.keys(THAI_VOWEL_TONES).filter(k => [...k].length > 1)
-);
+// English has no multi-char compound vowels; keep Set empty for compatibility.
+const COMPOUNDS = new Set();
 
 function charType(ch) {
   if (PREPOSED.has(ch))  return "preposed";
@@ -106,7 +103,7 @@ export function thaiWordDecomposer(word) {
 // Helpers de lookup de stroke data
 // Retorna o entry de stroke do char, independente de qual arquivo ele está.
 // ---------------------------------------------------------------------------
-const ALL_STROKES = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
+const ALL_STROKES = { ...ENGLISH_STROKES };
 
 export function strokesFor(ch) {
   return ALL_STROKES[ch] ?? null;

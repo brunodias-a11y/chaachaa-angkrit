@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { createPortal } from "react-dom"; // Issue #403 — ModalOverlay foundation
 import { Home, BookOpen, GraduationCap, CalendarDays, BarChart2, BarChart3, Plus, Search, X, Sparkles, Check, Lock, Users, Pencil, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Eye, Shield, Settings, Flame, Mic, CheckCircle, Volume2, Trash2, Gift, Star, Play, ArrowUpRight, ArrowDownRight, LayoutDashboard, User, ClipboardList, MessageSquare, TrendingUp, Target, Copy, } from "lucide-react";
-import { THAI_STROKES } from "./data/thaiStrokes"; // Issue #59
-import { THAI_VOWEL_TONES } from "./data/thaiVowelTones"; // Issue #356
-const ALL_THAI_STROKES = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
+import { ENGLISH_STROKES } from "./data/englishStrokes";
+const ALL_THAI_STROKES = { ...ENGLISH_STROKES };
 import { getStroke } from "perfect-freehand"; // Issue #61
 import { normalizeStroke, scoreStroke } from "./utils/unistrokeRecognizer"; // Issue #61
 import {
@@ -530,7 +529,7 @@ function computeAchievementStats(progMap, streak, stHistory, sessionsCompleted, 
     // (#62). "Passed" = at least 1 successful full-character trace; scope is
     // the 44 consonants only for now (vowels/tones are stretch goal #63/#356).
     calligraphyCharsPassed:     Object.values(calligraphyProg).filter(p => (p?.passes || 0) >= 1).length,
-    calligraphyAlphabetComplete: Object.keys(THAI_STROKES).every(ch => (calligraphyProg[ch]?.passes || 0) >= 1),
+    calligraphyAlphabetComplete: Object.keys(ENGLISH_STROKES).every(ch => (calligraphyProg[ch]?.passes || 0) >= 1),
     // Issue #415 — word-level writing achievements
     wordCalligraphyWordsAttempted: Object.values(wordCalligraphyProg).filter(p => (p?.attempts || 0) >= 1).length,
     wordCalligraphyWordsPassed:    Object.values(wordCalligraphyProg).filter(p => (p?.passes   || 0) >= 1).length,
@@ -3758,11 +3757,11 @@ function getWritableWords(visibleWords, progMap) {
   return visibleWords
     .filter(w => {
       if (!isWordMastered(progMap, w.id)) return false;
-      return [...w.thai].some(ch => ALL_THAI_STROKES[ch]);
+      return [...(w.english || "")].some(ch => ALL_THAI_STROKES[ch]);
     })
     .map(w => ({
       w,
-      practisableCount: [...w.thai].filter(ch => ALL_THAI_STROKES[ch]).length,
+      practisableCount: [...(w.english || "")].filter(ch => ALL_THAI_STROKES[ch]).length,
       srsInterval: progMap[w.id]?.srsInterval ?? 1,
     }))
     .sort((a, b) => b.practisableCount - a.practisableCount || b.srsInterval - a.srsInterval)
@@ -12313,7 +12312,7 @@ function StudyModeScreen({ words, wordsLoaded, progMap, profile, aiConfig, allCa
   // (words prop is already getVisibleWords-filtered by the caller).
   const wordPracticeChars = useMemo(() => {
     if (!current) return [];
-    return rankCharsByVocabFrequency(extractPracticableChars(current.thai), words);
+    return rankCharsByVocabFrequency(extractPracticableChars(current.english), words);
   }, [current, words]);
 
   // Fetch spelling breakdown when card is flipped (beginner levels only)
@@ -20514,11 +20513,11 @@ function StrokeAnimation({ char, size = 180, speed = "normal", showGlyphGuide = 
 // only the 44 consonants for now, see #59; vowels/tone marks are stretch
 // goal #63). Dedupes, keeps first-seen order (refined by rankCharsByVocab-
 // Frequency below before display).
-function extractPracticableChars(thaiText) {
-  if (!thaiText) return [];
+function extractPracticableChars(englishText) {
+  if (!englishText) return [];
   const seen = new Set();
   const out = [];
-  for (const ch of thaiText) {
+  for (const ch of englishText) {
     if (ALL_THAI_STROKES[ch] && !seen.has(ch)) { seen.add(ch); out.push(ch); }
   }
   return out;
@@ -20532,7 +20531,7 @@ function extractPracticableChars(thaiText) {
 function rankCharsByVocabFrequency(chars, allWords) {
   const freq = {};
   for (const w of allWords) {
-    for (const ch of (w.thai || "")) {
+    for (const ch of (w.english || "")) {
       if (ALL_THAI_STROKES[ch]) freq[ch] = (freq[ch] || 0) + 1;
     }
   }
@@ -20670,7 +20669,7 @@ function WordCalligraphySession({ words, onClose, onCalligraphyUpdate }) {
   const charScoresRef             = useRef([]);        // per-char scores accumulator
 
   const word  = words[wordIdx];
-  const chars = word ? [...word.thai].filter(ch => ALL_THAI_STROKES[ch]) : [];
+  const chars = word ? [...(word.english || "")].filter(ch => ALL_THAI_STROKES[ch]) : [];
   const char  = chars[charIdx];
 
   useEffect(() => {
@@ -21015,9 +21014,9 @@ function TracingCanvas({ char, size = 260, onComplete,
 // Issue #60 — Preview Calligraphy (teacher-only, lets Bruno test the animation
 // for any of the 44 consonants without needing #62's Study Mode entry point yet)
 function CalligraphyPreviewModal({ onClose }) {
-  const allChars = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
-  const consonants = Object.keys(THAI_STROKES);
-  const vowels = Object.keys(THAI_VOWEL_TONES);
+  const allChars = { ...ENGLISH_STROKES };
+  const consonants = Object.keys(ENGLISH_STROKES).filter(c => c === c.toUpperCase());
+  const vowels = Object.keys(ENGLISH_STROKES).filter(c => c === c.toLowerCase());
   const [char, setChar] = useState(consonants[0]);
   const [mode, setMode] = useState("watch");
   const [traceKey, setTraceKey] = useState(0);
@@ -21057,14 +21056,14 @@ function CalligraphyPreviewModal({ onClose }) {
           <div className="calli-preview-row">
             <span className="level-settings-field-label">Character</span>
             <select value={char} onChange={(e) => { setChar(e.target.value); setTraceKey(k => k + 1); }}>
-              <optgroup label="Consonants">
+              <optgroup label="Uppercase">
                 {consonants.map((c) => (
-                  <option key={c} value={c}>{c}{THAI_STROKES[c].strokes.length > 1 ? ` (${THAI_STROKES[c].strokes.length} strokes)` : ""}</option>
+                  <option key={c} value={c}>{c}{ENGLISH_STROKES[c].strokes.length > 1 ? ` (${ENGLISH_STROKES[c].strokes.length} strokes)` : ""}</option>
                 ))}
               </optgroup>
-              <optgroup label="Vowels / Tones">
+              <optgroup label="Lowercase">
                 {vowels.map((c) => (
-                  <option key={c} value={c}>{c}{THAI_VOWEL_TONES[c].strokes.length > 1 ? ` (${THAI_VOWEL_TONES[c].strokes.length} strokes)` : ""}</option>
+                  <option key={c} value={c}>{c}{ENGLISH_STROKES[c].strokes.length > 1 ? ` (${ENGLISH_STROKES[c].strokes.length} strokes)` : ""}</option>
                 ))}
               </optgroup>
             </select>

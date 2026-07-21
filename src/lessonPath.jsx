@@ -7,13 +7,9 @@ import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from
 import { createPortal } from "react-dom";
 import { X, Plus, ChevronUp, ChevronDown, Trash2, BookOpen, Lightbulb, Search, Volume2, ChevronLeft, ChevronRight, Lock, Check, Star } from "lucide-react";
 import { storageGet, storageGetSafe, storageSet, storageDelete, storageList, storageUpload, getS0Energy, spendS0Energy, calcS0Energy, S0_ENERGY_MAX, S0_ENERGY_COST } from "./storage.js";
-import { THAI_STROKES } from "./data/thaiStrokes";
-import { THAI_VOWEL_TONES } from "./data/thaiVowelTones";
+import { ENGLISH_STROKES } from "./data/englishStrokes";
 // ALL_STROKE_DATA is the single source of truth for the calligraphy/tracing engine.
-// Currently contains Thai consonants + vowel-tones; swap this object when English
-// stroke data is ready (create src/data/englishStrokes.js with the same shape —
-// { [char]: { strokes: [...SVG path arrays] } } — and merge it in here).
-const ALL_STROKE_DATA = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
+const ALL_STROKE_DATA = { ...ENGLISH_STROKES };
 import { TracingCanvas, StrokeAnimation, getSvgPathFromStroke, TRACE_FREEHAND_OPTS } from "./calligraphy.jsx";
 import { getStroke } from "perfect-freehand";
 import { WordWritingCanvas } from "./wordWriting.jsx";
@@ -1221,7 +1217,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
 // LP3 helper — interactive step sub-components
 // ---------------------------------------------------------------------------
 
-const ALL_CONSONANTS = Object.keys(THAI_STROKES); // distractor pool for choice steps; replace with English letter pool when English stroke data lands
+const ALL_CONSONANTS = Object.keys(ENGLISH_STROKES); // distractor pool for choice steps
 
 function pickDistractors(correct, fixed) {
   if (fixed?.length === 3) return fixed;
