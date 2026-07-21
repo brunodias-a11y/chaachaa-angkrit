@@ -261,12 +261,12 @@ const SECURITY_QUESTION_KEY   = (slug) => `security-question:${slug}`; // shared
 
 // #518 — fixed list of recovery questions
 const SECURITY_QUESTIONS = [
-  "What is your favorite animal?",
-  "What city were you born in?",
-  "What is your mother's first name?",
-  "What was the name of your first pet?",
-  "What is your favorite food?",
-  "What is your best friend's first name?",
+  "สัตว์ที่ชอบที่สุดคืออะไร? (What is your favorite animal?)",
+  "เกิดที่เมืองอะไร? (What city were you born in?)",
+  "ชื่อแม่คืออะไร? (What is your mother's first name?)",
+  "ชื่อสัตว์เลี้ยงตัวแรกคืออะไร? (What was the name of your first pet?)",
+  "อาหารที่ชอบที่สุดคืออะไร? (What is your favorite food?)",
+  "ชื่อเพื่อนสนิทที่สุดคืออะไร? (What is your best friend's first name?)",
 ];
 
 // #518 — SHA-256 hex of answer (trimmed + lowercased), computed client-side
@@ -8158,7 +8158,8 @@ function ForgotPinModal({ onClose }) {
               {step === 2 && (
                 <>
                   <p className="page-sub" style={{ marginBottom: 4 }}>ตอบคำถามความปลอดภัยของคุณ:</p>
-                  <p style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>{question}</p>
+                  <p style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>{question}</p>
+                  <p className="page-sub" style={{ marginBottom: 12, fontSize: 11 }}>💡 ตอบเป็นภาษาอังกฤษจะดีกว่านะ เช่น "dog" แทน "หมา"</p>
                   <input className="login-input" placeholder="คำตอบของคุณ" value={answer}
                     onChange={e => { setAnswer(e.target.value); setError(""); }} autoFocus />
                   {error && <p className="login-error">{error}</p>}
@@ -10973,7 +10974,7 @@ function EventsScreen({ profile, pathStats = {}, dawnTickets = 0, onGoToStore })
         <div className="ev-page-title-row">
           <h1 className="ev-page-title">✦ <span className="sch-title-big">E</span>VENTS ✦</h1>
         </div>
-        <p className="ev-page-sub">Exciting events, amazing rewards.</p>
+        <p className="ev-page-sub">กิจกรรมสุดพิเศษ รางวัลสุดเจ๋ง</p>
       </div>
 
       {/* ── Calendar ── */}
@@ -13761,7 +13762,7 @@ function PreActivityFlow({ profile, onSaveAvatar, powersConfig, activeBoosts, on
       <h1 className="page-title">Ready to start?</h1>
       <PowerBar profile={profile} powersConfig={powersConfig} activeBoosts={activeBoosts} onActivated={onActivated} activity={activity} onGoToAvatars={onGoToAvatars} />
       {!hasPowers && (
-        <p className="pre-activity-no-powers">{avatar?.name} has no powers for this yet — change your avatar on the previous screen for a boost.</p>
+        <p className="pre-activity-no-powers">{avatar?.name} ยังไม่มีพลังสำหรับโหมดนี้ — ลองเปลี่ยน avatar หน้าก่อนเพื่อรับ boost นะ</p>
       )}
       <div className="pre-activity-actions">
         <button className="pre-activity-back-btn" onClick={() => setStep("avatar")}>Back</button>
@@ -21456,7 +21457,7 @@ function GachaHistoryModal({ history, error, pity, profile, bannerFeatured, bann
               ✨ You're guaranteed a jackpot on the next Solstice banner!
             </p>
           )}
-          {error && <p className="stg-msg stg-msg-error">Couldn't load your Wish History — try again later.</p>}
+          {error && <p className="stg-msg stg-msg-error">โหลด Wish History ไม่ได้ — ลองใหม่อีกครั้งนะ</p>}
           {!error && history === null && <p className="page-sub">Loading…</p>}
           {!error && history !== null && history.length === 0 && (
             <p className="page-sub">ยังไม่เคย roll เลย — ไปหา Rare, Epic หรือ Solstice ticket ในแท็บ Gacha ได้เลย!</p>
@@ -22444,7 +22445,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
           <div className="sanctuary-col-title">
             <img src="/coins/catcoin.png" alt="" className="sct-icon" /> MY WALLET
           </div>
-          {ledgerError && <p className="stg-msg stg-msg-error">Couldn't load activity.</p>}
+          {ledgerError && <p className="stg-msg stg-msg-error">โหลดข้อมูลกิจกรรมไม่ได้ — ลองใหม่อีกครั้งนะ</p>}
           {!ledgerError && ledger === null && <p className="page-sub">Loading…</p>}
           {!ledgerError && ledger !== null && ledger.length === 0 && (
             <p className="page-sub">ยังไม่มีกิจกรรมเลย — ไปหา Meowtongs กันเถอะ!</p>
