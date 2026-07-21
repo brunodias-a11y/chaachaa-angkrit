@@ -34,6 +34,10 @@ const LessonPathFeature = React.lazy(() =>
 // auth.uid() that Postgres Row-Level-Security can lock their data to,
 // instead of the old plain-text `username` column anyone could read/write.
 // ---------------------------------------------------------------------------
+// Typography constants — change font here, takes effect everywhere in this file
+const FONT_ENGLISH = "'Poppins', sans-serif";   // language being learned (English)
+const FONT_THAI    = "'Sarabun', sans-serif";    // students' native language (Thai)
+
 const AUTH_DOMAIN         = "chaachaa-angkrit-app.com"; // NOTE: fake per-student email domain, never
                                                      // actually sent to. Must NOT be a reserved/
                                                      // special-use TLD (.local, .test, .example,
@@ -7700,7 +7704,7 @@ const PRACTICE_TIMER_SECONDS = {
   "Pre-A1": 20, "A1": 16, "A2": 15, "B1": 12, "B2": 10, "C1": 8, "C2": 5,
 };
 function thaiFontForLevel(level) {
-  return BEGINNER_FONT_LEVELS.has(level) ? "'Inter', sans-serif" : "'Inter', sans-serif";
+  return FONT_THAI;
 }
 
 // ---------------------------------------------------------------------------
@@ -24691,7 +24695,7 @@ function ComingSoon({ tab }) {
 // Styles
 // ---------------------------------------------------------------------------
 const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Unicase:wght@600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Noto+Sans+Thai:wght@400;600&family=Poppins:wght@400;600;700&family=Inter:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Unicase:wght@600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Noto+Sans+Thai:wght@400;600&family=Poppins:wght@400;600;700&family=Sarabun:wght@400;600;700&family=Inter:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
   /* ── Core aliases (backward compat) ── */
@@ -24716,9 +24720,10 @@ const styles = `
 
   /* ── Typography scale ── */
   --font-display:  'Fraunces', serif;
-  --font-thai:     'Inter', sans-serif;
-  --font-thai-beginner: 'Inter', sans-serif;
-  --font-ui:       'Work Sans', sans-serif;
+  --font-english:       'Poppins', sans-serif;   /* language being learned — change here to swap */
+  --font-thai:          'Sarabun', sans-serif;   /* students' native language — change here to swap */
+  --font-thai-beginner: 'Sarabun', sans-serif;
+  --font-ui:            'Work Sans', sans-serif;
 
   --text-xs:       10px;
   --text-sm:       11.5px;
@@ -29781,8 +29786,8 @@ select.modal-input { appearance: none; }
 .lp-calli-step { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .lp-calli-phase-label { font-size: 14px; color: var(--ink-soft); }
 .lp-calli-done { display: flex; flex-direction: column; align-items: center; gap: 4px; background: rgba(20,50,30,0.85); border: 2px solid rgba(76,175,80,0.5); border-radius: 16px; padding: 20px 36px; margin: auto; }
-.lp-calli-great-thai { font-family: 'Inter', sans-serif; font-size: 52px; font-weight: 700; color: #4caf50; line-height: 1.1; }
-.lp-calli-great-en   { font-size: 18px; color: #4caf50; opacity: 0.85; }
+.lp-calli-great     { font-family: var(--font-english); font-size: 52px; font-weight: 700; color: #4caf50; line-height: 1.1; }
+.lp-calli-great-sub { font-size: 18px; color: #4caf50; opacity: 0.85; }
 /* Player — listen & write step */
 .lp-lw-actions { display: flex; gap: 10px; }
 .lp-lw-reveal-char { fill: rgba(43,48,96,0.30); }

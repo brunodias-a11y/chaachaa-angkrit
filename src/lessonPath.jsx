@@ -9,10 +9,19 @@ import { X, Plus, ChevronUp, ChevronDown, Trash2, BookOpen, Lightbulb, Search, V
 import { storageGet, storageGetSafe, storageSet, storageDelete, storageList, storageUpload, getS0Energy, spendS0Energy, calcS0Energy, S0_ENERGY_MAX, S0_ENERGY_COST } from "./storage.js";
 import { THAI_STROKES } from "./data/thaiStrokes";
 import { THAI_VOWEL_TONES } from "./data/thaiVowelTones";
-const ALL_THAI_STROKES = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
+// ALL_STROKE_DATA is the single source of truth for the calligraphy/tracing engine.
+// Currently contains Thai consonants + vowel-tones; swap this object when English
+// stroke data is ready (create src/data/englishStrokes.js with the same shape —
+// { [char]: { strokes: [...SVG path arrays] } } — and merge it in here).
+const ALL_STROKE_DATA = { ...THAI_VOWEL_TONES, ...THAI_STROKES };
 import { TracingCanvas, StrokeAnimation, getSvgPathFromStroke, TRACE_FREEHAND_OPTS } from "./calligraphy.jsx";
 import { getStroke } from "perfect-freehand";
 import { WordWritingCanvas } from "./wordWriting.jsx";
+
+// ---------------------------------------------------------------------------
+// Typography constants — change font here, takes effect everywhere in this file
+export const FONT_ENGLISH = "'Poppins', sans-serif";   // language being learned (English)
+export const FONT_THAI    = "'Sarabun', sans-serif";    // students' native language (Thai)
 
 // ---------------------------------------------------------------------------
 // LP1 — Data model & storage functions
@@ -361,7 +370,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               <div className="lp-word-search-input-wrap">
                 <Search size={13} />
                 <input
-                  placeholder="Search Thai, English or romanization…"
+                  placeholder="Search English, Thai or romanization…"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   className="lp-word-search-input"
@@ -439,17 +448,17 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
 
       {step.type === "calligraphy" && (
         <div className="lp-step-char-row">
-          <label className="lp-step-char-label">Thai character</label>
+          <label className="lp-step-char-label">English character</label>
           <input
             className="lp-step-char-input"
             value={step.char || ""}
             onChange={e => onChange({ ...step, char: [...e.target.value].slice(-1).join("") })}
             placeholder="ก"
           />
-          {step.char && ALL_THAI_STROKES[step.char] && (
+          {step.char && ALL_STROKE_DATA[step.char] && (
             <span className="lp-step-char-ok">✓ stroke data available</span>
           )}
-          {step.char && !ALL_THAI_STROKES[step.char] && (
+          {step.char && !ALL_STROKE_DATA[step.char] && (
             <span className="lp-step-char-warn">⚠ no stroke data for this character</span>
           )}
           <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as (optional)</label>
@@ -465,7 +474,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
 
       {(step.type === "listening" || step.type === "image-match") && (
         <div className="lp-step-char-row">
-          <label className="lp-step-char-label">Thai character</label>
+          <label className="lp-step-char-label">English character</label>
           <input
             className="lp-step-char-input"
             value={step.char || ""}
@@ -519,7 +528,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
 
       {step.type === "listen-write" && (
         <div className="lp-step-char-row">
-          <label className="lp-step-char-label">Thai character</label>
+          <label className="lp-step-char-label">English character</label>
           <input
             className="lp-step-char-input"
             value={step.char || ""}
@@ -540,7 +549,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
       {step.type === "memory-check" && (
         <>
           <div className="lp-step-char-row">
-            <label className="lp-step-char-label">Thai character</label>
+            <label className="lp-step-char-label">English character</label>
             <input
               className="lp-step-char-input"
               value={step.char || ""}
@@ -580,7 +589,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
 
       {step.type === "write-word" && (
         <div className="lp-step-char-row">
-          <label className="lp-step-char-label">Thai word</label>
+          <label className="lp-step-char-label">English word</label>
           <input
             className="lp-step-char-input"
             style={{ width: 140, fontSize: 18 }}
@@ -601,7 +610,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
 
       {step.type === "listen-write-word" && (
         <div className="lp-step-char-row">
-          <label className="lp-step-char-label">Thai word</label>
+          <label className="lp-step-char-label">English word</label>
           <input
             className="lp-step-char-input"
             style={{ width: 140, fontSize: 18 }}
@@ -623,7 +632,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
       {step.type === "match-write-word" && (
         <>
           <div className="lp-step-char-row">
-            <label className="lp-step-char-label">Thai word</label>
+            <label className="lp-step-char-label">English word</label>
             <input
               className="lp-step-char-input"
               style={{ width: 140, fontSize: 18 }}
@@ -817,18 +826,18 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     for (const s of form.steps) {
       if (s.type === "vocab"       && !s.wordId)      return "All vocab steps need a word selected.";
       if (s.type === "tip"         && !s.text?.trim() && !s.imageUrl) return "All tip steps need text or an image.";
-      if (s.type === "calligraphy" && !s.char)        return "Calligraphy steps need a Thai character.";
-      if (s.type === "listening"   && !s.char)        return "Listening steps need a Thai character.";
-      if (s.type === "image-match"  && !s.char)        return "Image-match steps need a Thai character.";
+      if (s.type === "calligraphy" && !s.char)        return "Calligraphy steps need an English character.";
+      if (s.type === "listening"   && !s.char)        return "Listening steps need an English character.";
+      if (s.type === "image-match"  && !s.char)        return "Image-match steps need an English character.";
       if (s.type === "image-match"  && !s.imageUrl)   return "Image-match steps need a reference image.";
-      if (s.type === "listen-write"  && !s.char)      return "Listen & Write steps need a Thai character.";
+      if (s.type === "listen-write"  && !s.char)      return "Listen & Write steps need an English character.";
       if (s.type === "listen-write"  && !s.speakText) return "Listen & Write steps need a Speak as text.";
-      if (s.type === "memory-check"  && !s.char)      return "Memory Check steps need a Thai character.";
+      if (s.type === "memory-check"  && !s.char)      return "Memory Check steps need an English character.";
       if (s.type === "memory-check"  && !s.imageUrl)  return "Memory Check steps need a reference image.";
-      if (s.type === "write-word"        && !s.word?.trim())     return "Write Word steps need a Thai word.";
-      if (s.type === "listen-write-word" && !s.word?.trim())      return "Listen & Write Word steps need a Thai word.";
+      if (s.type === "write-word"        && !s.word?.trim())     return "Write Word steps need an English word.";
+      if (s.type === "listen-write-word" && !s.word?.trim())      return "Listen & Write Word steps need an English word.";
       if (s.type === "listen-write-word" && !s.speakText?.trim()) return "Listen & Write Word steps need a Speak as text.";
-      if (s.type === "match-write-word"  && !s.word?.trim())      return "Match & Write Word steps need a Thai word.";
+      if (s.type === "match-write-word"  && !s.word?.trim())      return "Match & Write Word steps need an English word.";
       if (s.type === "match-write-word"  && !s.imageUrl)          return "Match & Write Word steps need a reference image.";
     }
     // Warn if deleting would orphan a section's rewards
@@ -1005,7 +1014,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
                     className="lp-section-name-input"
                     placeholder="Section name (optional)…"
                     value={sectionMeta[secIdx]?.name || ""}
-                    style={{ fontFamily: sectionMeta[secIdx]?.font || "Sarabun" }}
+                    style={{ fontFamily: sectionMeta[secIdx]?.font || FONT_THAI }}
                     onChange={e => {
                       const updated = { ...sectionMeta, [secIdx]: { ...sectionMeta[secIdx], name: e.target.value } };
                       setSectionMetaState(updated);
@@ -1014,7 +1023,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
                   />
                   <select
                     className="lp-section-font-select"
-                    value={sectionMeta[secIdx]?.font || "Sarabun"}
+                    value={sectionMeta[secIdx]?.font || FONT_THAI}
                     onChange={e => {
                       const updated = { ...sectionMeta, [secIdx]: { ...sectionMeta[secIdx], font: e.target.value } };
                       setSectionMetaState(updated);
@@ -1212,7 +1221,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
 // LP3 helper — interactive step sub-components
 // ---------------------------------------------------------------------------
 
-const ALL_CONSONANTS = Object.keys(THAI_STROKES);
+const ALL_CONSONANTS = Object.keys(THAI_STROKES); // distractor pool for choice steps; replace with English letter pool when English stroke data lands
 
 function pickDistractors(correct, fixed) {
   if (fixed?.length === 3) return fixed;
@@ -1288,7 +1297,8 @@ function CalligraphyStep({ step, onDone, speakThai }) {
         <StrokeAnimation key={step.char} char={step.char} size={200} onComplete={() => setPhase("trace")} />
       ) : done ? (
         <div className="lp-calli-done">
-          <div className="lp-calli-great-thai">เก่งมาก</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
           <div className="lp-calli-great-en">Great job!</div>
         </div>
       ) : (
@@ -1297,6 +1307,40 @@ function CalligraphyStep({ step, onDone, speakThai }) {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// SPEC — Minimal Pairs fill-in-the-gap (future redesign of listen-write &
+// memory-check for English phonics / literacy)
+//
+// Both step types will share the same mechanic:
+//
+//   step.display  — word shown with the gap, e.g. "sh_p"
+//   step.word     — full word spoken via TTS, e.g. "ship" or "sheep"
+//   step.expected — letters the canvas waits for (1 or more), e.g. "i" or "ee"
+//   step.speakText — optional override for TTS text (defaults to step.word)
+//
+// Flow:
+//   1. Show step.display + play TTS(step.word) automatically.
+//   2. Student writes step.expected on the canvas (one letter or sequence).
+//   3. Stroke scorer validates against ALL_STROKE_DATA[step.expected]:
+//      ✅ correct → award point, show "Well Done!" / "เก่งมาก", auto-advance.
+//      ⛔ wrong   → grant one retry (canvas clears, TTS replays).
+//   4. On second failure:
+//      ⛔ wrong again → credit as error (no point), show "ไม่เป็นไร" in
+//         var(--color-orange, #F39C12) instead of green, auto-advance.
+//
+// listen-write  (👂✍️) — shows display + audio only, no image reference.
+// memory-check  (🖼️✍️) — shows step.imageUrl as a visual hint alongside display.
+//
+// Implementation notes:
+//   - Canvas must support multi-character expected values (loop scorer over
+//     each glyph in step.expected sequentially, or treat the sequence as a
+//     single $1 Unistroke template if glyphs are ligated).
+//   - Uppercase / lowercase must both be valid templates for English letters
+//     (store both in ALL_STROKE_DATA once englishStrokes.js is created).
+//   - "ไม่เป็นไร" copy lives in FEEDBACK_WRONG constant below so it's easy
+//     to update if tone/translation changes.
+// ---------------------------------------------------------------------------
 
 function ListenWriteStep({ step, speakThai, onDone }) {
   const svgRef = useRef(null);
@@ -1382,7 +1426,8 @@ function ListenWriteStep({ step, speakThai, onDone }) {
         </div>
       ) : (
         <div className="lp-calli-done">
-          <div className="lp-calli-great-thai">เก่งมาก</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
           <div className="lp-calli-great-en">Great job!</div>
         </div>
       )}
@@ -1477,7 +1522,8 @@ function MemoryCheckStep({ step, speakThai, onDone }) {
         </div>
       ) : (
         <div className="lp-calli-done">
-          <div className="lp-calli-great-thai">เก่งมาก</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
           <div className="lp-calli-great-en">Great job!</div>
         </div>
       )}
@@ -1498,7 +1544,8 @@ function WriteWordStep({ step, speakThai, onDone }) {
       )}
       {done ? (
         <div className="lp-calli-done">
-          <div className="lp-calli-great-thai">เก่งมาก</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
           <div className="lp-calli-great-en">Great job!</div>
         </div>
       ) : (
@@ -1527,7 +1574,8 @@ function ListenWriteWordStep({ step, speakThai, onDone }) {
       {done ? (
         <div className="lp-calli-done">
           <div className="lp-calli-great-thai" style={{ fontSize: 36 }}>{step.word}</div>
-          <div className="lp-calli-great-en">เก่งมาก — Great job!</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
         </div>
       ) : (
         <WordWritingCanvas
@@ -1563,7 +1611,8 @@ function MatchWriteWordStep({ step, speakThai, onDone }) {
       {done ? (
         <div className="lp-calli-done">
           <div className="lp-calli-great-thai" style={{ fontSize: 36 }}>{step.word}</div>
-          <div className="lp-calli-great-en">เก่งมาก — Great job!</div>
+          <div className="lp-calli-great">Well done!</div>
+          <div className="lp-calli-great-sub">เก่งมาก</div>
         </div>
       ) : (
         <WordWritingCanvas
@@ -1631,7 +1680,7 @@ function ChoiceStep({ correct, distractors, speakThai, speakText, imageUrl, remo
             + (selected && !isPicked && isCorrect ? " lp-choice-reveal" : "");
           return (
             <button key={ch} className={cls} onClick={() => handlePick(ch)}
-              style={{ fontFamily: "'Sarabun', sans-serif" }}>
+              style={{ fontFamily: FONT_THAI }}>
               {ch}
             </button>
           );
@@ -1690,7 +1739,7 @@ export function LessonPlayerModal({ lesson, words, speakThai, onComplete, onPrac
   const isAutoStep   = isChoiceStep || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word";
   const [choiceDone, setChoiceDone] = useState(false);
 
-  // Auto-advance calligraphy/write-word/listen-write-word/match-write-word steps after completion (1200ms to show เก่งมาก)
+  // Auto-advance calligraphy/write-word/listen-write-word/match-write-word steps after completion (1200ms to show "Well done!")
   useEffect(() => {
     if ((step?.type === "calligraphy" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && choiceDone) {
       const t = setTimeout(() => {
@@ -2132,7 +2181,7 @@ function SectionSeparator({ sectionIndex, stats, name, nameFont, colorIdx = 0 })
     <div className="lp-section-sep">
       <div className="lp-section-sep-line" style={{ background: `linear-gradient(90deg, transparent, ${c.light}50, transparent)` }} />
       {name && (
-        <div className="lp-section-sep-name" style={{ fontFamily: nameFont || "Sarabun", color: c.light }}>
+        <div className="lp-section-sep-name" style={{ fontFamily: nameFont || FONT_THAI, color: c.light }}>
           {name}
         </div>
       )}
