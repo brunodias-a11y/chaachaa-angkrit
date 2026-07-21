@@ -406,7 +406,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               style={{ width: 200, fontSize: 14 }}
               value={step.speakText || ""}
               onChange={e => onChange({ ...step, speakText: e.target.value })}
-              placeholder="กอ ไก่"
+              placeholder="ay"
             />
           </div>
           {step.imageUrl ? (
@@ -449,7 +449,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             className="lp-step-char-input"
             value={step.char || ""}
             onChange={e => onChange({ ...step, char: [...e.target.value].slice(-1).join("") })}
-            placeholder="ก"
+            placeholder="A"
           />
           {step.char && ALL_STROKE_DATA[step.char] && (
             <span className="lp-step-char-ok">✓ stroke data available</span>
@@ -463,7 +463,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 14 }}
             value={step.speakText || ""}
             onChange={e => onChange({ ...step, speakText: e.target.value })}
-            placeholder="กอ ไก่"
+            placeholder="ay"
           />
         </div>
       )}
@@ -475,14 +475,14 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             className="lp-step-char-input"
             value={step.char || ""}
             onChange={e => onChange({ ...step, char: [...e.target.value].slice(-1).join("") })}
-            placeholder="ก"
+            placeholder="A"
           />
           <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Distractors (leave blank for random)</label>
           <input
             className="lp-step-char-input lp-step-distractors-input"
             value={(step.distractors || []).join("")}
             onChange={e => onChange({ ...step, distractors: [...e.target.value].slice(0, 3) })}
-            placeholder="ขคง"
+            placeholder="BCD"
             maxLength={3}
           />
         </div>
@@ -496,7 +496,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 14 }}
             value={step.speakText || ""}
             onChange={e => onChange({ ...step, speakText: e.target.value })}
-            placeholder="กอ ไก่"
+            placeholder="ay"
           />
         </div>
       )}
@@ -529,7 +529,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             className="lp-step-char-input"
             value={step.char || ""}
             onChange={e => onChange({ ...step, char: [...e.target.value].slice(-1).join("") })}
-            placeholder="ก"
+            placeholder="A"
           />
           <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as</label>
           <input
@@ -537,7 +537,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 14 }}
             value={step.speakText || ""}
             onChange={e => onChange({ ...step, speakText: e.target.value })}
-            placeholder="กอ ไก่"
+            placeholder="ay"
           />
         </div>
       )}
@@ -550,7 +550,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               className="lp-step-char-input"
               value={step.char || ""}
               onChange={e => onChange({ ...step, char: e.target.value.slice(-1) })}
-              placeholder="ก"
+              placeholder="A"
               maxLength={1}
             />
             <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as (optional)</label>
@@ -559,7 +559,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               style={{ width: 140, fontSize: 14 }}
               value={step.speakText || ""}
               onChange={e => onChange({ ...step, speakText: e.target.value })}
-              placeholder="กอ ไก่"
+              placeholder="ay"
             />
           </div>
           <div className="lp-tip-editor" style={{ marginTop: 6 }}>
@@ -591,7 +591,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 18 }}
             value={step.word || ""}
             onChange={e => onChange({ ...step, word: e.target.value })}
-            placeholder="กาน"
+            placeholder="cat"
           />
           <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as (optional)</label>
           <input
@@ -599,7 +599,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 14 }}
             value={step.speakText || ""}
             onChange={e => onChange({ ...step, speakText: e.target.value })}
-            placeholder="กาน"
+            placeholder="cat"
           />
         </div>
       )}
@@ -612,7 +612,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 18 }}
             value={step.word || ""}
             onChange={e => onChange({ ...step, word: e.target.value })}
-            placeholder="กาน"
+            placeholder="cat"
           />
           <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as</label>
           <input
@@ -620,7 +620,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             style={{ width: 140, fontSize: 14 }}
             value={step.speakText || ""}
             onChange={e => onChange({ ...step, speakText: e.target.value })}
-            placeholder="กาน"
+            placeholder="cat"
           />
         </div>
       )}
@@ -634,7 +634,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               style={{ width: 140, fontSize: 18 }}
               value={step.word || ""}
               onChange={e => onChange({ ...step, word: e.target.value })}
-              placeholder="กาน"
+              placeholder="cat"
             />
             <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as (optional)</label>
             <input
@@ -642,7 +642,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
               style={{ width: 140, fontSize: 14 }}
               value={step.speakText || ""}
               onChange={e => onChange({ ...step, speakText: e.target.value })}
-              placeholder="กาน"
+              placeholder="cat"
             />
           </div>
           <div className="lp-tip-editor" style={{ marginTop: 6 }}>
