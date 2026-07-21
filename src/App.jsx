@@ -334,35 +334,35 @@ async function runAchievementEngine(stats, rewardOverrides, { onRareTicket, onEp
 // scaled by difficulty within its own category (harder milestone = bigger payout).
 const ACHIEVEMENTS = [
   // ── Streak ────────────────────────────────────────────────────────────
-  { id: "streak_1",   emoji: "🔥", title: "First Flame",      desc: "Reach a 1-day streak",       cat: "streak",   color: "#E8A33D", value: 20,  check: s => s.streakBest >= 1   },
-  { id: "streak_3",   emoji: "🔥", title: "Fire Starter",     desc: "Reach a 3-day streak",       cat: "streak",   color: "#E8A33D", value: 50,  check: s => s.streakBest >= 3   },
-  { id: "streak_7",   emoji: "🏅", title: "Week Warrior",     desc: "Reach a 7-day streak",       cat: "streak",   color: "#E8A33D", value: 100, check: s => s.streakBest >= 7   },
-  { id: "streak_14",  emoji: "🔥", title: "Fortnight Fire",   desc: "Reach a 14-day streak",      cat: "streak",   color: "#E8A33D", value: 200, check: s => s.streakBest >= 14  },
-  { id: "streak_30",  emoji: "🏆", title: "Monthly Master",   desc: "Reach a 30-day streak",      cat: "streak",   color: "#E8A33D", value: 500, check: s => s.streakBest >= 30  },
+  { id: "streak_1",   emoji: "🔥", title: "First Flame",      desc: "ทำ streak ต่อเนื่อง 1 วัน",       cat: "streak",   color: "#E8A33D", value: 20,  check: s => s.streakBest >= 1   },
+  { id: "streak_3",   emoji: "🔥", title: "Fire Starter",     desc: "ทำ streak ต่อเนื่อง 3 วัน",       cat: "streak",   color: "#E8A33D", value: 50,  check: s => s.streakBest >= 3   },
+  { id: "streak_7",   emoji: "🏅", title: "Week Warrior",     desc: "ทำ streak ต่อเนื่อง 7 วัน",       cat: "streak",   color: "#E8A33D", value: 100, check: s => s.streakBest >= 7   },
+  { id: "streak_14",  emoji: "🔥", title: "Fortnight Fire",   desc: "ทำ streak ต่อเนื่อง 14 วัน",      cat: "streak",   color: "#E8A33D", value: 200, check: s => s.streakBest >= 14  },
+  { id: "streak_30",  emoji: "🏆", title: "Monthly Master",   desc: "ทำ streak ต่อเนื่อง 30 วัน",      cat: "streak",   color: "#E8A33D", value: 500, check: s => s.streakBest >= 30  },
   // ── Vocabulary ────────────────────────────────────────────────────────
-  { id: "words_1",    emoji: "📖", title: "First Word",       desc: "Practice your first word",   cat: "vocab",    color: "#3D6FA8", value: 20,  check: s => s.wordsAttempted >= 1   },
-  { id: "words_25",   emoji: "📚", title: "Word Collector",   desc: "Practice 25 words",          cat: "vocab",    color: "#3D6FA8", value: 80,  check: s => s.wordsAttempted >= 25  },
-  { id: "words_100",  emoji: "📚", title: "Vocabulary Bank",  desc: "Practice 100 words",         cat: "vocab",    color: "#3D6FA8", value: 250, check: s => s.wordsAttempted >= 100 },
-  { id: "master_10",  emoji: "⭐", title: "Sharp Mind",       desc: "Master 10 words (SRS 14d+)", cat: "vocab",    color: "#3D6FA8", value: 150, check: s => s.wordsMastered >= 10   },
-  { id: "master_50",  emoji: "🌟", title: "Memory Champion",  desc: "Master 50 words (SRS 14d+)", cat: "vocab",    color: "#3D6FA8", value: 400, check: s => s.wordsMastered >= 50   },
+  { id: "words_1",    emoji: "📖", title: "First Word",       desc: "ฝึกคำศัพท์คำแรก",                cat: "vocab",    color: "#3D6FA8", value: 20,  check: s => s.wordsAttempted >= 1   },
+  { id: "words_25",   emoji: "📚", title: "Word Collector",   desc: "ฝึกคำศัพท์ 25 คำ",               cat: "vocab",    color: "#3D6FA8", value: 80,  check: s => s.wordsAttempted >= 25  },
+  { id: "words_100",  emoji: "📚", title: "Vocabulary Bank",  desc: "ฝึกคำศัพท์ 100 คำ",              cat: "vocab",    color: "#3D6FA8", value: 250, check: s => s.wordsAttempted >= 100 },
+  { id: "master_10",  emoji: "⭐", title: "Sharp Mind",       desc: "จำคำศัพท์ได้แม่น 10 คำ (SRS 14d+)", cat: "vocab",    color: "#3D6FA8", value: 150, check: s => s.wordsMastered >= 10   },
+  { id: "master_50",  emoji: "🌟", title: "Memory Champion",  desc: "จำคำศัพท์ได้แม่น 50 คำ (SRS 14d+)", cat: "vocab",    color: "#3D6FA8", value: 400, check: s => s.wordsMastered >= 50   },
   // ── Sunday Test ───────────────────────────────────────────────────────
-  { id: "st_first",   emoji: "🗓", title: "Sunday Scholar",   desc: "Complete your first Sunday Test",    cat: "sunday",   color: "#8E6BAE", value: 50,  check: s => s.sundayTestCount >= 1  },
-  { id: "st_4",       emoji: "📅", title: "Four Sundays",     desc: "Complete 4 Sunday Tests",            cat: "sunday",   color: "#8E6BAE", value: 150, check: s => s.sundayTestCount >= 4  },
-  { id: "st_perfect", emoji: "💯", title: "Perfect Sunday",   desc: "Score 100% on a Sunday Test",        cat: "sunday",   color: "#8E6BAE", value: 300, check: s => s.perfectSundayTests >= 1 },
+  { id: "st_first",   emoji: "🗓", title: "Sunday Scholar",   desc: "ทำ Sunday Test ครั้งแรก",          cat: "sunday",   color: "#8E6BAE", value: 50,  check: s => s.sundayTestCount >= 1  },
+  { id: "st_4",       emoji: "📅", title: "Four Sundays",     desc: "ทำ Sunday Test ครบ 4 ครั้ง",      cat: "sunday",   color: "#8E6BAE", value: 150, check: s => s.sundayTestCount >= 4  },
+  { id: "st_perfect", emoji: "💯", title: "Perfect Sunday",   desc: "ได้ 100% ใน Sunday Test",          cat: "sunday",   color: "#8E6BAE", value: 300, check: s => s.perfectSundayTests >= 1 },
   // ── Practice ─────────────────────────────────────────────────────────
-  { id: "prac_1",     emoji: "✅", title: "First Step",       desc: "Complete your first Practice lesson", cat: "practice", color: "#2F6E5C", value: 20,  check: s => s.sessionsCompleted >= 1  },
-  { id: "prac_10",    emoji: "🎯", title: "Dedicated",        desc: "Complete 10 Practice lessons",        cat: "practice", color: "#2F6E5C", value: 100, check: s => s.sessionsCompleted >= 10 },
-  { id: "prac_30",    emoji: "💪", title: "Unstoppable",      desc: "Complete 30 Practice lessons",        cat: "practice", color: "#2F6E5C", value: 300, check: s => s.sessionsCompleted >= 30 },
+  { id: "prac_1",     emoji: "✅", title: "First Step",       desc: "เรียน Practice ครั้งแรก",          cat: "practice", color: "#2F6E5C", value: 20,  check: s => s.sessionsCompleted >= 1  },
+  { id: "prac_10",    emoji: "🎯", title: "Dedicated",        desc: "เรียน Practice ครบ 10 ครั้ง",     cat: "practice", color: "#2F6E5C", value: 100, check: s => s.sessionsCompleted >= 10 },
+  { id: "prac_30",    emoji: "💪", title: "Unstoppable",      desc: "เรียน Practice ครบ 30 ครั้ง",     cat: "practice", color: "#2F6E5C", value: 300, check: s => s.sessionsCompleted >= 30 },
   // ── Special ───────────────────────────────────────────────────────────
-  { id: "combo_7st",  emoji: "🌈", title: "Full Week",        desc: "7-day streak + complete a Sunday Test", cat: "special", color: "#C84B31", value: 200, check: s => s.streakBest >= 7 && s.sundayTestCount >= 1 },
-  { id: "combo_all",  emoji: "👑", title: "Complete Scholar", desc: "Master 10 words + complete 4 Sunday Tests", cat: "special", color: "#C84B31", value: 500, check: s => s.wordsMastered >= 10 && s.sundayTestCount >= 4 },
+  { id: "combo_7st",  emoji: "🌈", title: "Full Week",        desc: "streak 7 วัน + ทำ Sunday Test",       cat: "special", color: "#C84B31", value: 200, check: s => s.streakBest >= 7 && s.sundayTestCount >= 1 },
+  { id: "combo_all",  emoji: "👑", title: "Complete Scholar", desc: "จำคำได้แม่น 10 คำ + ทำ Sunday Test 4 ครั้ง", cat: "special", color: "#C84B31", value: 500, check: s => s.wordsMastered >= 10 && s.sundayTestCount >= 4 },
   // Issue #180 — unlock every avatar in the random prize pool (shop-exclusive avatars don't count, they aren't drawable)
-  { id: "avatar_collector", emoji: "🐾", title: "Collector", desc: "Unlock every avatar in the prize pool", cat: "special", color: "#C84B31", value: 600, check: s => {
+  { id: "avatar_collector", emoji: "🐾", title: "Collector", desc: "ปลดล็อก avatar ทุกตัวใน prize pool", cat: "special", color: "#C84B31", value: 600, check: s => {
       const poolIds = getPrizePoolAvatars().map(a => a.id);
       return poolIds.length > 0 && poolIds.every(id => (s.unlockedAvatars || []).includes(id));
     } },
   // #752 — first legendary avatar (any source: gacha, banner, monthly cat)
-  { id: "first_legendary", emoji: "👑", title: "First Legendary", desc: "Obtain your first Legendary avatar", cat: "special", color: "#D4AF37", value: 300, check: s => {
+  { id: "first_legendary", emoji: "👑", title: "First Legendary", desc: "ได้รับ avatar ระดับ Legendary ตัวแรก", cat: "special", color: "#D4AF37", value: 300, check: s => {
       const catalog = getFullAvatarCatalog();
       const catalogMap = Object.fromEntries(catalog.map(a => [a.id, a]));
       return (s.unlockedAvatars || []).some(id => catalogMap[id]?.rarity === "legendary");
@@ -372,92 +372,92 @@ const ACHIEVEMENTS = [
   // visible ceiling" stretch goals, one notch past the hardest achievement
   // already visible in their theme (50 sessions > prac_30's 30, 100 words
   // mastered > master_50's 50, 3 perfect Sunday Tests > st_perfect's 1).
-  { id: "secret_iron",     emoji: "💎", title: "Iron Will",        desc: "Complete 50 Practice lessons",              cat: "secret", color: "#6B4E9E", value: 700, check: s => s.sessionsCompleted >= 50 },
-  { id: "secret_sage",     emoji: "🦉", title: "Vocabulary Sage",  desc: "Master 100 words (SRS 14d+)",               cat: "secret", color: "#6B4E9E", value: 800, check: s => s.wordsMastered >= 100 },
-  { id: "secret_flawless", emoji: "🌙", title: "Flawless Trio",    desc: "Score 100% on 3 different Sunday Tests",    cat: "secret", color: "#6B4E9E", value: 750, check: s => s.perfectSundayTests >= 3 },
+  { id: "secret_iron",     emoji: "💎", title: "Iron Will",        desc: "เรียน Practice ครบ 50 ครั้ง",              cat: "secret", color: "#6B4E9E", value: 700, check: s => s.sessionsCompleted >= 50 },
+  { id: "secret_sage",     emoji: "🦉", title: "Vocabulary Sage",  desc: "จำคำศัพท์ได้แม่น 100 คำ (SRS 14d+)",      cat: "secret", color: "#6B4E9E", value: 800, check: s => s.wordsMastered >= 100 },
+  { id: "secret_flawless", emoji: "🌙", title: "Flawless Trio",    desc: "ได้ 100% ใน Sunday Test 3 ครั้ง",          cat: "secret", color: "#6B4E9E", value: 750, check: s => s.perfectSundayTests >= 3 },
   // ── #508 — Onboarding tour secret achievements (hidden until triggered) ──
-  { id: "secret_tour_full", emoji: "🗺️", title: "Orienteering",    desc: "Completed the full app tour without skipping", cat: "secret", color: "#6B4E9E", value: 75,  check: s => s.tourCompletedFull },
-  { id: "secret_tour_skip", emoji: "⚡", title: "No Time to Waste", desc: "Skipped the app tour",                        cat: "secret", color: "#6B4E9E", value: 30,  check: s => s.tourCompletedSkip },
+  { id: "secret_tour_full", emoji: "🗺️", title: "Orienteering",    desc: "ทัวร์แอปครบโดยไม่ skip",                  cat: "secret", color: "#6B4E9E", value: 75,  check: s => s.tourCompletedFull },
+  { id: "secret_tour_skip", emoji: "⚡", title: "No Time to Waste", desc: "กด skip ทัวร์แอป",                         cat: "secret", color: "#6B4E9E", value: 30,  check: s => s.tourCompletedSkip },
   // ── #556/#557 — Tab exploration secret achievements ──
-  { id: "secret_explore_events",   emoji: "🎪", title: "Event Seeker", desc: "Visited the Events tab on your own",   cat: "secret", color: "#6B4E9E", value: 0,    ticket: "rare", avatarPrize: "cantalon-meowlupe", check: s => s.visitedEventsTab },
-  { id: "secret_explore_progress", emoji: "📈", title: "Explorer",     desc: "Visited the Progress tab on your own", cat: "secret", color: "#6B4E9E", value: 1000, ticket: "epic",                                   check: s => s.visitedProgressTab },
+  { id: "secret_explore_events",   emoji: "🎪", title: "Event Seeker", desc: "เปิดแท็บ Events เอง",   cat: "secret", color: "#6B4E9E", value: 0,    ticket: "rare", avatarPrize: "cantalon-meowlupe", check: s => s.visitedEventsTab },
+  { id: "secret_explore_progress", emoji: "📈", title: "Explorer",     desc: "เปิดแท็บ Progress เอง", cat: "secret", color: "#6B4E9E", value: 1000, ticket: "epic",                                   check: s => s.visitedProgressTab },
   // ── Exam (Issue #237, generic — any level; distinct from #45's Pre-A1→A1-specific ones) ──
-  { id: "exam_pass",    emoji: "🎓", title: "Exam Ace",     desc: "Pass a level exam",                     cat: "exam",          color: "#3D6FA8", value: 300, check: s => s.examPassedAny },
-  { id: "exam_perfect", emoji: "💯", title: "Flawless Exam", desc: "Score 100% on a level exam",           cat: "exam",          color: "#3D6FA8", value: 600, check: s => s.examPerfectAny },
+  { id: "exam_pass",    emoji: "🎓", title: "Exam Ace",     desc: "ผ่านการสอบระดับ",                    cat: "exam",          color: "#3D6FA8", value: 300, check: s => s.examPassedAny },
+  { id: "exam_perfect", emoji: "💯", title: "Flawless Exam", desc: "ได้ 100% ในการสอบระดับ",           cat: "exam",          color: "#3D6FA8", value: 600, check: s => s.examPerfectAny },
   // ── Level (Issue #45.1) — generic, fires on ANY level advancement (Pre-A1→A1,
   // A1→A2, etc). The two Pre-A1→A1-SPECIFIC achievements ("Mr. Smartpants" /
   // "ไม่เป็นไรลูก") are separate, added in sub-issue 45.2 — this one alone
   // doesn't care about attempt number or which levels, just that level advanced.
-  { id: "level_up",     emoji: "🎓", title: "Level Completed", desc: "Advance to the next proficiency level", cat: "level", color: "#2F6E5C", value: 250, check: s => s.levelUpAny },
+  { id: "level_up",     emoji: "🎓", title: "Level Completed", desc: "ก้าวขึ้นระดับ proficiency ถัดไป", cat: "level", color: "#2F6E5C", value: 250, check: s => s.levelUpAny },
   // Issue #45.2 — Pre-A1 -> A1-SPECIFIC (not generic like level_up above).
   // "Mr. Smartpants" rewards nailing the very first proficiency exam on the
   // very first try; "ไม่เป็นไรลูก" (Mài Bpen Rai Luuk — "it's okay, kid")
   // is the encouragement counterpart for failing that same first attempt —
   // deliberately not a punishment, keeps the app's tone warm either way.
-  { id: "level_pre_a1_pass1", emoji: "🧠", title: "Mr. Smartpants",              desc: "Pass the Pre-A1 → A1 exam on your first attempt", cat: "level", color: "#2F6E5C", value: 350, check: s => s.examPreA1FirstAttemptPass },
-  { id: "level_pre_a1_fail1", emoji: "🫂", title: "ไม่เป็นไรลูก Mài Bpen Rai Luuk", desc: "Take your first shot at the Pre-A1 → A1 exam",    cat: "level", color: "#2F6E5C", value: 100, check: s => s.examPreA1FirstAttemptFail },
+  { id: "level_pre_a1_pass1", emoji: "🧠", title: "Mr. Smartpants",              desc: "ผ่านสอบ Pre-A1 → A1 ในครั้งแรก", cat: "level", color: "#2F6E5C", value: 350, check: s => s.examPreA1FirstAttemptPass },
+  { id: "level_pre_a1_fail1", emoji: "🫂", title: "ไม่เป็นไรลูก Mài Bpen Rai Luuk", desc: "สอบ Pre-A1 → A1 ครั้งแรก",    cat: "level", color: "#2F6E5C", value: 100, check: s => s.examPreA1FirstAttemptFail },
   // ── Pronunciation (Issue #237) ────────────────────────────────────────
-  { id: "pron_master",  emoji: "🎤", title: "Golden Tongue", desc: "Reach 90%+ average pronunciation on 10 words", cat: "pronunciation", color: "#2F6E5C", value: 350, check: s => s.pronMasteredCount >= 10 },
+  { id: "pron_master",  emoji: "🎤", title: "Golden Tongue", desc: "ออกเสียงเฉลี่ย 90%+ ใน 10 คำ", cat: "pronunciation", color: "#2F6E5C", value: 350, check: s => s.pronMasteredCount >= 10 },
   // ── Comeback + Gacha (Issue #237) ─────────────────────────────────────
-  { id: "special_comeback", emoji: "🔥", title: "Phoenix",        desc: "Rebuild a 3-day streak after losing a 7+ day streak", cat: "special", color: "#C84B31", value: 250, check: s => s.comebackAchieved },
-  { id: "special_gacha",    emoji: "🎰", title: "First Fortune",  desc: "Acquire your first Gacha ticket",                     cat: "special", color: "#C84B31", value: 100, check: s => s.gachaTicketAcquired },
+  { id: "special_comeback", emoji: "🔥", title: "Phoenix",        desc: "สร้าง streak 3 วันใหม่หลังจากเสีย streak 7+ วัน", cat: "special", color: "#C84B31", value: 250, check: s => s.comebackAchieved },
+  { id: "special_gacha",    emoji: "🎰", title: "First Fortune",  desc: "ได้รับ Gacha ticket ใบแรก",                        cat: "special", color: "#C84B31", value: 100, check: s => s.gachaTicketAcquired },
   // ── Daily Reward (Issue #677) ─────────────────────────────────────────
-  { id: "daily_ticket_collector", emoji: "🎁", title: "Ticket Collector", desc: "Collect a Moonrise, Starlight & Solstice Ticket from Daily Rewards", cat: "streak", color: "#E8A33D", value: 0, ticket: "epic", check: s => !!(s.dailyRewardTickets?.rare && s.dailyRewardTickets?.epic && s.dailyRewardTickets?.banner) },
-  { id: "secret_daily_double",    emoji: "✨", title: "Lucky Paws",        desc: "Used a cat power to double a Daily Reward for the first time",        cat: "secret", color: "#6B4E9E", value: 0, ticket: "rare", check: s => !!s.usedDailyDouble },
+  { id: "daily_ticket_collector", emoji: "🎁", title: "Ticket Collector", desc: "รับ Moonrise, Starlight และ Solstice Ticket จาก Daily Rewards", cat: "streak", color: "#E8A33D", value: 0, ticket: "epic", check: s => !!(s.dailyRewardTickets?.rare && s.dailyRewardTickets?.epic && s.dailyRewardTickets?.banner) },
+  { id: "secret_daily_double",    emoji: "✨", title: "Lucky Paws",        desc: "ใช้พลังแมวเพื่อ double Daily Reward ครั้งแรก",                  cat: "secret", color: "#6B4E9E", value: 0, ticket: "rare", check: s => !!s.usedDailyDouble },
   // ── Berserk Mode (Issue #52.4) — one entry for starting the mode at all,
   // plus one per tier cleared with a perfect run (1/2/3 stars). Values scale
   // with tier difficulty, same convention as every other category here.
-  { id: "berserk_start",  emoji: "😾", title: "Going Berserk", desc: "Start your first Berserk Mode attempt",             cat: "berserk", color: "#C84B31", value: 50,  check: s => s.berserkAttempts >= 1 },
-  { id: "berserk_easy",   emoji: "🥉", title: "Smart Cat",     desc: "Clear the Easy Berserk tier with a perfect run",    cat: "berserk", color: "#C84B31", value: 200, check: s => s.berserkEasyCleared },
-  { id: "berserk_medium", emoji: "🥈", title: "Word-aholic",   desc: "Clear the Medium Berserk tier with a perfect run",  cat: "berserk", color: "#C84B31", value: 400, check: s => s.berserkMediumCleared },
-  { id: "berserk_hard",   emoji: "🥇", title: "Khun Phra!",    desc: "Clear the Hard Berserk tier with a perfect run",    cat: "berserk", color: "#C84B31", value: 700, check: s => s.berserkHardCleared },
+  { id: "berserk_start",  emoji: "😾", title: "Going Berserk", desc: "เริ่ม Berserk Mode ครั้งแรก",                  cat: "berserk", color: "#C84B31", value: 50,  check: s => s.berserkAttempts >= 1 },
+  { id: "berserk_easy",   emoji: "🥉", title: "Smart Cat",     desc: "ผ่าน Berserk ระดับ Easy แบบไม่พลาด",           cat: "berserk", color: "#C84B31", value: 200, check: s => s.berserkEasyCleared },
+  { id: "berserk_medium", emoji: "🥈", title: "Word-aholic",   desc: "ผ่าน Berserk ระดับ Medium แบบไม่พลาด",         cat: "berserk", color: "#C84B31", value: 400, check: s => s.berserkMediumCleared },
+  { id: "berserk_hard",   emoji: "🥇", title: "Khun Phra!",    desc: "ผ่าน Berserk ระดับ Hard แบบไม่พลาด",           cat: "berserk", color: "#C84B31", value: 700, check: s => s.berserkHardCleared },
   // ── Lesson Path (Issue #499) ─────────────────────────────────────────
-  { id: "path_first",      emoji: "🗺️", title: "First Steps",          desc: "Complete your first Path Mode lesson",                     cat: "path", color: "#4A90C4", value: 30,  check: s => s.pathLessonsCompleted >= 1 },
-  { id: "path_middle2",    emoji: "🐘", title: "Middle Scholar",        desc: "Complete the Middle Class Consonants lesson",              cat: "path", color: "#4A90C4", value: 200, ticket: "rare", check: s => s.pathMiddleConsonants2Done },
-  { id: "path_section1",   emoji: "🏁", title: "Section Complete",      desc: "Complete your first full Path Mode section",              cat: "path", color: "#4A90C4", value: 150, check: s => s.pathSectionsCompleted >= 1 },
-  { id: "path_perfect",    emoji: "💯", title: "Flawless Lesson",       desc: "Complete a Path Mode lesson with 100% accuracy",          cat: "path", color: "#4A90C4", value: 200, check: s => s.pathPerfectLessons >= 1 },
-  { id: "path_listen_25",  emoji: "🎧", title: "Sharp Ears",            desc: "Answer 25 Listening activities correctly",                cat: "path", color: "#4A90C4", value: 80,  check: s => s.pathListeningCorrect >= 25  },
-  { id: "path_listen_50",  emoji: "🎧", title: "Sound Seeker",          desc: "Answer 50 Listening activities correctly",                cat: "path", color: "#4A90C4", value: 150, check: s => s.pathListeningCorrect >= 50  },
-  { id: "path_listen_100", emoji: "👂", title: "Listening Master",      desc: "Answer 100 Listening activities correctly",               cat: "path", color: "#4A90C4", value: 300, check: s => s.pathListeningCorrect >= 100 },
-  { id: "path_match_25",   emoji: "🔍", title: "Pattern Scout",         desc: "Match 25 characters correctly",                          cat: "path", color: "#4A90C4", value: 80,  check: s => s.pathMatchCorrect >= 25  },
-  { id: "path_match_50",   emoji: "🔍", title: "Pattern Hunter",        desc: "Match 50 characters correctly",                          cat: "path", color: "#4A90C4", value: 150, check: s => s.pathMatchCorrect >= 50  },
-  { id: "path_match_100",  emoji: "🎯", title: "Match Master",          desc: "Match 100 characters correctly",                         cat: "path", color: "#4A90C4", value: 300, check: s => s.pathMatchCorrect >= 100 },
-  { id: "path_tips_50",    emoji: "💡", title: "Curious Learner",       desc: "Read 50 Tip cards",                                      cat: "path", color: "#4A90C4", value: 100, check: s => s.pathTipsRead >= 50  },
-  { id: "path_tips_100",   emoji: "💡", title: "Knowledge Seeker",      desc: "Read 100 Tip cards",                                     cat: "path", color: "#4A90C4", value: 200, check: s => s.pathTipsRead >= 100 },
+  { id: "path_first",      emoji: "🗺️", title: "First Steps",          desc: "เรียน Path Mode บทแรก",                            cat: "path", color: "#4A90C4", value: 30,  check: s => s.pathLessonsCompleted >= 1 },
+  { id: "path_middle2",    emoji: "🐘", title: "Middle Scholar",        desc: "เรียนบท Middle Class Consonants จบ",               cat: "path", color: "#4A90C4", value: 200, ticket: "rare", check: s => s.pathMiddleConsonants2Done },
+  { id: "path_section1",   emoji: "🏁", title: "Section Complete",      desc: "เรียน Path Mode ครบ section แรก",                 cat: "path", color: "#4A90C4", value: 150, check: s => s.pathSectionsCompleted >= 1 },
+  { id: "path_perfect",    emoji: "💯", title: "Flawless Lesson",       desc: "เรียน Path Mode ด้วยความแม่นยำ 100%",             cat: "path", color: "#4A90C4", value: 200, check: s => s.pathPerfectLessons >= 1 },
+  { id: "path_listen_25",  emoji: "🎧", title: "Sharp Ears",            desc: "ตอบถูก Listening activities 25 ข้อ",              cat: "path", color: "#4A90C4", value: 80,  check: s => s.pathListeningCorrect >= 25  },
+  { id: "path_listen_50",  emoji: "🎧", title: "Sound Seeker",          desc: "ตอบถูก Listening activities 50 ข้อ",              cat: "path", color: "#4A90C4", value: 150, check: s => s.pathListeningCorrect >= 50  },
+  { id: "path_listen_100", emoji: "👂", title: "Listening Master",      desc: "ตอบถูก Listening activities 100 ข้อ",             cat: "path", color: "#4A90C4", value: 300, check: s => s.pathListeningCorrect >= 100 },
+  { id: "path_match_25",   emoji: "🔍", title: "Pattern Scout",         desc: "จับคู่ตัวอักษรถูก 25 ครั้ง",                     cat: "path", color: "#4A90C4", value: 80,  check: s => s.pathMatchCorrect >= 25  },
+  { id: "path_match_50",   emoji: "🔍", title: "Pattern Hunter",        desc: "จับคู่ตัวอักษรถูก 50 ครั้ง",                     cat: "path", color: "#4A90C4", value: 150, check: s => s.pathMatchCorrect >= 50  },
+  { id: "path_match_100",  emoji: "🎯", title: "Match Master",          desc: "จับคู่ตัวอักษรถูก 100 ครั้ง",                    cat: "path", color: "#4A90C4", value: 300, check: s => s.pathMatchCorrect >= 100 },
+  { id: "path_tips_50",    emoji: "💡", title: "Curious Learner",       desc: "อ่าน Tip cards ครบ 50 ใบ",                       cat: "path", color: "#4A90C4", value: 100, check: s => s.pathTipsRead >= 50  },
+  { id: "path_tips_100",   emoji: "💡", title: "Knowledge Seeker",      desc: "อ่าน Tip cards ครบ 100 ใบ",                      cat: "path", color: "#4A90C4", value: 200, check: s => s.pathTipsRead >= 100 },
   // ── Calligraphy (Issue #358, Phase 10.7c) — reuses calligraphyProgMap
   // (#62) as its data source, no new tracking needed. Deliberately simple
   // bar ("at least 1 pass") for both, same yardstick the issue's own
   // examples used — mastery-level (3 passes) achievements can come later
   // if Bruno wants a harder tier once #63/#356 (vowels/tones) land.
-  { id: "callig_10",       emoji: "✍️", title: "First Strokes",     desc: "Trace 10 different Thai characters",      cat: "calligrapher", color: "#6D4C41", value: 100, check: s => s.calligraphyCharsPassed >= 10 },
-  { id: "callig_alphabet", emoji: "📜", title: "Complete Alphabet", desc: "Trace all 44 Thai consonants",            cat: "calligrapher", color: "#6D4C41", value: 500, check: s => s.calligraphyAlphabetComplete },
+  { id: "callig_10",       emoji: "✍️", title: "First Strokes",     desc: "ฝึกเขียน 10 ตัวอักษรที่ต่างกัน",          cat: "calligrapher", color: "#6D4C41", value: 100, check: s => s.calligraphyCharsPassed >= 10 },
+  { id: "callig_alphabet", emoji: "📜", title: "Complete Alphabet", desc: "ฝึกเขียน alphabet A–Z / a–z ครบทุกตัว",   cat: "calligrapher", color: "#6D4C41", value: 500, check: s => s.calligraphyAlphabetComplete },
   // Issue #415 (Phase 10) — word-level writing achievements
-  { id: "word_first",  emoji: "✍️", title: "First Word",   desc: "Write your first complete Thai word",    cat: "calligrapher", color: "#6D4C41", value: 150, check: s => s.wordCalligraphyWordsAttempted >= 1  },
-  { id: "word_10",     emoji: "📝", title: "Word Writer",  desc: "Write 10 different Thai words",          cat: "calligrapher", color: "#6D4C41", value: 300, check: s => s.wordCalligraphyWordsAttempted >= 10 },
-  { id: "word_master", emoji: "🏆", title: "Word Master",  desc: "Pass 5 words with score ≥ 75%",          cat: "calligrapher", color: "#6D4C41", value: 500, check: s => s.wordCalligraphyWordsPassed >= 5      },
+  { id: "word_first",  emoji: "✍️", title: "First Word",   desc: "เขียนคำ English คำแรกจนครบ",          cat: "calligrapher", color: "#6D4C41", value: 150, check: s => s.wordCalligraphyWordsAttempted >= 1  },
+  { id: "word_10",     emoji: "📝", title: "Word Writer",  desc: "เขียนคำ English 10 คำที่ต่างกัน",     cat: "calligrapher", color: "#6D4C41", value: 300, check: s => s.wordCalligraphyWordsAttempted >= 10 },
+  { id: "word_master", emoji: "🏆", title: "Word Master",  desc: "เขียนคำผ่าน 5 คำด้วยคะแนน ≥ 75%",   cat: "calligrapher", color: "#6D4C41", value: 500, check: s => s.wordCalligraphyWordsPassed >= 5      },
   // #703 — Path Mode consonant milestone achievements (Section 0)
-  { id: "path_low_class_done",  emoji: "🌙", title: "Low Class Learned",   desc: "Completed all Low Class consonant lessons",                      cat: "path", color: "#4A90C4", value: 200, ticket: "rare",  check: s => s.pathLowClassDone },
-  { id: "path_high_class_done", emoji: "⭐", title: "High Class Learned",  desc: "Completed all High Class consonant lessons",                     cat: "path", color: "#4A90C4", value: 200, ticket: "rare",  check: s => s.pathHighClassDone },
-  { id: "path_first_mastery",   emoji: "🎖️", title: "Three Classes Done",  desc: "Completed consonant lessons for all three consonant classes",    cat: "path", color: "#4A90C4", value: 300, ticket: "rare",  check: s => s.pathFirstMasteryDone },
-  { id: "path_section0_complete", emoji: "🎓", title: "Foundation Complete", desc: "Learnt all Thai consonants and mastered them",                 cat: "path", color: "#4A90C4", value: 500, ticket: "epic",  check: s => s.pathSectionsCompleted >= 1 },
+  { id: "path_low_class_done",  emoji: "🌙", title: "Low Class Learned",   desc: "เรียนบท Low Class Consonants ครบ",                   cat: "path", color: "#4A90C4", value: 200, ticket: "rare",  check: s => s.pathLowClassDone },
+  { id: "path_high_class_done", emoji: "⭐", title: "High Class Learned",  desc: "เรียนบท High Class Consonants ครบ",                  cat: "path", color: "#4A90C4", value: 200, ticket: "rare",  check: s => s.pathHighClassDone },
+  { id: "path_first_mastery",   emoji: "🎖️", title: "Three Classes Done",  desc: "เรียนบท consonants ครบทั้ง 3 class",                 cat: "path", color: "#4A90C4", value: 300, ticket: "rare",  check: s => s.pathFirstMasteryDone },
+  { id: "path_section0_complete", emoji: "🎓", title: "Foundation Complete", desc: "เรียน consonants ครบและฝึกจนชำนาญ",              cat: "path", color: "#4A90C4", value: 500, ticket: "epic",  check: s => s.pathSectionsCompleted >= 1 },
   // #703 — Combo streak achievements
-  { id: "combo_first",     emoji: "⚡", title: "First Combo",     desc: "Get a 5-in-a-row streak in a practice session",           cat: "practice", color: "#E67E22", value: 50,  check: s => s.comboCount >= 1   },
-  { id: "combo_10",        emoji: "⚡", title: "Combo Streak",    desc: "Get 10 combo streaks across all practice sessions",       cat: "practice", color: "#E67E22", value: 150, ticket: "rare", check: s => s.comboCount >= 10  },
-  { id: "combo_100",       emoji: "⚡", title: "Combo Master",    desc: "Get 100 combo streaks across all practice sessions",      cat: "practice", color: "#E67E22", value: 400, ticket: "rare", check: s => s.comboCount >= 100 },
+  { id: "combo_first",     emoji: "⚡", title: "First Combo",     desc: "ตอบถูกติดต่อกัน 5 ครั้งใน practice session",      cat: "practice", color: "#E67E22", value: 50,  check: s => s.comboCount >= 1   },
+  { id: "combo_10",        emoji: "⚡", title: "Combo Streak",    desc: "ทำ combo streak ครบ 10 ครั้งรวมทุก session",      cat: "practice", color: "#E67E22", value: 150, ticket: "rare", check: s => s.comboCount >= 10  },
+  { id: "combo_100",       emoji: "⚡", title: "Combo Master",    desc: "ทำ combo streak ครบ 100 ครั้งรวมทุก session",     cat: "practice", color: "#E67E22", value: 400, ticket: "rare", check: s => s.comboCount >= 100 },
   // #703 — Perfect practice session achievements
-  { id: "perfect_session_first", emoji: "✨", title: "Perfect Session",  desc: "Complete a practice session without any mistakes",            cat: "practice", color: "#8E44AD", value: 100,  check: s => s.perfectSessions >= 1  },
-  { id: "perfect_session_10",    emoji: "✨", title: "Perfection Habit", desc: "Complete 10 practice sessions without any mistakes",          cat: "practice", color: "#8E44AD", value: 300, ticket: "rare", check: s => s.perfectSessions >= 10 },
+  { id: "perfect_session_first", emoji: "✨", title: "Perfect Session",  desc: "เรียน practice session โดยไม่พลาดเลย",           cat: "practice", color: "#8E44AD", value: 100,  check: s => s.perfectSessions >= 1  },
+  { id: "perfect_session_10",    emoji: "✨", title: "Perfection Habit", desc: "เรียน practice session โดยไม่พลาด 10 ครั้ง",     cat: "practice", color: "#8E44AD", value: 300, ticket: "rare", check: s => s.perfectSessions >= 10 },
   // #703 — Perfect Path lesson achievements
-  { id: "perfect_lesson_5",  emoji: "🎯", title: "Sharp Focus",     desc: "Complete 5 Path Mode lessons with 100% accuracy",             cat: "path", color: "#4A90C4", value: 200, ticket: "rare", check: s => s.pathPerfectLessons >= 5  },
-  { id: "perfect_lesson_25", emoji: "🎯", title: "Laser Accurate",  desc: "Complete 25 Path Mode lessons with 100% accuracy",            cat: "path", color: "#4A90C4", value: 500, ticket: "epic", check: s => s.pathPerfectLessons >= 25 },
+  { id: "perfect_lesson_5",  emoji: "🎯", title: "Sharp Focus",     desc: "เรียน Path Mode 5 บทด้วยความแม่นยำ 100%",        cat: "path", color: "#4A90C4", value: 200, ticket: "rare", check: s => s.pathPerfectLessons >= 5  },
+  { id: "perfect_lesson_25", emoji: "🎯", title: "Laser Accurate",  desc: "เรียน Path Mode 25 บทด้วยความแม่นยำ 100%",       cat: "path", color: "#4A90C4", value: 500, ticket: "epic", check: s => s.pathPerfectLessons >= 25 },
   // #703 — Daily Login Bonus achievements
-  { id: "login_bonus_first",     emoji: "🎁", title: "First Gift",       desc: "Collect your first daily login bonus",                        cat: "special", color: "#27AE60", value: 50,  check: s => s.loginBonusTotal >= 1       },
-  { id: "login_bonus_full_week", emoji: "📅", title: "Full Week",         desc: "Collect all 7 daily login bonuses in one week",               cat: "special", color: "#27AE60", value: 300, ticket: "rare", check: s => s.loginBonusWeekFull         },
-  { id: "login_bonus_starlight", emoji: "🌟", title: "Starlight Reward", desc: "Collect a Starlight Ticket from the weekly login bonus",      cat: "special", color: "#27AE60", value: 0,   ticket: "epic", check: s => s.loginBonusGotStarlight     },
-  { id: "login_bonus_streak_30", emoji: "🔥", title: "Month of Logins",  desc: "Collect login bonuses for 30 consecutive days",               cat: "special", color: "#27AE60", value: 500, ticket: "epic", check: s => s.loginBonusStreakDays >= 30 },
+  { id: "login_bonus_first",     emoji: "🎁", title: "First Gift",       desc: "รับ daily login bonus ครั้งแรก",                  cat: "special", color: "#27AE60", value: 50,  check: s => s.loginBonusTotal >= 1       },
+  { id: "login_bonus_full_week", emoji: "📅", title: "Full Week",         desc: "รับ daily login bonus ครบ 7 วันในสัปดาห์เดียว",  cat: "special", color: "#27AE60", value: 300, ticket: "rare", check: s => s.loginBonusWeekFull         },
+  { id: "login_bonus_starlight", emoji: "🌟", title: "Starlight Reward", desc: "รับ Starlight Ticket จาก weekly login bonus",     cat: "special", color: "#27AE60", value: 0,   ticket: "epic", check: s => s.loginBonusGotStarlight     },
+  { id: "login_bonus_streak_30", emoji: "🔥", title: "Month of Logins",  desc: "รับ login bonus ติดต่อกัน 30 วัน",               cat: "special", color: "#27AE60", value: 500, ticket: "epic", check: s => s.loginBonusStreakDays >= 30 },
   // #703 — Secret: replay a path lesson with 100% accuracy
-  { id: "secret_repeat_perfect",    emoji: "🔮", title: "Second Time Lucky", desc: "Complete a Path Mode replay with 100% accuracy",                          cat: "secret", color: "#8E44AD", value: 1200, ticket: "epic", check: s => s.pathReplayPerfectDone },
-  { id: "secret_listen_write_25",   emoji: "📝", title: "Secretary Kim",    desc: "Completed 25 Listen & Write activities with no mistakes",                  cat: "secret", color: "#8E44AD", value: 1000, ticket: "epic", check: s => s.pathListenWriteCorrect >= 25 },
+  { id: "secret_repeat_perfect",    emoji: "🔮", title: "Second Time Lucky", desc: "เรียน Path Mode ซ้ำด้วยความแม่นยำ 100%",                cat: "secret", color: "#8E44AD", value: 1200, ticket: "epic", check: s => s.pathReplayPerfectDone },
+  { id: "secret_listen_write_25",   emoji: "📝", title: "Secretary Kim",    desc: "ทำ Listen & Write ครบ 25 ข้อโดยไม่พลาด",               cat: "secret", color: "#8E44AD", value: 1000, ticket: "epic", check: s => s.pathListenWriteCorrect >= 25 },
 ];
 
 const ACH_CAT_LABELS = { streak: "Streak", vocab: "Vocabulary", sunday: "Sunday Test", practice: "Practice", path: "Lesson Path", exam: "Exam", pronunciation: "Pronunciation", special: "Special", secret: "Secret", level: "Level", berserk: "Berserk Mode", calligrapher: "Calligraphy" };
