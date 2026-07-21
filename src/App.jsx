@@ -6681,7 +6681,7 @@ export default function App() {
       items.push({ type: "avatar", data: { criterion: { id: `gacha_rare_${Date.now()}`, title: "Rare Gacha Ticket", desc: "Rolled from a Rare Gacha Ticket" }, avatar: result.avatar, origin: "gacha", ticketKind: "rare" } });
     }
     if (result.coins > 0) {
-      items.push({ type: "coins", data: { events: [{ label: "Rare Gacha Ticket", amount: result.coins }], total: result.coins } });
+      items.push({ type: "coins", data: { events: [{ label: "Rare Gacha Ticket", amount: result.coins }], total: result.coins, ticketKind: "rare" } });
     }
     pushCelebrations(items);
     maybeGrantBonusMoonrise().catch(() => {});
@@ -6725,7 +6725,7 @@ export default function App() {
       items.push({ type: "avatar", data: { criterion: { id: `gacha_epic_${Date.now()}`, title: "Epic Gacha Ticket", desc }, avatar: result.avatar, origin: "gacha", ticketKind: "epic" } });
     }
     if (result.coins > 0) {
-      items.push({ type: "coins", data: { events: [{ label: "Epic Gacha Ticket", amount: result.coins }], total: result.coins } });
+      items.push({ type: "coins", data: { events: [{ label: "Epic Gacha Ticket", amount: result.coins }], total: result.coins, ticketKind: "epic" } });
     }
     pushCelebrations(items);
     maybeGrantBonusMoonrise().catch(() => {});
@@ -6755,7 +6755,7 @@ export default function App() {
       const label = result.guaranteedNextBanner
         ? "Solstice Ticket — pity maxed! Guaranteed featured avatar on the next banner"
         : "Solstice Ticket";
-      items.push({ type: "coins", data: { events: [{ label, amount: result.coins }], total: result.coins } });
+      items.push({ type: "coins", data: { events: [{ label, amount: result.coins }], total: result.coins, ticketKind: "banner" } });
     }
     pushCelebrations(items);
     maybeGrantBonusMoonrise().catch(() => {});
@@ -6783,7 +6783,7 @@ export default function App() {
       items.push({ type: "ticket", data: { rarity: result.cashbackKind === "banner" ? "solstice" : result.cashbackKind, label: `${names[result.cashbackKind]} — already owned cashback` } });
     }
     if (result.coins > 0) {
-      items.push({ type: "coins", data: { events: [{ label: "Dawn Ticket", amount: result.coins }], total: result.coins } });
+      items.push({ type: "coins", data: { events: [{ label: "Dawn Ticket", amount: result.coins }], total: result.coins, ticketKind: "dawn" } });
     }
     pushCelebrations(items);
     appendDailyLog(GACHA_WEEK_LOG_KEY, { pulls: 1 }).catch(() => {}); // #855
@@ -24244,6 +24244,8 @@ function CoinsUnlockMoment({ event, onDismiss, onFly, soundEnabled = true }) {
     skip: isNoSuspense,
     sound: soundEnabled && !isNoSuspense,
   });
+  const ticketImgSrc = !isNoSuspense && event.ticketKind ? GACHA_TICKET_IMGS[event.ticketKind] : null;
+  const [ticketAnimStyle] = useState(() => _TICKET_ANIM_STYLES[Math.floor(Math.random() * _TICKET_ANIM_STYLES.length)]);
   const revealed = gachaStage === "revealed";
   const [flyStage, setFlyStage] = useState("shown"); // shown -> flying
 
@@ -24322,7 +24324,10 @@ function CoinsUnlockMoment({ event, onDismiss, onFly, soundEnabled = true }) {
       <div className="ach-moment-burst" style={{ "--ach-color": coinOrbeColor }} />
       {!revealed ? (
         <>
-          <div className="gacha-orb-wrap">
+          {ticketImgSrc && (
+            <img src={ticketImgSrc} alt="" aria-hidden="true" className={"gacha-ticket-dissolve gacha-ticket-dissolve--" + ticketAnimStyle} />
+          )}
+          <div className={"gacha-orb-wrap" + (coinIsCharging && ticketImgSrc ? " gacha-orb-wrap--ticket" : "")}>
             {coinIsCharging && <div className="gacha-orb-wind" style={{ "--gacha-glow-color": GACHA_SUSPENSE_COLOR }} />}
             <div className="gacha-orb" style={{ "--gacha-glow-color": coinOrbeColor }} />
             {GACHA_PARTICLE_ANGLES.map((angle, i) => (
