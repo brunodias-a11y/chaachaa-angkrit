@@ -20089,17 +20089,16 @@ function GachaTicketModal({ kind, profile, pity, busy, bannerFeatured, onConfirm
             <button className="icon-btn" onClick={onClose}><X size={16} /></button>
           </div>
           <div className="modal-body">
-            <p className="release-modal-hint">Odds for this roll, based on this banner's featured avatars:</p>
+            <p className="release-modal-hint">โอกาสของการ roll นี้ ตามตัวละครที่ featured ใน banner:</p>
             {jackpotKey && pity && pity.banner >= GACHA_PITY.banner.softStart && (
               <p className="release-modal-hint gacha-pity-hint">
-                ✨ Pity boost active — {pity.banner}/{GACHA_PITY.banner.hardCap} rolls since your last jackpot
-                {pity.banner + 1 >= GACHA_PITY.banner.hardCap ? " — next roll is guaranteed!" : "."}
+                ✨ Pity boost กำลังทำงาน — {pity.banner}/{GACHA_PITY.banner.hardCap} rolls นับจาก jackpot ล่าสุด
+                {pity.banner + 1 >= GACHA_PITY.banner.hardCap ? " — roll ถัดไปการันตีได้เลย!" : "."}
               </p>
             )}
             {!jackpotKey && (
               <p className="release-modal-hint">
-                You already own every featured avatar on this banner — no jackpot possible this time, but your
-                pity progress carries over to guarantee one on a future banner.
+                คุณมี avatar ใน banner นี้ครบแล้ว — ไม่มี jackpot รอบนี้ แต่ pity progress ยังสะสมต่อเพื่อการันตี banner หน้า
               </p>
             )}
             <div className="gacha-odds-list">
@@ -20130,8 +20129,7 @@ function GachaTicketModal({ kind, profile, pity, busy, bannerFeatured, onConfirm
           </div>
           <div className="modal-body">
             <p className="release-modal-hint">
-              You already own every Rare avatar currently in the game. Keep this ticket for a
-              future Rare drop, or refund it now for 2,000 Meowtongs back.
+              คุณมี avatar ระดับ Rare ครบทุกตัวแล้ว — เก็บ ticket ไว้ใช้ตอนมี Rare ใหม่ หรือ refund รับ 2,000 Meowtongs คืนตอนนี้เลย
             </p>
             <div className="gacha-modal-actions">
               <button className="delete-btn" onClick={onKeep} disabled={busy}>Keep ticket</button>
@@ -20153,8 +20151,8 @@ function GachaTicketModal({ kind, profile, pity, busy, bannerFeatured, onConfirm
           </div>
           <div className="modal-body">
             <p className="release-modal-hint">
-              You already own every avatar in the game — Common, Uncommon, Rare, Epic and
-              Legendary. This ticket auto-refunds instead of rolling: you'll get 3,500 Meowtongs back.
+              คุณมี avatar ครบทุกตัวในเกมแล้ว — Common, Uncommon, Rare, Epic และ Legendary
+              ticket นี้จะ refund อัตโนมัติแทนการ roll: รับ 3,500 Meowtongs คืน
             </p>
             <div className="gacha-modal-actions">
               <button className="save-btn" onClick={onConfirm} disabled={busy}>{busy ? "…" : "Get cashback"}</button>
@@ -20186,11 +20184,11 @@ function GachaTicketModal({ kind, profile, pity, busy, bannerFeatured, onConfirm
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
-          <p className="release-modal-hint">Odds for this roll, based on your current collection:</p>
+          <p className="release-modal-hint">โอกาสของการ roll นี้ ตาม collection ปัจจุบันของคุณ:</p>
           {pity && pity[pityKind] >= GACHA_PITY[pityKind].softStart && (
             <p className="release-modal-hint gacha-pity-hint">
-              ✨ Pity boost active — {pity[pityKind]}/{GACHA_PITY[pityKind].hardCap} rolls since your last jackpot
-              {pity[pityKind] + 1 >= GACHA_PITY[pityKind].hardCap ? " — next roll is guaranteed!" : "."}
+              ✨ Pity boost กำลังทำงาน — {pity[pityKind]}/{GACHA_PITY[pityKind].hardCap} rolls นับจาก jackpot ล่าสุด
+              {pity[pityKind] + 1 >= GACHA_PITY[pityKind].hardCap ? " — roll ถัดไปการันตีได้เลย!" : "."}
             </p>
           )}
           <div className="gacha-odds-list">
@@ -22509,7 +22507,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
               <button className="icon-btn" onClick={() => setBlockedKind(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
-              <p className="release-modal-hint">You own every avatar in the game. This ticket auto-refunds for 3,500 Meowtongs instead of rolling.</p>
+              <p className="release-modal-hint">คุณมี avatar ครบทุกตัวในเกมแล้ว — ticket นี้จะ refund อัตโนมัติให้ 3,500 Meowtongs แทนการ roll</p>
               <div className="gacha-modal-actions">
                 <button className="delete-btn" onClick={() => setBlockedKind(null)} disabled={ticketBusy}>Cancel</button>
                 <button className="save-btn" onClick={() => { setBlockedKind(null); handleDirectOpen("epic"); }} disabled={ticketBusy}>{ticketBusy ? "…" : "Get cashback"}</button>
