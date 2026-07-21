@@ -13726,7 +13726,7 @@ function PreActivityFlow({ profile, onSaveAvatar, powersConfig, activeBoosts, on
   if (step === "avatar") {
     return (
       <div className="pre-activity-step">
-        <h1 className="page-title">Who do you want to practice with today?</h1>
+        <h1 className="page-title">วันนี้อยากฝึกกับใครดี?</h1>
         <div className="avatar-grid" style={{ marginTop: 14 }}>
           {pickable.map(a => {
             const selected = profile.avatar === a.id;
@@ -13780,7 +13780,7 @@ function BerserkTierSelect({ stars, cooldowns, onSelectTier, onBack }) {
   return (
     <div className="screen-pad">
       <h1 className="page-title">🔥 Berserk Mode</h1>
-      <p className="berserk-intro">Clear a tier with a perfect run to earn its star and unlock the next one.</p>
+      <p className="berserk-intro">เล่นให้ไม่พลาดเลยเพื่อรับดาวและปลดล็อกระดับถัดไป</p>
       <div className="berserk-tier-list">
         {BERSERK_TIERS.map((tier, i) => {
           const cleared = !!stars?.[tier.id];
@@ -20281,7 +20281,7 @@ function ExercisePreviewModal({ words, allCategories, onClose }) {
             <h2>Preview Exercises</h2>
             <button className="icon-btn" onClick={onClose}><X size={16} /></button>
           </div>
-          <p className="release-modal-hint">Add at least one word to the Word Bank first.</p>
+          <p className="release-modal-hint">คุณยังไม่ได้เรียนคำศัพท์ใหม่ใน Lesson Path เลย</p>
         </div>
       </ModalOverlay>
     );
@@ -20645,7 +20645,7 @@ function CalligraphyPracticeModal({ chars, onClose, onCalligraphyUpdate }) {
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
-          <p className="page-sub">Letter {step + 1} / {chars.length} — {phase === "watch" ? "watch first" : "now you try"}</p>
+          <p className="page-sub">ตัวอักษรที่ {step + 1} / {chars.length} — {phase === "watch" ? "ดูก่อนนะ" : "ลองเขียนเลย"}</p>
           <div className="stroke-anim-modal-stage">
             {phase === "watch" ? (
               <StrokeAnimation key={char} char={char} size={200} onComplete={() => setPhase("trace")} />
@@ -20746,16 +20746,16 @@ function WordCalligraphySession({ words, onClose, onCalligraphyUpdate }) {
               />
               <p className="wcs-score">{Math.round((wordScore ?? 0) * 100)}%</p>
               <span className={wordPassed ? "wcs-badge wcs-badge-pass" : "wcs-badge wcs-badge-retry"}>
-                {wordPassed ? "Passed ✓" : "Try again"}
+                {wordPassed ? "ผ่านแล้ว ✓" : "ลองใหม่อีกครั้ง"}
               </span>
               <button className="save-btn" onClick={handleNextWord}>
-                {isLastWord ? "Finish session" : "Next word →"}
+                {isLastWord ? "จบ session" : "คำถัดไป →"}
               </button>
             </div>
           ) : (
             <>
               <p className="page-sub">
-                Word {wordIdx + 1} of {words.length} · character {charIdx + 1} of {chars.length} · {phase === "watch" ? "watch first" : "now you try"}
+                คำที่ {wordIdx + 1} จาก {words.length} · ตัวอักษรที่ {charIdx + 1} จาก {chars.length} · {phase === "watch" ? "ดูก่อนนะ" : "ลองเขียนเลย"}
               </p>
               <div className="stroke-anim-modal-stage">
                 {phase === "watch" ? (
@@ -21459,7 +21459,7 @@ function GachaHistoryModal({ history, error, pity, profile, bannerFeatured, bann
           {error && <p className="stg-msg stg-msg-error">Couldn't load your Wish History — try again later.</p>}
           {!error && history === null && <p className="page-sub">Loading…</p>}
           {!error && history !== null && history.length === 0 && (
-            <p className="page-sub">No tickets opened yet — buy a Rare, Epic, or Solstice ticket in the Gacha tab!</p>
+            <p className="page-sub">ยังไม่เคย roll เลย — ไปหา Rare, Epic หรือ Solstice ticket ในแท็บ Gacha ได้เลย!</p>
           )}
           {!error && history && history.length > 0 && (
             <>
@@ -21479,7 +21479,7 @@ function GachaHistoryModal({ history, error, pity, profile, bannerFeatured, bann
                 <div className="gacha-odds-section">{renderOdds()}</div>
               )}
               {filteredHistory.length === 0 ? (
-                <p className="page-sub">No {GACHA_HISTORY_FILTERS.find((f) => f.key === kindFilter)?.label} pulls yet.</p>
+                <p className="page-sub">ยังไม่มี {GACHA_HISTORY_FILTERS.find((f) => f.key === kindFilter)?.label} pulls เลย</p>
               ) : (
                 <>
                   <div className="txn-list">
@@ -22447,7 +22447,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
           {ledgerError && <p className="stg-msg stg-msg-error">Couldn't load activity.</p>}
           {!ledgerError && ledger === null && <p className="page-sub">Loading…</p>}
           {!ledgerError && ledger !== null && ledger.length === 0 && (
-            <p className="page-sub">No activity yet — go earn some Meowtongs!</p>
+            <p className="page-sub">ยังไม่มีกิจกรรมเลย — ไปหา Meowtongs กันเถอะ!</p>
           )}
           {!ledgerError && ledger && ledger.length > 0 && (
             <div className="sanctuary-feed">
@@ -22490,7 +22490,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
               <button className="icon-btn" onClick={() => setBlockedKind(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
-              <p className="release-modal-hint">You already own every Rare avatar. Keep this ticket for a future Rare drop, or refund it for 2,000 Meowtongs.</p>
+              <p className="release-modal-hint">คุณมี avatar ระดับ Rare ครบทุกตัวแล้ว — เก็บ ticket ไว้ใช้ตอนมี Rare ใหม่ หรือ refund รับ 2,000 Meowtongs คืนตอนนี้เลย</p>
               <div className="gacha-modal-actions">
                 <button className="delete-btn" onClick={handleKeep} disabled={ticketBusy}>Keep ticket</button>
                 <button className="save-btn" onClick={handleRefund} disabled={ticketBusy}>{ticketBusy ? "…" : "Refund 2,000"}</button>

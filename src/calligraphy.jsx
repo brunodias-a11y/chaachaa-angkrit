@@ -329,10 +329,10 @@ export function TracingCanvas({ char, size = 260, onComplete }) {
       {showReplayHint && !isDone && (
         <div className="tracing-hint-overlay">
           <img src="/mascote-crying.png" alt="" className="tracing-mascot" />
-          <p className="page-sub">Having trouble? Let's watch the strokes again.</p>
+          <p className="page-sub">ยากเกินไปมั้ย? มาดูลำดับเส้นอีกครั้งกันเลย</p>
           <StrokeAnimation char={char} size={140} />
           <button className="save-btn" onClick={() => { setShowReplayHint(false); setAttemptCount(0); }}>
-            Got it, let me try
+            เข้าใจแล้ว ลองใหม่เลย
           </button>
         </div>
       )}
