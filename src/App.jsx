@@ -620,31 +620,31 @@ function getCurrentWeekDates() {
 // 3 cards) — left without criterion/threshold, wc-card just skips the
 // progress line for those.
 const CHALLENGE_POOL = [
-  { id: "wc_p3", emoji: "🔥", title: "Three-Day Week",   desc: "Practice 3 different days this week",    color: "#E8A33D", criterion: "wPracticeDays", threshold: 3,  check: s => s.wPracticeDays >= 3 },
-  { id: "wc_p5", emoji: "⚡", title: "Five Alive",        desc: "Practice 5 different days this week",    color: "#E8A33D", criterion: "wPracticeDays", threshold: 5,  check: s => s.wPracticeDays >= 5 },
-  { id: "wc_st", emoji: "🗓", title: "Sunday Ritual",    desc: "Complete the Sunday Test this week",     color: "#8E6BAE", check: s => s.wSundayDone },
-  { id: "wc_80", emoji: "💯", title: "Distinction",       desc: "Score 80%+ on Sunday Test this week",   color: "#8E6BAE", criterion: "wSundayScore",  threshold: 80, check: s => s.wSundayScore >= 80 },
-  { id: "wc_w15",emoji: "📚", title: "Word Sprint",       desc: "Practice 15 different words this week", color: "#3D6FA8", criterion: "wWordsCount",   threshold: 15, check: s => s.wWordsCount >= 15 },
-  { id: "wc_w30",emoji: "📖", title: "Word Marathon",     desc: "Practice 30 different words this week", color: "#3D6FA8", criterion: "wWordsCount",   threshold: 30, check: s => s.wWordsCount >= 30 },
-  { id: "wc_ms", emoji: "⭐", title: "Long-Term Memory",  desc: "Have any word reach 14-day SRS",        color: "#2F6E5C", criterion: "wordsMastered", threshold: 1,  check: s => s.wordsMastered >= 1 },
-  { id: "wc_m5", emoji: "🌟", title: "Mastery Five",      desc: "Have 5 words at 14-day SRS or more",    color: "#2F6E5C", criterion: "wordsMastered", threshold: 5,  check: s => s.wordsMastered >= 5 },
-  { id: "wc_s7", emoji: "🏅", title: "Full Commitment",   desc: "Practice all 7 days this week",         color: "#C84B31", criterion: "wPracticeDays", threshold: 7,  check: s => s.wPracticeDays >= 7 },
-  { id: "wc_c3", emoji: "👑", title: "Triple Crown",      desc: "Complete all 3 weekly challenges",      color: "#C84B31", check: s => s.wAllDone },
+  { id: "wc_p3", emoji: "🔥", title: "Three-Day Week",   desc: "ฝึกอย่างน้อย 3 วันที่ต่างกันในสัปดาห์นี้",   color: "#E8A33D", criterion: "wPracticeDays", threshold: 3,  check: s => s.wPracticeDays >= 3 },
+  { id: "wc_p5", emoji: "⚡", title: "Five Alive",        desc: "ฝึกอย่างน้อย 5 วันที่ต่างกันในสัปดาห์นี้",   color: "#E8A33D", criterion: "wPracticeDays", threshold: 5,  check: s => s.wPracticeDays >= 5 },
+  { id: "wc_st", emoji: "🗓", title: "Sunday Ritual",    desc: "ทำ Sunday Test ในสัปดาห์นี้",                 color: "#8E6BAE", check: s => s.wSundayDone },
+  { id: "wc_80", emoji: "💯", title: "Distinction",       desc: "ได้ 80%+ ใน Sunday Test สัปดาห์นี้",         color: "#8E6BAE", criterion: "wSundayScore",  threshold: 80, check: s => s.wSundayScore >= 80 },
+  { id: "wc_w15",emoji: "📚", title: "Word Sprint",       desc: "ฝึกคำศัพท์ 15 คำที่ต่างกันในสัปดาห์นี้",    color: "#3D6FA8", criterion: "wWordsCount",   threshold: 15, check: s => s.wWordsCount >= 15 },
+  { id: "wc_w30",emoji: "📖", title: "Word Marathon",     desc: "ฝึกคำศัพท์ 30 คำที่ต่างกันในสัปดาห์นี้",    color: "#3D6FA8", criterion: "wWordsCount",   threshold: 30, check: s => s.wWordsCount >= 30 },
+  { id: "wc_ms", emoji: "⭐", title: "Long-Term Memory",  desc: "มีคำศัพท์ถึง SRS 14 วันอย่างน้อย 1 คำ",      color: "#2F6E5C", criterion: "wordsMastered", threshold: 1,  check: s => s.wordsMastered >= 1 },
+  { id: "wc_m5", emoji: "🌟", title: "Mastery Five",      desc: "มีคำศัพท์ถึง SRS 14 วัน อย่างน้อย 5 คำ",     color: "#2F6E5C", criterion: "wordsMastered", threshold: 5,  check: s => s.wordsMastered >= 5 },
+  { id: "wc_s7", emoji: "🏅", title: "Full Commitment",   desc: "ฝึกครบทั้ง 7 วันในสัปดาห์นี้",               color: "#C84B31", criterion: "wPracticeDays", threshold: 7,  check: s => s.wPracticeDays >= 7 },
+  { id: "wc_c3", emoji: "👑", title: "Triple Crown",      desc: "ทำ weekly challenge ครบทั้ง 3 ข้อ",           color: "#C84B31", check: s => s.wAllDone },
   // Group 1 — Path Mode: lessons, accuracy, energy (#858)
-  { id: "wc_path1",   emoji: "📖", title: "First Steps",    desc: "Complete at least 1 lesson in Path Mode this week",    color: "#3D6FA8", criterion: "wPathLessons",  threshold: 1,   check: s => (s.wPathLessons  || 0) >= 1   },
-  { id: "wc_path5",   emoji: "🗺️", title: "Trail Blazer",   desc: "Complete 5 lessons in Path Mode this week",            color: "#3D6FA8", criterion: "wPathLessons",  threshold: 5,   check: s => (s.wPathLessons  || 0) >= 5   },
-  { id: "wc_acc80",   emoji: "🎯", title: "Sharpshooter",   desc: "Reach 80%+ accuracy in Path Mode this week",           color: "#2F6E5C", criterion: "wPathAccuracy", threshold: 80,  check: s => (s.wPathAccuracy || 0) >= 80  },
-  { id: "wc_energy1", emoji: "⚡", title: "Full Send",       desc: "Spend 100+ energy in Path Mode this week",             color: "#C84B31", criterion: "wEnergySpent",  threshold: 100, check: s => (s.wEnergySpent  || 0) >= 100 },
+  { id: "wc_path1",   emoji: "📖", title: "First Steps",    desc: "เรียน Path Mode อย่างน้อย 1 บทในสัปดาห์นี้",     color: "#3D6FA8", criterion: "wPathLessons",  threshold: 1,   check: s => (s.wPathLessons  || 0) >= 1   },
+  { id: "wc_path5",   emoji: "🗺️", title: "Trail Blazer",   desc: "เรียน Path Mode 5 บทในสัปดาห์นี้",               color: "#3D6FA8", criterion: "wPathLessons",  threshold: 5,   check: s => (s.wPathLessons  || 0) >= 5   },
+  { id: "wc_acc80",   emoji: "🎯", title: "Sharpshooter",   desc: "ได้ความแม่นยำ 80%+ ใน Path Mode สัปดาห์นี้",    color: "#2F6E5C", criterion: "wPathAccuracy", threshold: 80,  check: s => (s.wPathAccuracy || 0) >= 80  },
+  { id: "wc_energy1", emoji: "⚡", title: "Full Send",       desc: "ใช้พลังงาน 100+ ใน Path Mode สัปดาห์นี้",        color: "#C84B31", criterion: "wEnergySpent",  threshold: 100, check: s => (s.wEnergySpent  || 0) >= 100 },
   // Group 2 — Study time & replays (#858)
-  { id: "wc_study30", emoji: "⏱️", title: "Study Habit",    desc: "Accumulate 30 minutes of study time this week",        color: "#8E6BAE", criterion: "weekStudyMin",  threshold: 30,  check: s => (s.weekStudyMin  || 0) >= 30  },
-  { id: "wc_study60", emoji: "⏰", title: "Power Hour",      desc: "Accumulate 60 minutes of study time this week",        color: "#8E6BAE", criterion: "weekStudyMin",  threshold: 60,  check: s => (s.weekStudyMin  || 0) >= 60  },
-  { id: "wc_replay",  emoji: "🔁", title: "Second Look",    desc: "Replay a completed lesson with 100% accuracy this week", color: "#2F6E5C", criterion: "wReplayPerfect", threshold: 1, check: s => (s.wReplayPerfect || 0) >= 1  },
+  { id: "wc_study30", emoji: "⏱️", title: "Study Habit",    desc: "สะสมเวลาเรียนรวม 30 นาทีในสัปดาห์นี้",           color: "#8E6BAE", criterion: "weekStudyMin",  threshold: 30,  check: s => (s.weekStudyMin  || 0) >= 30  },
+  { id: "wc_study60", emoji: "⏰", title: "Power Hour",      desc: "สะสมเวลาเรียนรวม 60 นาทีในสัปดาห์นี้",           color: "#8E6BAE", criterion: "weekStudyMin",  threshold: 60,  check: s => (s.weekStudyMin  || 0) >= 60  },
+  { id: "wc_replay",  emoji: "🔁", title: "Second Look",    desc: "เรียนซ้ำบทที่ผ่านแล้วด้วยความแม่นยำ 100% สัปดาห์นี้", color: "#2F6E5C", criterion: "wReplayPerfect", threshold: 1, check: s => (s.wReplayPerfect || 0) >= 1  },
   // Group 3 — Skills, gacha, coins (#858)
-  { id: "wc_listen70",emoji: "🎧", title: "Keen Ear",        desc: "Reach 70%+ Listening accuracy in Path Mode this week", color: "#3D6FA8", criterion: "wListeningPct", threshold: 70,  check: s => (s.wListeningPct || 0) >= 70  },
-  { id: "wc_write70", emoji: "✍️", title: "Pen Pusher",      desc: "Reach 70%+ Writing accuracy in Path Mode this week",   color: "#3D6FA8", criterion: "wWritingPct",   threshold: 70,  check: s => (s.wWritingPct   || 0) >= 70  },
-  { id: "wc_perfect1",emoji: "💎", title: "Flawless",        desc: "Complete 1 perfect lesson in Path Mode this week",     color: "#C84B31", criterion: "wPerfectLessons", threshold: 1, check: s => (s.wPerfectLessons || 0) >= 1 },
-  { id: "wc_gacha3",  emoji: "🎲", title: "Lucky Pull",      desc: "Make at least 3 gacha pulls this week",                color: "#8E6BAE", criterion: "wGachaPulls",   threshold: 3,   check: s => (s.wGachaPulls   || 0) >= 3   },
-  { id: "wc_coins500",emoji: "💰", title: "Coin Collector",  desc: "Earn 500+ coins this week",                            color: "#D4AF37", criterion: "wCoinsEarned",  threshold: 500, check: s => (s.wCoinsEarned  || 0) >= 500 },
+  { id: "wc_listen70",emoji: "🎧", title: "Keen Ear",        desc: "ได้ความแม่นยำ Listening 70%+ ใน Path Mode สัปดาห์นี้", color: "#3D6FA8", criterion: "wListeningPct", threshold: 70,  check: s => (s.wListeningPct || 0) >= 70  },
+  { id: "wc_write70", emoji: "✍️", title: "Pen Pusher",      desc: "ได้ความแม่นยำ Writing 70%+ ใน Path Mode สัปดาห์นี้",  color: "#3D6FA8", criterion: "wWritingPct",   threshold: 70,  check: s => (s.wWritingPct   || 0) >= 70  },
+  { id: "wc_perfect1",emoji: "💎", title: "Flawless",        desc: "เรียน Path Mode 1 บทด้วยความแม่นยำ 100% สัปดาห์นี้", color: "#C84B31", criterion: "wPerfectLessons", threshold: 1, check: s => (s.wPerfectLessons || 0) >= 1 },
+  { id: "wc_gacha3",  emoji: "🎲", title: "Lucky Pull",      desc: "ทำ gacha pull อย่างน้อย 3 ครั้งในสัปดาห์นี้",          color: "#8E6BAE", criterion: "wGachaPulls",   threshold: 3,   check: s => (s.wGachaPulls   || 0) >= 3   },
+  { id: "wc_coins500",emoji: "💰", title: "Coin Collector",  desc: "หาเหรียญ Meowtongs ได้ 500+ ในสัปดาห์นี้",             color: "#D4AF37", criterion: "wCoinsEarned",  threshold: 500, check: s => (s.wCoinsEarned  || 0) >= 500 },
 ];
 
 // Issue #235 — teacher-created challenges, no deploy needed. Each criterion
@@ -907,7 +907,7 @@ function getMonthKeyEnd(monthKey) {
 // minutes) since this is a heads-up, not a precise timer.
 function formatCountdown(targetDate, now = new Date()) {
   const diffMs = targetDate.getTime() - now.getTime();
-  if (diffMs <= 0) return "Ending soon";
+  if (diffMs <= 0) return "ใกล้จบแล้ว";
   const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
@@ -2900,17 +2900,17 @@ function getPracticeCountdownEffect(profile, powersConfig, activeBoosts, now = D
 // Issue #439 — human-readable label for a power slot still in cooldown.
 function getPowerRechargeLabel(slot, avatarRarity, charges) {
   const cooldownDays = RARITY_POWER_COOLDOWN[avatarRarity]?.[slot];
-  if (!cooldownDays) return "Recharging";
+  if (!cooldownDays) return "กำลังชาร์จ";
   const lastUsedAt = charges?.[slot]?.lastUsedAt;
-  if (!lastUsedAt) return "Recharging";
+  if (!lastUsedAt) return "กำลังชาร์จ";
   const remainingMs = cooldownDays * 24 * 60 * 60 * 1000 - (Date.now() - lastUsedAt);
-  if (remainingMs <= 0) return "Recharging";
+  if (remainingMs <= 0) return "กำลังชาร์จ";
   const days  = Math.floor(remainingMs / (24 * 60 * 60 * 1000));
   const hours = Math.floor((remainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins  = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
-  if (days > 0)  return `Recharges in ${days}d ${hours}h`;
-  if (hours > 0) return `Recharges in ${hours}h ${mins}m`;
-  return `Recharges in ${mins}m`;
+  if (days > 0)  return `ชาร์จใหม่ใน ${days}d ${hours}h`;
+  if (hours > 0) return `ชาร์จใหม่ใน ${hours}h ${mins}m`;
+  return `ชาร์จใหม่ใน ${mins}m`;
 }
 
 // True se algum efeito ativo remove uma alternativa errada agora.
@@ -7682,13 +7682,13 @@ export default function App() {
 // Login
 const LEVELS = ["Pre-A1","A1","A2","B1","B2","C1","C2"];
 const LEVEL_META = {
-  "Pre-A1": { subtitle: "Learning ABC",       icon: "ก",  color: "#6B9E78" },
-  "A1":     { subtitle: "I'm fine and you?",  icon: "🙏", color: "#7B9EC0" },
-  "A2":     { subtitle: "Not shy anymore",    icon: "🛺", color: "#C0A04A" },
-  "B1":     { subtitle: "An English wannabe", icon: "🌴", color: "#8E7BC0" },
-  "B2":     { subtitle: "City Speaker",       icon: "🏙", color: "#C07B6B" },
-  "C1":     { subtitle: "Cultural Master",    icon: "🎭", color: "#9E6BC0" },
-  "C2":     { subtitle: "English Sage",       icon: "📜", color: "#C0A06B" },
+  "Pre-A1": { subtitle: "เริ่มต้น A B C",         icon: "ก",  color: "#6B9E78" },
+  "A1":     { subtitle: "I'm fine and you?",      icon: "🙏", color: "#7B9EC0" },
+  "A2":     { subtitle: "ไม่อายแล้ว!",            icon: "🛺", color: "#C0A04A" },
+  "B1":     { subtitle: "อยากพูด English จัง",    icon: "🌴", color: "#8E7BC0" },
+  "B2":     { subtitle: "คุยได้ทุกที่",           icon: "🏙", color: "#C07B6B" },
+  "C1":     { subtitle: "เข้าใจวัฒนธรรมด้วย",    icon: "🎭", color: "#9E6BC0" },
+  "C2":     { subtitle: "ปราชญ์ English",         icon: "📜", color: "#C0A06B" },
 };
 const SHOW_ROMANIZATION_LEVELS = new Set(["Pre-A1","A1","A2","B1"]);
 
@@ -21674,11 +21674,11 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
     setTicketMsg(null);
     const result = await onBuyTicket(kind);
     if (result?.ok) {
-      setTicketMsg({ kind, ok: true, text: `✓ ${GACHA_TICKET_CATALOG[kind].name} purchased!` });
+      setTicketMsg({ kind, ok: true, text: `✓ ซื้อ ${GACHA_TICKET_CATALOG[kind].name} สำเร็จ!` });
     } else if (result?.reason === "insufficient-coins") {
-      setTicketMsg({ kind, ok: false, text: `Not enough Meowtongs (need ${result.price})` });
+      setTicketMsg({ kind, ok: false, text: `Meowtongs ไม่พอ (ต้องการ ${result.price})` });
     } else {
-      setTicketMsg({ kind, ok: false, text: "Couldn't complete the purchase" });
+      setTicketMsg({ kind, ok: false, text: "ทำรายการไม่สำเร็จ — ลองใหม่นะ" });
     }
     setTicketBuying(null);
   }
@@ -21695,13 +21695,13 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
     const result = await onConvertBannerTicket(toKind);
     if (result?.ok) {
       const text = toKind === "epic"
-        ? `✓ Converted to 1 Starlight Ticket (-${BANNER_CONVERT_EPIC_FEE} Meowtongs)`
-        : `✓ Converted to 1 Moonrise Ticket (+${BANNER_CONVERT_RARE_CASHBACK} Meowtongs)`;
+        ? `✓ แปลงเป็น Starlight Ticket 1 ใบ (-${BANNER_CONVERT_EPIC_FEE} Meowtongs)`
+        : `✓ แปลงเป็น Moonrise Ticket 1 ใบ (+${BANNER_CONVERT_RARE_CASHBACK} Meowtongs)`;
       setTicketMsg({ kind: busyKey, ok: true, text });
     } else if (result?.reason === "insufficient-coins") {
-      setTicketMsg({ kind: busyKey, ok: false, text: `Not enough Meowtongs (need ${result.price})` });
+      setTicketMsg({ kind: busyKey, ok: false, text: `Meowtongs ไม่พอ (ต้องการ ${result.price})` });
     } else {
-      setTicketMsg({ kind: busyKey, ok: false, text: "Couldn't complete the conversion" });
+      setTicketMsg({ kind: busyKey, ok: false, text: "แปลง ticket ไม่สำเร็จ — ลองใหม่นะ" });
     }
     setTicketBuying(null);
   }
