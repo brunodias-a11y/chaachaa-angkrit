@@ -9598,7 +9598,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
                 <div className="hqc-header">
                   <div className="hqc-header-left">
                     <span className="hqc-energy-bolt">⚡</span>
-                    <span className="hqc-card-title-text" style={{fontSize:15}}>พลังงาน</span>
+                    <span className="hqc-card-title-text" style={{fontSize:15}}>Energy</span>
                   </div>
                   {isFull && <span className="hqc-badge-done">เต็มแล้ว!</span>}
                 </div>
@@ -9618,7 +9618,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
           {/* C2L2 — Achievements (always) */}
           <div className="hqc hqc-achievements" onClick={onGoToProgress}>
             <div className="hqc-card-title">
-              <span className="hqc-card-title-text">ความสำเร็จ</span>
+              <span className="hqc-card-title-text">Achievements</span>
             </div>
             <div className="hqc-ach-body">
               <div className="hqc-ach-content">
@@ -19894,7 +19894,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
           <div className="prg2-ach-header">
             <img src="/achievements-icon.png" alt="" className="prg2-ach-trophy-img" aria-hidden="true" />
             <div className="prg2-ach-summary">
-              <div className="prg2-ach-summary-label">ความสำเร็จ</div>
+              <div className="prg2-ach-summary-label">ACHIEVEMENTS</div>
               <div className="prg2-ach-summary-count">{unlockedCount} <span className="prg2-ach-summary-total">/ {visibleAchievementsTotal}</span></div>
               <div className="prg2-ach-summary-pct">{pct(unlockedCount, visibleAchievementsTotal)}% ปลดล็อกแล้ว</div>
               <div className="prg2-ach-prog-bar"><div className="prg2-ach-prog-fill" style={{width:`${pct(unlockedCount,visibleAchievementsTotal)}%`}}/></div>
