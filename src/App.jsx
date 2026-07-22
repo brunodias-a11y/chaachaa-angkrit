@@ -1493,10 +1493,17 @@ async function openBannerTicket(profile, { simulate = false } = {}) {
   let { table, jackpotKey } = buildBannerRollTable(legendaryAvailable, availableRares.length);
 
   let pityCount = 0;
+  let avatarCount = 0;
+  let lifetimeCount = 0;
   if (!simulate) {
     const pity = await getGachaPity();
-    pityCount = pity.banner || 0;
+    pityCount     = pity.banner         || 0;
+    avatarCount   = pity.bannerAvatar   || 0;
+    lifetimeCount = pity.bannerLifetime  || 0;
     if (jackpotKey) table = applyPityBoost(table, jackpotKey, pityCount, GACHA_PITY.banner.softStart, GACHA_PITY.banner.hardCap);
+    if (pityCount < GACHA_PITY.banner.hardCap) {
+      table = applyBannerConsolation(table, jackpotKey, avatarCount, lifetimeCount);
+    }
   }
 
   const key = rollWeightedTable(table);
@@ -1517,6 +1524,7 @@ async function openBannerTicket(profile, { simulate = false } = {}) {
     coinReward = (coinReward || 0) + BANNER_TICKET_PRICE;
   }
   const hitJackpot = !!jackpotKey && key === jackpotKey && !!avatar;
+  const gotAvatar  = !!avatar;
 
   if (!simulate) {
     await storageSet(GACHA_TICKETS_KEY, { ...tickets, banner: tickets.banner - 1 }, false);
@@ -1536,7 +1544,7 @@ async function openBannerTicket(profile, { simulate = false } = {}) {
 
   const nextPityCount = hitJackpot ? 0 : pityCount + 1;
   if (!simulate) {
-    await updateGachaPity("banner", hitJackpot);
+    await updateGachaPity("banner", hitJackpot, gotAvatar);
     await appendGachaHistoryEntry({ kind: "banner", key, avatarId: avatar?.id || null, coins: coinReward || 0, rarity: avatar?.rarity || null });
   }
 
@@ -1624,11 +1632,18 @@ async function openDawnTicket(profile, { simulate = false } = {}) {
   const jackpotKey = "legendary_event";
 
   let pityCount = 0;
+  let avatarCount = 0;
+  let lifetimeCount = 0;
   let boostedTable = table;
   if (!simulate) {
     const pity = await getGachaPity();
-    pityCount = pity.dawn || 0;
+    pityCount     = pity.dawn         || 0;
+    avatarCount   = pity.dawnAvatar   || 0;
+    lifetimeCount = pity.dawnLifetime  || 0;
     boostedTable = applyPityBoost(table, jackpotKey, pityCount, GACHA_PITY.dawn.softStart, GACHA_PITY.dawn.hardCap);
+    if (pityCount < GACHA_PITY.dawn.hardCap) {
+      boostedTable = applyDawnConsolation(boostedTable, avatarCount, lifetimeCount, pityCount);
+    }
   }
 
   const key = rollWeightedTable(boostedTable);
@@ -1669,6 +1684,7 @@ async function openDawnTicket(profile, { simulate = false } = {}) {
   if (key.startsWith("avatar_") && !avatar && !cashbackKind) coinReward = BANNER_TICKET_PRICE;
 
   const hitJackpot = key === jackpotKey && !!avatar;
+  const gotAvatar  = !!avatar;
 
   // Consume ticket
   if (!simulate) {
@@ -1694,7 +1710,7 @@ async function openDawnTicket(profile, { simulate = false } = {}) {
 
   const nextPityCount = hitJackpot ? 0 : pityCount + 1;
   if (!simulate) {
-    await updateGachaPity("dawn", hitJackpot);
+    await updateGachaPity("dawn", hitJackpot, gotAvatar);
     await appendGachaHistoryEntry({ kind: "dawn", key, avatarId: avatar?.id || null, coins: coinReward || 0, rarity: avatar?.rarity || null });
   }
 
@@ -12820,7 +12836,7 @@ const GACHA_TICKETS_KEY = "gacha-tickets"; // personal: { rare, epic, banner, da
 // Issue #347 — Wish History + pity system for the Rare/Epic Gacha.
 const GACHA_HISTORY_KEY = "gacha-pull-history"; // personal: append-only, one entry per ticket opened
 const GACHA_HISTORY_CAP = 100;
-const GACHA_PITY_KEY = "gacha-pity"; // personal: { rare: number, epic: number } — consecutive opens without that ticket's jackpot
+const GACHA_PITY_KEY = "gacha-pity"; // personal: { rare, epic, banner, dawn, rareAvatar, epicAvatar, bannerAvatar, dawnAvatar, rareLifetime, epicLifetime, bannerLifetime, dawnLifetime }
 // Soft-pity starts climbing the jackpot odds; hard-pity guarantees it. Values
 // are deliberately much shorter than a real-money gacha (see #347 rationale):
 // worst-case base jackpot rate is already 3% and a 100%-dedicated student
@@ -12848,11 +12864,19 @@ async function getGachaPity() {
 // Read-modify-write, same storageGetSafe discipline as the rest of the
 // codebase (#251/#282/#56/#313) — a failed read must abort the write
 // instead of silently resetting the other ticket kind's counter to 0.
-async function updateGachaPity(kind, hitJackpot) {
+// gotAvatar: true when this roll produced an avatar (resets the {kind}Avatar counter).
+async function updateGachaPity(kind, hitJackpot, gotAvatar = false) {
   const { value, error } = await storageGetSafe(GACHA_PITY_KEY, false);
   if (error) { console.error("[updateGachaPity] read failed, skipping pity update:", error); return; }
   const cur = value || { rare: 0, epic: 0, banner: 0, dawn: 0 };
-  const next = { ...cur, [kind]: hitJackpot ? 0 : (cur[kind] || 0) + 1 };
+  const avatarKey   = `${kind}Avatar`;
+  const lifetimeKey = `${kind}Lifetime`;
+  const next = {
+    ...cur,
+    [kind]:        hitJackpot ? 0 : (cur[kind] || 0) + 1,
+    [avatarKey]:   gotAvatar  ? 0 : (cur[avatarKey]  || 0) + 1,
+    [lifetimeKey]: (cur[lifetimeKey] || 0) + 1,
+  };
   const ok = await storageSet(GACHA_PITY_KEY, next, false);
   if (!ok) console.error("[updateGachaPity] write failed — pity counter not updated");
 }
@@ -12870,6 +12894,85 @@ function applyPityBoost(table, jackpotKey, pityCount, softStart, hardCap) {
   const othersBaseTotal = 100 - base;
   const scale = othersBaseTotal > 0 ? (100 - boosted) / othersBaseTotal : 0;
   return table.map(([k, pct]) => (k === jackpotKey ? [k, boosted] : [k, pct * scale]));
+}
+
+// Keeps only rows whose keys match `allowedKeys` and renormalizes to 100.
+// Used by consolation helpers to force a sub-pool without touching applyPityBoost.
+function filterAndNormalize(table, allowedKeys) {
+  const allowed = new Set(allowedKeys);
+  const filtered = table.filter(([k]) => allowed.has(k));
+  const total = filtered.reduce((s, [, w]) => s + w, 0);
+  if (total <= 0) return filtered;
+  return filtered.map(([k, w]) => [k, (w / total) * 100]);
+}
+
+// Consolation rules — called AFTER pity-boost and BEFORE the final roll.
+// Each returns the (possibly overridden) table, or the original if no rule fires.
+// Hard-cap (pityCount >= hardCap) already returns [[jackpotKey, 100]] inside
+// applyPityBoost, so consolation helpers only run in the sub-cap range.
+
+// Rare (Moonrise Ticket):
+//  · lifetime ≤ 5  → guarantee Uncommon (earliest rolls are kind to newcomers)
+//  · every 7 rolls without an avatar → Uncommon / Common / coins>1500 only
+function applyRareConsolation(table, avatarCount, lifetimeCount) {
+  if (lifetimeCount <= 5) {
+    return filterAndNormalize(table, ["avatar_uncommon"]);
+  }
+  if (avatarCount > 0 && avatarCount % 7 === 0) {
+    const pool = table.filter(([k]) => k === "avatar_uncommon" || k === "avatar_common" || (k.startsWith("coins_") && parseInt(k.split("_")[1], 10) > 1500));
+    if (pool.length) return filterAndNormalize(table, pool.map(([k]) => k));
+  }
+  return table;
+}
+
+// Epic (Starlight Ticket):
+//  · lifetime ≤ 7  → guarantee Uncommon
+//  · every 5 rolls without an avatar → any avatar (uncommon / common / rare / epic jackpot)
+function applyEpicConsolation(table, avatarCount, lifetimeCount) {
+  if (lifetimeCount <= 7) {
+    return filterAndNormalize(table, ["avatar_uncommon"]);
+  }
+  if (avatarCount > 0 && avatarCount % 5 === 0) {
+    const avatarKeys = table.filter(([k]) => k.startsWith("avatar_") || k === "jackpot_epic").map(([k]) => k);
+    if (avatarKeys.length) return filterAndNormalize(table, avatarKeys);
+  }
+  return table;
+}
+
+// Solstice / Banner (Solstice Ticket):
+//  · lifetime ≤ 5  → force jackpot (featured Legendary or featured Rare, whichever is jackpotKey)
+//  · every 7 rolls without an avatar → any avatar pool
+function applyBannerConsolation(table, jackpotKey, avatarCount, lifetimeCount) {
+  if (lifetimeCount <= 5 && jackpotKey) {
+    return [[jackpotKey, 100]];
+  }
+  if (avatarCount > 0 && avatarCount % 7 === 0) {
+    const avatarKeys = table.filter(([k]) => k.startsWith("avatar_") || k === "jackpot_legendary" || k === "featured_rare").map(([k]) => k);
+    if (avatarKeys.length) return filterAndNormalize(table, avatarKeys);
+  }
+  return table;
+}
+
+// Dawn (Hearthbound Ticket):
+//  · lifetime ≤ 5  → force any avatar (featured or pool)
+//  · every 5 rolls without avatar:
+//      – pityCount < 30 → Rare or inferior (legendary_event / epic*_event excluded)
+//      – pityCount ≥ 30 → Epic or inferior (legendary_event excluded)
+function applyDawnConsolation(table, avatarCount, lifetimeCount, pityCount) {
+  if (lifetimeCount <= 5) {
+    const avatarKeys = table.filter(([k]) => k.startsWith("avatar_") || k.endsWith("_event")).map(([k]) => k);
+    if (avatarKeys.length) return filterAndNormalize(table, avatarKeys);
+  }
+  if (avatarCount > 0 && avatarCount % 5 === 0) {
+    let pool;
+    if (pityCount < 30) {
+      pool = table.filter(([k]) => k === "avatar_rare" || k === "avatar_uncommon" || k === "avatar_common" || k === "rare_event").map(([k]) => k);
+    } else {
+      pool = table.filter(([k]) => k !== "legendary_event").filter(([k]) => k.startsWith("avatar_") || k.endsWith("_event")).map(([k]) => k);
+    }
+    if (pool.length) return filterAndNormalize(table, pool);
+  }
+  return table;
 }
 
 // Append-only "Wish History" entry — one per ticket opened, jackpot or not,
@@ -13244,10 +13347,18 @@ async function openRareTicket(profile, { simulate = false } = {}) {
   // a teacher's "Preview Gacha" test can't influence (or be influenced by)
   // the student's actual pity progress.
   let pityCount = 0;
+  let avatarCount = 0;
+  let lifetimeCount = 0;
   if (!simulate) {
     const pity = await getGachaPity();
-    pityCount = pity.rare || 0;
+    pityCount    = pity.rare         || 0;
+    avatarCount  = pity.rareAvatar   || 0;
+    lifetimeCount = pity.rareLifetime || 0;
     table = applyPityBoost(table, "jackpot_rare", pityCount, GACHA_PITY.rare.softStart, GACHA_PITY.rare.hardCap);
+    // Hard-cap already guaranteed by applyPityBoost; consolation only below cap
+    if (pityCount < GACHA_PITY.rare.hardCap) {
+      table = applyRareConsolation(table, avatarCount, lifetimeCount);
+    }
   }
   const key = rollWeightedTable(table);
   let { avatar, coins: coinReward } = resolveRareOutcome(key, profile);
@@ -13259,6 +13370,7 @@ async function openRareTicket(profile, { simulate = false } = {}) {
     coinReward = (coinReward || 0) + RARE_TICKET_PRICE;
   }
   const hitJackpot = key === "jackpot_rare" && !!avatar;
+  const gotAvatar  = !!avatar;
 
   if (!simulate) {
     await storageSet(GACHA_TICKETS_KEY, { ...tickets, rare: tickets.rare - 1 }, false);
@@ -13276,7 +13388,7 @@ async function openRareTicket(profile, { simulate = false } = {}) {
   const newCoins = (!simulate && coinReward) ? await creditCoins(coinReward, "Gacha Moonrise Ticket reward") : null;
 
   if (!simulate) {
-    await updateGachaPity("rare", hitJackpot);
+    await updateGachaPity("rare", hitJackpot, gotAvatar);
     await appendGachaHistoryEntry({ kind: "rare", key, avatarId: avatar?.id || null, coins: coinReward || 0, rarity: avatar?.rarity || null });
   }
 
@@ -13378,10 +13490,17 @@ async function openEpicTicket(profile, { simulate = false } = {}) {
 
   // Issue #347 — same pity mechanics as the Rare ticket, independent counter.
   let pityCount = 0;
+  let avatarCount = 0;
+  let lifetimeCount = 0;
   if (!simulate) {
     const pity = await getGachaPity();
-    pityCount = pity.epic || 0;
+    pityCount     = pity.epic         || 0;
+    avatarCount   = pity.epicAvatar   || 0;
+    lifetimeCount = pity.epicLifetime  || 0;
     table = applyPityBoost(table, "jackpot_epic", pityCount, GACHA_PITY.epic.softStart, GACHA_PITY.epic.hardCap);
+    if (pityCount < GACHA_PITY.epic.hardCap) {
+      table = applyEpicConsolation(table, avatarCount, lifetimeCount);
+    }
   }
   const key = rollWeightedTable(table);
   let { avatar, coins: coinReward } = resolveEpicOutcome(key, profile, scenario);
@@ -13392,6 +13511,7 @@ async function openEpicTicket(profile, { simulate = false } = {}) {
     coinReward = (coinReward || 0) + EPIC_TICKET_PRICE;
   }
   const hitJackpot = key === "jackpot_epic" && !!avatar;
+  const gotAvatar  = !!avatar;
 
   let updatedProfile = profile;
   if (avatar) {
@@ -13404,7 +13524,7 @@ async function openEpicTicket(profile, { simulate = false } = {}) {
   const newCoins = (!simulate && coinReward) ? await creditCoins(coinReward, "Gacha Starlight Ticket reward") : null;
 
   if (!simulate) {
-    await updateGachaPity("epic", hitJackpot);
+    await updateGachaPity("epic", hitJackpot, gotAvatar);
     await appendGachaHistoryEntry({ kind: "epic", key, avatarId: avatar?.id || null, coins: coinReward || 0, rarity: avatar?.rarity || null });
   }
 
