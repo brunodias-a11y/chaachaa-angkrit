@@ -4893,6 +4893,7 @@ export default function App() {
   const [visitedSanctuaryTab,  setVisitedSanctuaryTab]  = useState(false); // #718 Hearthbound
   const [visitedAchievements,  setVisitedAchievements]  = useState(false); // #718 Hearthbound
   const [dawnTickets,          setDawnTickets]          = useState(0);     // #718 Hearthbound
+  const [showFirstCompanionPicker, setShowFirstCompanionPicker] = useState(false); // #882
   const [pendingReward, setPendingReward] = useState(null); // { type, value, label, earnedAt, todayKey, collected, doubled }
   const [dailyRewardTickets, setDailyRewardTickets] = useState(null);
   const [usedDailyDouble,    setUsedDailyDouble]    = useState(false);
@@ -5017,7 +5018,7 @@ export default function App() {
   // advancing to the next on dismiss — in the required priority order:
   // Achievements -> Coins -> Avatar/gacha reveal.
   useEffect(() => {
-    if (activeCelebration || celebrationQueue.length === 0) return;
+    if (activeCelebration || celebrationQueue.length === 0 || showFirstCompanionPicker) return;
     const [next, ...rest] = celebrationQueue;
     setActiveCelebration(next);
     setCelebrationQueue(rest);
@@ -5165,6 +5166,13 @@ export default function App() {
     storageGet(HEARTHBOUND_FLAGS_KEY,   false).then(flags => {
       if (flags?.visitedSanctuary) setVisitedSanctuaryTab(true);
       if (flags?.visitedAch)       setVisitedAchievements(true);
+      // #882 — retroactive: show companion picker if tour already done but no cat chosen yet
+      if (!flags?.firstCompanionChosen) {
+        storageGet(ONBOARDING_KEY, false).then(onb => {
+          const meta = onb === true ? { done: true } : (onb || {});
+          if (meta.done || meta.skipped) setShowFirstCompanionPicker(true);
+        });
+      }
     });
   }, [profile?.username]); // eslint-disable-line
 
@@ -5306,6 +5314,11 @@ export default function App() {
     setTab("home");
     setOnboardingMeta(meta);
     storageSet(ONBOARDING_KEY, meta, false).catch(() => {});
+    // #882 — new students: show companion picker right after tour (before celebrations)
+    try {
+      const hbFlags = (await storageGet(HEARTHBOUND_FLAGS_KEY, false)) || {};
+      if (!hbFlags.firstCompanionChosen) setShowFirstCompanionPicker(true);
+    } catch (_) {}
     try {
       const stats = computeAchievementStats(progMap, streak, stHistory, sessionsCompleted, profile, {
         examHistory, gachaTickets, words, berserkStars, berserkAttempts, calligraphyProg, wordCalligraphyProg, pathStats, onboardingMeta: meta,
@@ -6591,6 +6604,41 @@ export default function App() {
     setProfile(updated);
   }
 
+  // #882 — First Companion: student picks their first Common cat
+  async function handleFirstCompanionPick(cat) {
+    const newUnlocked = [...(profile.unlockedAvatars || []), cat.id];
+    const updatedProfile = { ...profile, avatar: cat.id, unlockedAvatars: newUnlocked };
+    await storageSet(KEYS.profile, updatedProfile, false);
+    setProfile(updatedProfile);
+    if (!isTeacher(profile)) {
+      await mirrorUnlockedAvatarsToRoster(profile.username, newUnlocked, profile);
+      const rosterEntry = await storageGet(`${ROSTER_PREFIX}${profile.username}`, true) || {};
+      await storageSet(`${ROSTER_PREFIX}${profile.username}`, { ...rosterEntry, avatar: cat.id }, true);
+    }
+    const flags = (await storageGet(HEARTHBOUND_FLAGS_KEY, false)) || {};
+    await storageSet(HEARTHBOUND_FLAGS_KEY, { ...flags, firstCompanionChosen: true }, false);
+    setShowFirstCompanionPicker(false);
+    pushCelebrations([{ type: "avatar", data: {
+      criterion: { id: "first_companion", title: "First Companion! 🐱", desc: `Welcome, ${cat.name}! Your English journey begins now! 🐱` },
+      avatar: cat,
+      origin: "first-companion",
+    }}]);
+  }
+
+  // #882 — retroactive close: silently grant 1 ticket of each type
+  async function handleFirstCompanionClose() {
+    const flags = (await storageGet(HEARTHBOUND_FLAGS_KEY, false)) || {};
+    await storageSet(HEARTHBOUND_FLAGS_KEY, { ...flags, firstCompanionChosen: true }, false);
+    setShowFirstCompanionPicker(false);
+    const tickets = (await storageGet(GACHA_TICKETS_KEY, false)) || {};
+    const updatedTickets = { ...tickets, rare: (tickets.rare || 0) + 1, epic: (tickets.epic || 0) + 1, banner: (tickets.banner || 0) + 1 };
+    await storageSet(GACHA_TICKETS_KEY, updatedTickets, false);
+    setGachaTickets(updatedTickets);
+    const nextDawn = await grantDawnTickets(1);
+    setDawnTickets(nextDawn);
+    if (profile?.username) mirrorStudentWallet(profile.username).catch(() => {});
+  }
+
   // Issue #168 — Avatar shop: student spends Meowtongs to buy a
   // shop-exclusive avatar outright (no random draw involved, unlike the
   // free prize-pool unlocks from runAvatarUnlockEngine). Returns a result
@@ -7522,6 +7570,16 @@ export default function App() {
         {!teacher && <TabButton icon={CalendarDays} label="Events" active={tab === "events"} onClick={() => goToTab("events")} data-tour="nav-events" />}
         {teacher  && <TabButton icon={CalendarDays} label="Events" active={tab === "events"} onClick={() => goToTab("events")} />}
       </nav>
+
+      {/* #882 — First Companion Picker (shown after tour, before celebrations) */}
+      {showFirstCompanionPicker && !teacher && (
+        <FirstCompanionPickerModal
+          profile={profile}
+          avatarCatalog={getFullAvatarCatalog()}
+          onPick={handleFirstCompanionPick}
+          onClose={(profile?.unlockedAvatars || []).length > 0 ? handleFirstCompanionClose : null}
+        />
+      )}
 
       {/* #508 — onboarding tour */}
       {tourStep !== null && (
@@ -8471,6 +8529,61 @@ const TOUR_STEPS = [
   { tab: "events",   selector: "[data-tour='nav-events']",        title: "Events Tab 🎪",              desc: "Special events bring extra challenges and unique rewards. Some are the only way to unlock Legendary cats — check back often!" },
   { tab: "home",     selector: null,                              title: "You're all set! 🎉",         desc: "Start with the Lesson Path or jump into Practice — every session brings you closer to fluency. Good luck! 🐱" },
 ];
+
+// #882 — First Companion Picker: student chooses their first Common cat
+function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) {
+  const [selected, setSelected] = React.useState(null);
+  const [picking, setPicking]   = React.useState(false);
+  const isNew = (profile?.unlockedAvatars || []).length === 0;
+
+  const commonCats = avatarCatalog.filter(
+    a => !a.isDefault && !a.shopExclusive && !a.monthlyExclusive && a.rarity === "common"
+  );
+
+  async function handleConfirm() {
+    if (!selected || picking) return;
+    setPicking(true);
+    await onPick(selected);
+  }
+
+  return (
+    <div className="fcp-overlay">
+      <div className="fcp-card">
+        {!isNew && onClose && (
+          <button className="fcp-close" onClick={onClose} aria-label="Close">✕</button>
+        )}
+        <div className="fcp-emoji">🐾</div>
+        <h2 className="fcp-title">Choose Your First Companion</h2>
+        <p className="fcp-desc">Pick the cat that will accompany you on your English journey. Choose wisely — this is your first partner!</p>
+        <div className="fcp-grid">
+          {commonCats.map(cat => (
+            <button
+              key={cat.id}
+              className={"fcp-cat" + (selected?.id === cat.id ? " fcp-cat--selected" : "")}
+              onClick={() => setSelected(cat)}
+              disabled={picking}
+            >
+              <img src={cat.image} alt={cat.name} className="fcp-cat-img" />
+              <span className="fcp-cat-name">{cat.name}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          className="fcp-confirm"
+          disabled={!selected || picking}
+          onClick={handleConfirm}
+        >
+          {picking ? "Choosing…" : selected ? `Choose ${selected.name}!` : "Select a companion"}
+        </button>
+        {!isNew && (
+          <p className="fcp-skip-hint">
+            Already have cats? You can close this and receive compensation tickets instead.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false }) {
   const s = TOUR_STEPS[step];
@@ -22034,7 +22147,8 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
 
   // Issue #206 — Collection shows only avatars the student actually owns.
   const fullCatalog = getFullAvatarCatalog(); // Issue #227 — includes teacher-added cats
-  const collectionAvatars = fullCatalog.filter(a => a.isDefault || owned.has(a.id));
+  // #881 — shadow-cat (isDefault) excluded: it is a fallback, not a collectible
+  const collectionAvatars = fullCatalog.filter(a => !a.isDefault && owned.has(a.id));
   const collectedCount = (profile.unlockedAvatars || []).length;
   const totalCollectible = fullCatalog.filter(a => !a.isDefault && (!a.monthlyExclusive || owned.has(a.id))).length;
 
@@ -22066,13 +22180,14 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
     ? fullCatalog.filter(a => hbFeaturedIds.has(a.id))
     : [];
   const sourceAvatars = (() => {
-    const base = showOwnedOnly ? collectionAvatars : fullCatalog.filter(a => !isAvatarLocked(a));
+    // #881 — isDefault (shadow-cat) excluded from both owned-only and all-cats views
+    const base = showOwnedOnly ? collectionAvatars : fullCatalog.filter(a => !isAvatarLocked(a) && !a.isDefault);
     const baseIds = new Set(base.map(a => a.id));
-    const extra = hbFeaturedAvatars.filter(a => !baseIds.has(a.id));
+    const extra = hbFeaturedAvatars.filter(a => !baseIds.has(a.id) && !a.isDefault);
     return [...base, ...extra];
   })().slice().sort((a, b) => {
-    const aOwned = (a.isDefault || owned.has(a.id)) ? 0 : 1;
-    const bOwned = (b.isDefault || owned.has(b.id)) ? 0 : 1;
+    const aOwned = owned.has(a.id) ? 0 : 1;
+    const bOwned = owned.has(b.id) ? 0 : 1;
     if (aOwned !== bOwned) return aOwned - bOwned;
     const aR = RARITY_SORT_ORDER[a.rarity || "common"] ?? 0;
     const bR = RARITY_SORT_ORDER[b.rarity || "common"] ?? 0;
@@ -22169,8 +22284,8 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
                   const color = RARITY_RING_COLORS[rarity];
                   const stars = RARITY_STARS[rarity];
                   const label = RARITY_LABEL[rarity];
-                  const all = fullCatalog.filter(a => !isAvatarLocked(a) && (a.rarity || "common") === rarity);
-                  const got = all.filter(a => a.isDefault || owned.has(a.id)).length;
+                  const all = fullCatalog.filter(a => !isAvatarLocked(a) && !a.isDefault && (a.rarity || "common") === rarity);
+                  const got = all.filter(a => owned.has(a.id)).length;
                   const pct = all.length > 0 ? Math.round((got / all.length) * 100) : 0;
                   return (
                     <div key={rarity} className={"sch-rarity-bar avatar-ring-" + rarity}>
@@ -22279,8 +22394,8 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
                   const STARS  = { common:1, uncommon:2, rare:3, epic:4, legendary:5 };
                   const LABELS = { common:"Common", uncommon:"Uncommon", rare:"Rare", epic:"Epic", legendary:"Legendary" };
                   const color = COLORS[rarity], stars = STARS[rarity], label = LABELS[rarity];
-                  const all = fullCatalog.filter(a => !isAvatarLocked(a) && (a.rarity || "common") === rarity);
-                  const got = all.filter(a => a.isDefault || owned.has(a.id)).length;
+                  const all = fullCatalog.filter(a => !isAvatarLocked(a) && !a.isDefault && (a.rarity || "common") === rarity);
+                  const got = all.filter(a => owned.has(a.id)).length;
                   const pct = all.length > 0 ? Math.round((got / all.length) * 100) : 0;
                   return (
                     <div key={rarity} className={"sch-rarity-bar avatar-ring-" + rarity}>
@@ -29724,6 +29839,61 @@ select.modal-input { appearance: none; }
 .lp-code-cefr-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; }
 .lp-code-cefr-badge { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
 .lp-code-cefr-edit { font-size: 10px; padding: 2px 8px; }
+
+/* #882 — First Companion Picker */
+.fcp-overlay {
+  position: fixed; inset: 0; z-index: 25000;
+  background: rgba(6,4,18,0.92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.fcp-card {
+  position: relative;
+  background: linear-gradient(160deg, #12103a 0%, #1a1040 100%);
+  border: 1px solid rgba(245,239,230,0.12);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  max-width: 480px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.fcp-close {
+  position: absolute; top: 14px; right: 14px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6); border-radius: 50%;
+  width: 32px; height: 32px; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.fcp-close:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.fcp-emoji { font-size: 36px; }
+.fcp-title { font-size: 22px; font-weight: 800; color: #f5efe6; text-align: center; margin: 0; }
+.fcp-desc { font-size: 14px; color: rgba(245,239,230,0.65); text-align: center; margin: 0; line-height: 1.5; max-width: 340px; }
+.fcp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.fcp-cat {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 10px 6px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.fcp-cat:hover { background: rgba(255,255,255,0.09); border-color: rgba(245,239,230,0.3); }
+.fcp-cat:active { transform: scale(0.96); }
+.fcp-cat--selected { border-color: #E8A33D; background: rgba(232,163,61,0.12); box-shadow: 0 0 0 1px rgba(232,163,61,0.4); }
+.fcp-cat-img { width: 64px; height: 64px; object-fit: contain; }
+.fcp-cat-name { font-size: 11px; font-weight: 700; color: #f5efe6; text-align: center; }
+.fcp-confirm {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #E8A33D, #c47c1a);
+  border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 800; color: #fff; cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.fcp-confirm:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.fcp-confirm:not(:disabled):hover { opacity: 0.9; }
+.fcp-confirm:not(:disabled):active { transform: scale(0.98); }
+.fcp-skip-hint { font-size: 11px; color: rgba(245,239,230,0.35); text-align: center; margin: 0; }
 
 /* #795 — cat walk animation */
 .lp-cat-walk {
