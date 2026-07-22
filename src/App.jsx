@@ -6092,7 +6092,7 @@ export default function App() {
         const entry = { date: todayStr(), durationMs };
         const updated = [...sessionTimeLog, entry];
         setSessionTimeLog(updated);
-        storageSet(SESSION_TIME_KEY, updated, false).catch(() => {});
+        await storageSet(SESSION_TIME_KEY, updated, false).catch(() => {});
       }
     }
 
@@ -19596,6 +19596,35 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
     computeAchievementStats(progMap, streak, stHistory, sessionsCompleted, profile, { examHistory, gachaTickets, words, berserkStars, berserkAttempts, calligraphyProg, wordCalligraphyProg, pathStats, onboardingMeta, visitedEventsTab, visitedProgressTab, dailyRewardTickets, usedDailyDouble }),
     [progMap, streak, stHistory, sessionsCompleted, profile, examHistory, gachaTickets, words, berserkStars, berserkAttempts, calligraphyProg, wordCalligraphyProg, dailyRewardTickets, usedDailyDouble]
   );
+
+  // Weekly log stats for challenge progress display — logs not passed as props
+  // (gacha, coins, path lessons/skill/replay) are loaded once on mount.
+  const [extraWeekLogs, setExtraWeekLogs] = useState(null);
+  useEffect(() => {
+    Promise.all([
+      storageGet(GACHA_WEEK_LOG_KEY,    false),
+      storageGet(COINS_WEEK_LOG_KEY,    false),
+      storageGet(PATH_LESSONS_LOG_KEY,  false),
+      storageGet(PATH_SKILL_LOG_KEY,    false),
+      storageGet(PATH_REPLAY_LOG_KEY,   false),
+    ]).then(([gachaLog, coinsLog, pathLessonsLog, pathSkillLog, pathReplayLog]) => {
+      setExtraWeekLogs({ gachaLog, coinsLog, pathLessonsLog, pathSkillLog, pathReplayLog });
+    });
+  }, []);
+  const wStats = useMemo(() => {
+    if (!extraWeekLogs) return null;
+    return computeWeeklyStats(progMap, stHistory, achStats, {
+      gachaWeekLog:    extraWeekLogs.gachaLog        || [],
+      coinsWeekLog:    extraWeekLogs.coinsLog         || [],
+      sessionTimeLog:  sessionTimeLog,
+      energySpendLog:  energySpendLog,
+      pathLessonsLog:  extraWeekLogs.pathLessonsLog   || [],
+      pathAccuracyLog: pathAccuracyLog,
+      pathSkillLog:    extraWeekLogs.pathSkillLog     || [],
+      pathReplayLog:   extraWeekLogs.pathReplayLog    || [],
+    });
+  }, [extraWeekLogs, progMap, stHistory, achStats, sessionTimeLog, energySpendLog, pathAccuracyLog]);
+
   const unlockedIds = useMemo(() => new Set(unlockedAchIds), [unlockedAchIds]);
   const unlockedCount = unlockedAchIds.length;
   // Issue #236 — denominator excludes still-locked secret achievements, so
@@ -19923,7 +19952,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
                         <div className="wc-list">
                           {weekChallenges.map(c => {
                             const done = wcDoneSet.has(c.id);
-                            const stat = c.criterion ? (achStats[c.criterion] ?? 0) : null;
+                            const stat = c.criterion ? ((wStats ?? achStats)[c.criterion] ?? 0) : null;
                             const progress = stat !== null ? Math.min(stat, c.threshold) : null;
                             return (
                               <div key={c.id} className={"wc-card"+(done?" wc-done":"")} style={{"--wc": c.color}}>
