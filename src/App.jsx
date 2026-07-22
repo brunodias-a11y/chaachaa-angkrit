@@ -10016,6 +10016,54 @@ function getAvatarPowersAssignable() {
 }
 
 function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
+
+  async function handleSyncAll() {
+    setSyncing("all");
+    setSyncMsg(null);
+    try {
+      const cfg = await catalogStorageGet(AVATAR_POWERS_CONFIG_KEY);
+      if (!cfg) { setSyncMsg({ ok: false, text: "Key not found in ChaaChaaThai." }); return; }
+      await storageSet(AVATAR_POWERS_CONFIG_KEY, cfg, true);
+      setSyncMsg({ ok: true, text: `Synced — ${Object.keys(cfg).length} entries copied. Reload to see changes.` });
+    } catch (e) {
+      setSyncMsg({ ok: false, text: String(e?.message || e) });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleSyncNewOnly() {
+    setSyncing("new");
+    setSyncMsg(null);
+    try {
+      const [remote, local] = await Promise.all([
+        catalogStorageGet(AVATAR_POWERS_CONFIG_KEY),
+        storageGet(AVATAR_POWERS_CONFIG_KEY, true),
+      ]);
+      if (!remote) { setSyncMsg({ ok: false, text: "Key not found in ChaaChaaThai." }); return; }
+      const localCfg = local || {};
+      const isEmpty = (entry) => !entry || (!entry.simple && !entry.special && !entry.passive && !entry.passive2);
+      let added = 0;
+      const merged = { ...remote };
+      for (const [id, entry] of Object.entries(localCfg)) {
+        if (!isEmpty(entry)) { merged[id] = entry; } // keep local if it has something
+        else { if (!isEmpty(remote[id])) added++; }  // count newly filled from remote
+      }
+      // also count ids in remote that weren't in local at all
+      for (const id of Object.keys(remote)) {
+        if (!(id in localCfg) && !isEmpty(remote[id])) added++;
+      }
+      await storageSet(AVATAR_POWERS_CONFIG_KEY, merged, true);
+      setSyncMsg({ ok: true, text: `Done — ${added} new slot(s) filled, local changes preserved. Reload to see changes.` });
+    } catch (e) {
+      setSyncMsg({ ok: false, text: String(e?.message || e) });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const [draft, setDraft] = useState(() => {
     const d = {};
     for (const a of getAvatarPowersAssignable()) {
@@ -10214,9 +10262,32 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
           {renderGroup("Prize Pool", prizePool)}
           {renderGroup("Shop", shop)}
           {renderGroup("Cat of the Month", monthly)}
-          <button className="btn-primary level-settings-save" onClick={handleSave}>
-            Save
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", marginTop: "0.5rem" }}>
+            <button className="btn-primary level-settings-save" onClick={handleSave}>
+              Save
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={handleSyncNewOnly}
+              disabled={!!syncing}
+              title="Fill empty power slots from ChaaChaaThai — keeps your local changes"
+            >
+              {syncing === "new" ? "Syncing…" : "Sync New Cats"}
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={handleSyncAll}
+              disabled={!!syncing}
+              title="Replace all power assignments with ChaaChaaThai's config"
+            >
+              {syncing === "all" ? "Syncing…" : "Sync All (overwrite)"}
+            </button>
+            {syncMsg && (
+              <span style={{ fontSize: "0.8rem", color: syncMsg.ok ? "var(--color-success, green)" : "var(--color-danger, red)" }}>
+                {syncMsg.text}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </ModalOverlay>
