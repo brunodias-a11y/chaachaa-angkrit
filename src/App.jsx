@@ -12834,9 +12834,9 @@ const GACHA_PITY_KEY = "gacha-pity"; // personal: { rare: number, epic: number }
 // file ever resets GACHA_PITY_KEY's "banner" field except updateGachaPity
 // itself being called with hitJackpot=true.
 const GACHA_PITY = {
-  rare:   { softStart: 6,  hardCap: 10 },
-  epic:   { softStart: 5,  hardCap: 8  },
-  banner: { softStart: 6,  hardCap: 10 },
+  rare:   { softStart: 18, hardCap: 30 },
+  epic:   { softStart: 10, hardCap: 15 },
+  banner: { softStart: 12, hardCap: 20 },
   dawn:   { softStart: 30, hardCap: 45 }, // #718 — hard pity 45 → guaranteed Legendary
 };
 
