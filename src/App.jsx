@@ -4854,7 +4854,7 @@ export default function App() {
   const [levelConfig, setLevelConfig] = useState(null);
   const [avatarPriceOverrides, setAvatarPriceOverrides] = useState({});
   const [achievementRewardOverrides, setAchievementRewardOverrides] = useState({});
-  const [, forceCatalogRerender] = useState(0);
+  const [catalogVersion, forceCatalogRerender] = useState(0);
   const [studentPowersConfig, setStudentPowersConfig] = useState({});
   const [customCats, setCustomCats]               = useState([]);
   const [appClassCodes, setAppClassCodes]         = useState([]);
@@ -7460,6 +7460,7 @@ export default function App() {
             profile={profile}
             coins={coins}
             gachaTickets={gachaTickets}
+            catalogVersion={catalogVersion}
             priceOverrides={avatarPriceOverrides}
             powersConfig={studentPowersConfig}
             onSaveAvatar={handleSaveAvatar}
@@ -21642,7 +21643,7 @@ function GachaHistoryModal({ history, error, pity, profile, bannerFeatured, bann
   );
 }
 
-function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfig, onSaveAvatar, onBuyAvatar, onBuyTicket, onBuyTicketMulti, onOpenRareTicket, onKeepRareTicket, onRefundRareTicket, onOpenEpicTicket, onOpenBannerTicket, onConvertBannerTicket, onOpenDawnTicket, dawnTickets = 0, pathStats = {}, onGoToPractice, onGoToEvents }) {
+function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOverrides, powersConfig, onSaveAvatar, onBuyAvatar, onBuyTicket, onBuyTicketMulti, onOpenRareTicket, onKeepRareTicket, onRefundRareTicket, onOpenEpicTicket, onOpenBannerTicket, onConvertBannerTicket, onOpenDawnTicket, dawnTickets = 0, pathStats = {}, onGoToPractice, onGoToEvents }) {
   const [detailAvatar, setDetailAvatar] = useState(null); // Issue #222 — { avatar, origin } for the detail modal
   const [detailActiveBoosts, setDetailActiveBoosts] = useState(null); // #798 — loaded when modal opens
 
