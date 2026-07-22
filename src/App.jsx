@@ -7,7 +7,7 @@ import { getStroke } from "perfect-freehand"; // Issue #61
 import { normalizeStroke, scoreStroke } from "./utils/unistrokeRecognizer"; // Issue #61
 import {
   storageGet, storageGetSafe, storageSet, storageList, storageDelete,
-  getSupabaseClient, storageUpload, getLastSharedKvError, setStorageAuthState, getCurrentUsername, getStorageUser, USE_SUPABASE,
+  getSupabaseClient, getCatalogSupabaseClient, storageUpload, getLastSharedKvError, setStorageAuthState, getCurrentUsername, getStorageUser, USE_SUPABASE,
   addS0Energy, getS0Energy, calcS0Energy, S0_ENERGY_MAX,
   generateStudentCode,
 } from "./storage.js";
@@ -2309,7 +2309,12 @@ const CUSTOM_AVATAR_CATALOG_KEY = "avatar-custom-catalog"; // shared
 let _customAvatarCache = [];
 
 async function getCustomAvatars() {
-  return (await storageGet(CUSTOM_AVATAR_CATALOG_KEY, true)) || [];
+  try {
+    const client = await getCatalogSupabaseClient();
+    const { data, error } = await client.from("shared_kv").select("value").eq("key", CUSTOM_AVATAR_CATALOG_KEY).maybeSingle();
+    if (error) { console.error("[getCustomAvatars] catalog read failed:", error.message); return []; }
+    return data ? JSON.parse(data.value) : [];
+  } catch (e) { console.error("[getCustomAvatars] exception:", e); return []; }
 }
 
 async function refreshCustomAvatarCache() {

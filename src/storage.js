@@ -8,7 +8,15 @@ const USE_SUPABASE      = import.meta.env.VITE_USE_SUPABASE !== "false";
 const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let _sbClient = null;
+// Catalog Supabase — read-only client pointing to ChaaChaaThai's project.
+// Used exclusively to fetch the shared avatar catalog (shared_kv key
+// "avatar-custom-catalog") so both apps always show the same cats.
+// Falls back to the local client when the vars are absent (dev / demo mode).
+const CATALOG_SUPABASE_URL      = import.meta.env.VITE_CATALOG_SUPABASE_URL;
+const CATALOG_SUPABASE_ANON_KEY = import.meta.env.VITE_CATALOG_SUPABASE_ANON_KEY;
+
+let _sbClient      = null;
+let _catalogClient = null;
 let _sbUser   = null;
 let _currentUsername = null;
 
@@ -28,6 +36,7 @@ function _isAuthError(error) {
 }
 
 export function getLastSharedKvError() { return _lastSharedKvError; }
+export { getCatalogSupabaseClient };
 export function getCurrentUsername() { return _currentUsername; }
 export function getStorageUser() { return _sbUser; }
 
@@ -56,6 +65,18 @@ export async function getSupabaseClient() {
     auth: { persistSession: false, autoRefreshToken: true }
   });
   return _sbClient;
+}
+
+// Returns a Supabase client pointed at ChaaChaaThai's project for catalog reads.
+// Falls back to the local client when VITE_CATALOG_SUPABASE_URL is not set.
+async function getCatalogSupabaseClient() {
+  if (!CATALOG_SUPABASE_URL || !CATALOG_SUPABASE_ANON_KEY) return getSupabaseClient();
+  if (_catalogClient) return _catalogClient;
+  await getSupabaseClient(); // ensures the supabase-js script is loaded
+  _catalogClient = window.supabase.createClient(CATALOG_SUPABASE_URL, CATALOG_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  return _catalogClient;
 }
 
 export async function storageGet(key, shared) {
