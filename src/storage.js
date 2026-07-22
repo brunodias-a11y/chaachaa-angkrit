@@ -37,6 +37,25 @@ function _isAuthError(error) {
 
 export function getLastSharedKvError() { return _lastSharedKvError; }
 export { getCatalogSupabaseClient };
+
+// Read a shared_kv key from ChaaChaaThai's Supabase (catalog client).
+// Drop-in replacement for storageGet(key, true) on keys that are
+// globally configured in ChaaChaaThai and shared across ChaaChaa products
+// (banner featured avatars, banner art, Hearthbound config, event art).
+export async function catalogStorageGet(key) {
+  if (USE_SUPABASE) {
+    try {
+      const client = await getCatalogSupabaseClient();
+      const { data, error } = await client.from("shared_kv").select("value").eq("key", key).maybeSingle();
+      if (error) { console.error("[catalogStorageGet] failed for key:", key, error.message); return null; }
+      return data ? JSON.parse(data.value) : null;
+    } catch (e) { console.error("[catalogStorageGet] exception for key:", key, e); return null; }
+  }
+  try {
+    const res = await window.storage?.get(key, true);
+    return res ? JSON.parse(res.value) : null;
+  } catch { return null; }
+}
 export function getCurrentUsername() { return _currentUsername; }
 export function getStorageUser() { return _sbUser; }
 

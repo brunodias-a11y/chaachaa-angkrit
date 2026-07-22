@@ -7,7 +7,7 @@ import { getStroke } from "perfect-freehand"; // Issue #61
 import { normalizeStroke, scoreStroke } from "./utils/unistrokeRecognizer"; // Issue #61
 import {
   storageGet, storageGetSafe, storageSet, storageList, storageDelete,
-  getSupabaseClient, getCatalogSupabaseClient, storageUpload, getLastSharedKvError, setStorageAuthState, getCurrentUsername, getStorageUser, USE_SUPABASE,
+  getSupabaseClient, getCatalogSupabaseClient, catalogStorageGet, storageUpload, getLastSharedKvError, setStorageAuthState, getCurrentUsername, getStorageUser, USE_SUPABASE,
   addS0Energy, getS0Energy, calcS0Energy, S0_ENERGY_MAX,
   generateStudentCode,
 } from "./storage.js";
@@ -1142,16 +1142,16 @@ const BANNER_ART_H_KEY               = (bannerKey) => `gacha-banner-art-h:${bann
 const BANNER_ART_V_KEY               = (bannerKey) => `gacha-banner-art-v:${bannerKey}`;
 
 async function getBannerArt(bannerKey) {
-  return (await storageGet(BANNER_ART_KEY(bannerKey), true)) || null;
+  return (await catalogStorageGet(BANNER_ART_KEY(bannerKey))) || null;
 }
 async function setBannerArt(bannerKey, url) {
   return storageSet(BANNER_ART_KEY(bannerKey), url || null, true);
 }
 async function getBannerArtOriented(bannerKey) {
   const [h, v, legacy] = await Promise.all([
-    storageGet(BANNER_ART_H_KEY(bannerKey), true),
-    storageGet(BANNER_ART_V_KEY(bannerKey), true),
-    storageGet(BANNER_ART_KEY(bannerKey), true),
+    catalogStorageGet(BANNER_ART_H_KEY(bannerKey)),
+    catalogStorageGet(BANNER_ART_V_KEY(bannerKey)),
+    catalogStorageGet(BANNER_ART_KEY(bannerKey)),
   ]);
   return { horizontal: h || null, vertical: v || null, legacy: legacy || null };
 }
@@ -1163,7 +1163,7 @@ async function setBannerArtOriented(bannerKey, { horizontal, vertical }) {
 }
 
 async function getBannerFeaturedRares(bannerKey) {
-  return (await storageGet(BANNER_FEATURED_RARES_KEY(bannerKey), true)) || [];
+  return (await catalogStorageGet(BANNER_FEATURED_RARES_KEY(bannerKey))) || [];
 }
 
 async function setBannerFeaturedRares(bannerKey, avatarIds) {
@@ -1214,7 +1214,7 @@ async function getEffectiveBannerFeaturedRares(bannerKey) {
 const BANNER_FEATURED_LEGENDARY_KEY = (bannerKey) => `banner-featured-legendary:${bannerKey}`;
 
 async function getBannerFeaturedLegendaryOverride(bannerKey) {
-  return await storageGet(BANNER_FEATURED_LEGENDARY_KEY(bannerKey), true);
+  return await catalogStorageGet(BANNER_FEATURED_LEGENDARY_KEY(bannerKey));
 }
 
 async function setBannerFeaturedLegendary(bannerKey, avatarId) {
@@ -5180,7 +5180,7 @@ export default function App() {
             const art = await getBannerArtOriented(ev.bannerKey);
             vUrl = art.vertical || null;
           } else {
-            vUrl = (await storageGet(EVENT_BANNER_V_KEY(ev.id), true)) || null;
+            vUrl = (await catalogStorageGet(EVENT_BANNER_V_KEY(ev.id))) || null;
           }
           if (vUrl) {
             setEventPopupBannerUrl(vUrl);
@@ -9043,8 +9043,8 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
     const key = activeEvent.recurringBannerKey || activeEvent.id;
     let cancelled = false;
     Promise.all([
-      storageGet(EVENT_BANNER_H_KEY(key), true),
-      storageGet(EVENT_BANNER_H_KEY(activeEvent.id), true),
+      catalogStorageGet(EVENT_BANNER_H_KEY(key)),
+      catalogStorageGet(EVENT_BANNER_H_KEY(activeEvent.id)),
     ]).then(([byKey, byId]) => {
       if (!cancelled) setActiveEventBanner(byKey || byId || null);
     }).catch(() => {});
@@ -10883,10 +10883,10 @@ function EventsScreen({ profile, pathStats = {}, dawnTickets = 0, onGoToStore })
       } else {
         const stableKey = ev.recurringBannerKey;
         const [h, v, hFallback, vFallback] = await Promise.all([
-          stableKey ? storageGet(EVENT_BANNER_H_KEY(stableKey), true) : Promise.resolve(null),
-          stableKey ? storageGet(EVENT_BANNER_V_KEY(stableKey), true) : Promise.resolve(null),
-          storageGet(EVENT_BANNER_H_KEY(ev.id), true),
-          storageGet(EVENT_BANNER_V_KEY(ev.id), true),
+          stableKey ? catalogStorageGet(EVENT_BANNER_H_KEY(stableKey)) : Promise.resolve(null),
+          stableKey ? catalogStorageGet(EVENT_BANNER_V_KEY(stableKey)) : Promise.resolve(null),
+          catalogStorageGet(EVENT_BANNER_H_KEY(ev.id)),
+          catalogStorageGet(EVENT_BANNER_V_KEY(ev.id)),
         ]);
         bannerArt = { h: h || hFallback || null, v: v || vFallback || null };
       }
@@ -13025,9 +13025,9 @@ const HEARTHBOUND_ART_PORTRAIT_KEY = "hearthbound-art-portrait";
 
 async function getHearthboundArt() {
   const [desktop, mobile, portrait] = await Promise.all([
-    storageGet(HEARTHBOUND_ART_DESKTOP_KEY,  true),
-    storageGet(HEARTHBOUND_ART_MOBILE_KEY,   true),
-    storageGet(HEARTHBOUND_ART_PORTRAIT_KEY, true),
+    catalogStorageGet(HEARTHBOUND_ART_DESKTOP_KEY),
+    catalogStorageGet(HEARTHBOUND_ART_MOBILE_KEY),
+    catalogStorageGet(HEARTHBOUND_ART_PORTRAIT_KEY),
   ]);
   return {
     desktop:  desktop  || "/banners/hearthbound-desktop.png",
@@ -13053,10 +13053,10 @@ function isHearthboundBannerActive(pathStats, dawnTickets) {
 // Reads the four featured avatars configured by the teacher (or null if not configured)
 async function getHearthboundFeatured() {
   const [legendaryId, epic1Id, epic2Id, rareId] = await Promise.all([
-    storageGet(HEARTHBOUND_FEATURED_LEGENDARY_KEY, true),
-    storageGet(HEARTHBOUND_FEATURED_EPIC1_KEY,     true),
-    storageGet(HEARTHBOUND_FEATURED_EPIC2_KEY,     true),
-    storageGet(HEARTHBOUND_FEATURED_RARE_KEY,      true),
+    catalogStorageGet(HEARTHBOUND_FEATURED_LEGENDARY_KEY),
+    catalogStorageGet(HEARTHBOUND_FEATURED_EPIC1_KEY),
+    catalogStorageGet(HEARTHBOUND_FEATURED_EPIC2_KEY),
+    catalogStorageGet(HEARTHBOUND_FEATURED_RARE_KEY),
   ]);
   const catalog = getFullAvatarCatalog();
   const find = (id, rarity) => id ? (catalog.find(a => a.id === id && a.rarity === rarity) || null) : null;
