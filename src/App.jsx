@@ -8563,8 +8563,8 @@ function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) 
               <button
                 key={cat.id}
                 className={"fcp-cat" + (owned ? " fcp-cat--owned" : "") + (selected?.id === cat.id ? " fcp-cat--selected" : "")}
-                onClick={() => setSelected(cat)}
-                disabled={picking}
+                onClick={() => { if (!owned) setSelected(cat); }}
+                disabled={picking || owned}
               >
                 {owned && <span className="fcp-owned-badge">Owned</span>}
                 <img src={cat.image} alt={cat.name} className={"fcp-cat-img" + (owned ? " fcp-cat-img--owned" : "")} />
@@ -29886,8 +29886,9 @@ select.modal-input { appearance: none; }
 .fcp-cat:hover { background: rgba(255,255,255,0.09); border-color: rgba(245,239,230,0.3); }
 .fcp-cat:active { transform: scale(0.96); }
 .fcp-cat--selected { border-color: #E8A33D; background: rgba(232,163,61,0.12); box-shadow: 0 0 0 1px rgba(232,163,61,0.4); }
-.fcp-cat--owned { opacity: 0.45; position: relative; }
-.fcp-cat--owned.fcp-cat--selected { opacity: 1; }
+.fcp-cat--owned { opacity: 0.45; position: relative; cursor: not-allowed; }
+.fcp-cat--owned:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+.fcp-cat--owned:active { transform: none; }
 .fcp-owned-badge {
   position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
   font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
