@@ -8534,7 +8534,8 @@ const TOUR_STEPS = [
 function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) {
   const [selected, setSelected] = React.useState(null);
   const [picking, setPicking]   = React.useState(false);
-  const isNew = (profile?.unlockedAvatars || []).length === 0;
+  const ownedSet = new Set(profile?.unlockedAvatars || []);
+  const isNew = ownedSet.size === 0;
 
   const commonCats = avatarCatalog.filter(
     a => !a.isDefault && !a.shopExclusive && !a.monthlyExclusive && a.rarity === "common"
@@ -8556,17 +8557,21 @@ function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) 
         <h2 className="fcp-title">Choose Your First Companion</h2>
         <p className="fcp-desc">Pick the cat that will accompany you on your English journey. Choose wisely — this is your first partner!</p>
         <div className="fcp-grid">
-          {commonCats.map(cat => (
-            <button
-              key={cat.id}
-              className={"fcp-cat" + (selected?.id === cat.id ? " fcp-cat--selected" : "")}
-              onClick={() => setSelected(cat)}
-              disabled={picking}
-            >
-              <img src={cat.image} alt={cat.name} className="fcp-cat-img" />
-              <span className="fcp-cat-name">{cat.name}</span>
-            </button>
-          ))}
+          {commonCats.map(cat => {
+            const owned = ownedSet.has(cat.id);
+            return (
+              <button
+                key={cat.id}
+                className={"fcp-cat" + (owned ? " fcp-cat--owned" : "") + (selected?.id === cat.id ? " fcp-cat--selected" : "")}
+                onClick={() => setSelected(cat)}
+                disabled={picking}
+              >
+                {owned && <span className="fcp-owned-badge">Owned</span>}
+                <img src={cat.image} alt={cat.name} className={"fcp-cat-img" + (owned ? " fcp-cat-img--owned" : "")} />
+                <span className="fcp-cat-name">{cat.name}</span>
+              </button>
+            );
+          })}
         </div>
         <button
           className="fcp-confirm"
@@ -29881,7 +29886,16 @@ select.modal-input { appearance: none; }
 .fcp-cat:hover { background: rgba(255,255,255,0.09); border-color: rgba(245,239,230,0.3); }
 .fcp-cat:active { transform: scale(0.96); }
 .fcp-cat--selected { border-color: #E8A33D; background: rgba(232,163,61,0.12); box-shadow: 0 0 0 1px rgba(232,163,61,0.4); }
+.fcp-cat--owned { opacity: 0.45; position: relative; }
+.fcp-cat--owned.fcp-cat--selected { opacity: 1; }
+.fcp-owned-badge {
+  position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  background: rgba(245,239,230,0.18); color: rgba(245,239,230,0.7);
+  border-radius: 4px; padding: 1px 5px; white-space: nowrap; z-index: 1;
+}
 .fcp-cat-img { width: 64px; height: 64px; object-fit: contain; }
+.fcp-cat-img--owned { filter: grayscale(40%); }
 .fcp-cat-name { font-size: 11px; font-weight: 700; color: #f5efe6; text-align: center; }
 .fcp-confirm {
   width: 100%; padding: 13px;
