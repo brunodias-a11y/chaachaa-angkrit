@@ -709,6 +709,44 @@ function getDesc(item, isTeacher = false) {
 
 ---
 
+## ADR-026: Consolation pity — garantia por sequência de avatares (Genshin-style)
+
+**Date:** 2026-07-22
+
+### Decision
+
+Adicionar uma segunda camada de proteção sobre o jackpot pity existente (ADR-019): um consolation pity que garante ao menos um avatar antes que uma sequência longa de rolls sem nenhum avatar se acumule. Dois novos contadores por tipo de ticket são persistidos em `gacha-pity`:
+
+- **`{kind}Avatar`** — rolls consecutivos sem qualquer avatar (reseta ao receber qualquer avatar).
+- **`{kind}Lifetime`** — total acumulado de rolls do tipo (nunca reseta).
+
+**Regras por ticket:**
+
+| Ticket | Garantia nos primeiros N rolls (lifetime) | Consolação a cada M sem avatar |
+|--------|-------------------------------------------|-------------------------------|
+| Rare (Moonrise) | lifetime ≤ 5 → Uncommon ou melhor | a cada 7 → Uncommon, Common ou coins > 1.500 |
+| Epic (Starlight) | lifetime ≤ 7 → Uncommon ou melhor | a cada 5 → qualquer avatar (remove coins) |
+| Solstice (Banner) | lifetime ≤ 5 → avatar featured (jackpot ou `featured_rare`) | a cada 7 → qualquer avatar (remove coins) |
+| Dawn (Hearthbound) | lifetime ≤ 5 → qualquer avatar (remove coins) | a cada 5 (pré-softStart) → Rare ou inferior; a cada 5 (pós-softStart) → Epic ou inferior |
+
+### Rationale
+
+- Genshin garante 1 personagem 4★ a cada 10 wishes — protege o jogador contra runs longas de estrelas 3★. Analogamente, um aluno pode abrir vários tickets Rare e receber só coins: frustrante quando moedas custam semanas de estudo.
+- A garantia dos primeiros N rolls (`lifetime`) é um "boas-vindas" — o aluno que está abrindo seu primeiro Rare ticket tem expectativa alta. Uma sequência de coins do início quebra a motivação antes de ela se consolidar.
+- A consolation (a cada M sem avatar) cobre sessões de azar avançadas — impede que alguém com muitas coletas continue meses sem ver um avatar.
+- Jackpot pity (`hardCap`) tem prioridade absoluta — consolation só filtra a tabela quando `hardCap` ainda não foi atingido, evitando conflito entre as duas garantias.
+- Consolation counter reseta apenas em avatar real (Genshin logic); cashback de featured já possuído **não** reseta (`cashback` é coins/ticket, não avatar).
+
+### Consequences
+
+- `updateGachaPity(kind, hitJackpot, gotAvatar)` recebe 3º parâmetro; todos os call sites passam `gotAvatar = !!avatar` (`true` para avatar real, `false` para coins ou cashback).
+- `filterAndNormalize(table, keepSet)` — helper que filtra e renormaliza pesos para 100.
+- Quatro funções `apply*Consolation` encapsulam a lógica por tipo, chamadas após `applyPityBoost`.
+- `simulate: true` (preview do professor) bypassa todos os contadores — nem lê nem escreve.
+- **Contadores retroativos:** alunos existentes começam com `{kind}Avatar = 0` e `{kind}Lifetime = 0` (os campos simplesmente não existem no KV; padrão `0` é aplicado no código). A garantia dos primeiros N rolls não se aplica retroativamente — correto, pois esses alunos já passaram dessa fase.
+
+---
+
 ## ADR-023: Portal-based `<ModalOverlay>` instead of per-modal inline overlay divs
 
 **Date:** 2026-07-09 · **Issues:** #400, #400.1, #400.2, #403
