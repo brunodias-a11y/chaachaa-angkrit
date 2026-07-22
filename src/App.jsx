@@ -80,11 +80,17 @@ async function restoreSession(username) {
     const { access_token, refresh_token } = JSON.parse(raw);
     const client = await getSupabaseClient();
     const { data, error } = await client.auth.setSession({ access_token, refresh_token });
-    if (error || !data?.user) return null;
+    if (error || !data?.user) {
+      console.error("[restoreSession] setSession failed:", error?.message, "user:", data?.user ?? null);
+      return null;
+    }
     setStorageAuthState(data.user, username);
     saveSession(slug, data.session);
     return data.user;
-  } catch (e) { return null; }
+  } catch (e) {
+    console.error("[restoreSession] exception:", e?.message ?? e);
+    return null;
+  }
 }
 
 // Sign in (existing account) or sign up (first time this name sets a PIN).
