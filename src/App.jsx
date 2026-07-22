@@ -19658,6 +19658,12 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
   const [showMonthCatDetail, setShowMonthCatDetail] = useState(false); // Issue #376 (legacy, unused after CotM modal migration)
   const [detailCotM, setDetailCotM] = useState(null); // { avatar, origin }
   const [detailCotMBoosts, setDetailCotMBoosts] = useState(null);
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 551);
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 551);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
   useEffect(() => {
     storageGet(MONTH_STREAK_BEST_KEY(monthKey), false).then(n => setMonthStreakBest(n || 0));
     computeMonthWeeklyStats(monthKey).then(setMonthWeeklyStats);
@@ -19842,7 +19848,22 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
               </div>
             </div>
           )}
-          {detailCotM && (
+          {detailCotM && (isDesktop ? (
+            <AvatarDetailModalDesktop
+              avatar={detailCotM.avatar}
+              origin={detailCotM.origin}
+              owned={monthCatOwned}
+              selected={profile?.avatar === detailCotM.avatar.id}
+              price={0}
+              coins={coins}
+              powersConfig={powersConfig}
+              onChangeAvatar={onChangeAvatar}
+              onBuy={null}
+              onClose={() => { setDetailCotM(null); setDetailCotMBoosts(null); }}
+              activeBoosts={detailCotMBoosts}
+              onActivatePower={null}
+            />
+          ) : (
             <AvatarDetailModal
               avatar={detailCotM.avatar}
               origin={detailCotM.origin}
@@ -19857,7 +19878,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
               activeBoosts={detailCotMBoosts}
               onActivatePower={null}
             />
-          )}
+          ))}
 
           {/* Cards row 1 */}
           <div className="prg2-cards-row">
