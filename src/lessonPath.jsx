@@ -2269,7 +2269,7 @@ function LessonNode({ lesson, status, xPct, onOpen, peers = [], avatarCatalog = 
   );
 }
 
-export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta = {}, onOpenLesson, decorativeAvatars = [], classCode, selfUsername, avatarCatalog = [], playerAvatarId = null, teacherView = false, energyVersion = 0, energyMax = S0_ENERGY_MAX, currentCode = null, allCodes = [] }) {
+export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta = {}, onOpenLesson, decorativeAvatars = [], classCode, selfUsername, avatarCatalog = [], playerAvatarId = null, teacherView = false, energyVersion = 0, energyMax = S0_ENERGY_MAX, currentCode = null, allCodes = [], walkEnabled = true }) {
   const [peers, setPeers] = useState([]);
   const isS0 = (currentCode || classCode)?.startsWith("S0");
 
@@ -2356,8 +2356,9 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
 
   // #795 — cat walk animation between nodes
   const [catWalk, setCatWalk] = useState(null); // null | { x, y, toX, toY, goingLeft, arrived }
-  const prevNodeIndexRef = useRef(null);
-  const catWalkRafRef   = useRef(null);
+  const prevNodeIndexRef  = useRef(null);
+  const catWalkRafRef     = useRef(null);
+  const pendingWalkRef    = useRef(null); // { fromIdx, toIdx } queued while walkEnabled=false
 
   // Build flat row list interleaving code-separators, section-separators and nodes
   const rows = React.useMemo(() => {
@@ -2391,15 +2392,10 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
     [nodeRows]
   );
 
-  useEffect(() => {
-    if (currentNodeIndex == null) return;
-    const prev = prevNodeIndexRef.current;
-    prevNodeIndexRef.current = currentNodeIndex;
-    if (prev == null || prev === currentNodeIndex) return;
-    const from = svgPoints[prev];
-    const to   = svgPoints[currentNodeIndex];
+  function _fireCatWalk(fromIdx, toIdx, points) {
+    const from = points[fromIdx];
+    const to   = points[toIdx];
     if (!from || !to) return;
-
     // #803 — mount at `from`, then trigger the CSS transition in the next paint
     // frame. Without double-rAF the transition starts at the same tick as mount
     // (no visual from→to delta yet) and the element appears frozen.
@@ -2417,7 +2413,28 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [currentNodeIndex, svgPoints]);
+  }
+
+  // Detect node advance — if walkEnabled, fire immediately; otherwise queue.
+  useEffect(() => {
+    if (currentNodeIndex == null) return;
+    const prev = prevNodeIndexRef.current;
+    prevNodeIndexRef.current = currentNodeIndex;
+    if (prev == null || prev === currentNodeIndex) return;
+    if (!walkEnabled) {
+      pendingWalkRef.current = { fromIdx: prev, toIdx: currentNodeIndex };
+      return;
+    }
+    return _fireCatWalk(prev, currentNodeIndex, svgPoints);
+  }, [currentNodeIndex, svgPoints]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drain pending walk when celebrations clear and svgPoints are fresh.
+  useEffect(() => {
+    if (!walkEnabled || !pendingWalkRef.current) return;
+    const { fromIdx, toIdx } = pendingWalkRef.current;
+    pendingWalkRef.current = null;
+    return _fireCatWalk(fromIdx, toIdx, svgPoints);
+  }, [walkEnabled, svgPoints]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     const scrollEl = scrollRef.current;

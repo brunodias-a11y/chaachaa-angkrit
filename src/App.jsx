@@ -7369,6 +7369,7 @@ export default function App() {
               }
               goToTab("exam");
             }}
+            walkEnabled={!activeCelebration && celebrationQueue.length === 0}
           />
         </React.Suspense>
         {tab === "sunday" && (

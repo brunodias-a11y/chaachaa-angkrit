@@ -158,6 +158,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     onStageComplete,
     onSaveVocabWord,
     onNodeIndexUpdate,
+    walkEnabled = true,
   },
   ref
 ) {
@@ -462,6 +463,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           teacherView={teacher}
           energyVersion={energyVersion}
           energyMax={S0_ENERGY_MAX + (catSkillEffects.energyMaxBonus || 0)}
+          walkEnabled={walkEnabled && !activeLessonPlayer}
           onOpenLesson={teacher ? null : async (lesson) => {
             let effects = { removeWrongOption: false };
             try { effects = (await onGetCatSkillEffects?.()) ?? effects; } catch (_) {}
