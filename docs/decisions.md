@@ -745,6 +745,37 @@ Adicionar uma segunda camada de proteção sobre o jackpot pity existente (ADR-0
 - `simulate: true` (preview do professor) bypassa todos os contadores — nem lê nem escreve.
 - **Contadores retroativos:** alunos existentes começam com `{kind}Avatar = 0` e `{kind}Lifetime = 0` (os campos simplesmente não existem no KV; padrão `0` é aplicado no código). A garantia dos primeiros N rolls não se aplica retroativamente — correto, pois esses alunos já passaram dessa fase.
 
+---
+
+## ADR-027: Separação de responsabilidades entre ChaaChaaThai e ChaaChaAngkrit — catálogo compartilhado, poderes independentes
+
+**Date:** 2026-07-22
+
+### Context
+
+ChaaChaaThai (aprendizado de inglês) e ChaaChaAngkrit (aprendizado de Thai) são dois deployments independentes que compartilham a mesma base de código mas servem contextos pedagógicos distintos. Ambos usam o sistema de avatars/gatinhos e poderes, mas com necessidades diferentes.
+
+### Decision
+
+**Catálogo de avatars** (`avatar-custom-catalog` em `shared_kv`) → fonte de verdade única no Supabase do ChaaChaaThai. O angkrit lê esse catálogo via `getCatalogSupabaseClient()`, um cliente Supabase read-only configurado pelas env vars `VITE_CATALOG_SUPABASE_URL` + `VITE_CATALOG_SUPABASE_ANON_KEY` no Cloudflare Pages. Os dois apps sempre exibem os mesmos gatinhos, sem duplicação de cadastro.
+
+**Poderes dos avatars** (`avatar-powers-config` em `shared_kv`) → configurado independentemente em cada deployment, no Supabase local de cada app. O professor do angkrit atribui poderes adequados ao contexto de aprendizado de Thai; o professor do ChaaChaaThai configura poderes adequados ao inglês.
+
+### Rationale
+
+- Manter um catálogo único evita trabalho duplicado de cadastro de gatinhos e garante consistência visual entre os dois apps.
+- Poderes são pedagogicamente dependentes do contexto: mecânicas que fazem sentido para inglês (ex: bônus em Word Writing, Berserk Mode) podem não existir ou ter peso diferente no contexto Thai. Cada professor deve poder configurar livremente sem afetar o outro deployment.
+- A separação é natural pela estrutura do storage: o catálogo é um dado de conteúdo (o que existe), enquanto os poderes são configuração de gameplay (como se comporta).
+
+### Consequences
+
+- Novos gatinhos são cadastrados **apenas no ChaaChaaThai** — o angkrit os herda automaticamente no próximo carregamento.
+- O professor do angkrit vê os mesmos gatinhos na tela de configuração de poderes, mas as atribuições são salvas no Supabase local e não afetam o ChaaChaaThai.
+- Se `VITE_CATALOG_SUPABASE_URL` não estiver configurada (dev / demo), `getCatalogSupabaseClient()` cai no cliente local como fallback — sem quebra em ambiente de desenvolvimento.
+- Qualquer outro dado que deva ser compartilhado entre os dois apps (ex: futura biblioteca de conteúdo) deve seguir o mesmo padrão: env var dedicada + cliente read-only separado.
+
+---
+
 ## ADR-023: Portal-based `<ModalOverlay>` instead of per-modal inline overlay divs
 
 **Date:** 2026-07-09 · **Issues:** #400, #400.1, #400.2, #403
