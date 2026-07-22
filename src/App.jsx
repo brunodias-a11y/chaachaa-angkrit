@@ -6702,7 +6702,7 @@ export default function App() {
       haptic([10, 20, 10, 20, 40]);
       items.push({ type: "avatar", data: { criterion: { id: `gacha_rare_${Date.now()}`, title: "Rare Gacha Ticket", desc: "Rolled from a Rare Gacha Ticket" }, avatar: result.avatar, origin: "gacha", ticketKind: "rare" } });
     }
-    if (result.coins > 0) {
+    if (result.coins > 0 && !result.avatar) {
       items.push({ type: "coins", data: { events: [{ label: "Rare Gacha Ticket", amount: result.coins }], total: result.coins, ticketKind: "rare" } });
     }
     pushCelebrations(items);
