@@ -21663,6 +21663,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
   const [openingKind, setOpeningKind] = useState(null);  // teacher modal open flow (kept for GachaTicketModal)
   const [blockedKind, setBlockedKind] = useState(null);  // student mini-modal: "rare-blocked" | "epic-cashback"
   const [ticketBusy, setTicketBusy] = useState(false);
+  const _openingRef = useRef(false); // sync guard — prevents double-tap races before re-render
   const [gachaPity, setGachaPity] = useState(null);
   const [bannerFeatured, setBannerFeatured] = useState(null);
   const [bannerStrip, setBannerStrip] = useState(null);
@@ -21833,34 +21834,65 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
   }
 
   async function handleConfirmOpen() {
-    if (ticketBusy) return;
+    if (_openingRef.current) return;
+    _openingRef.current = true;
     setTicketBusy(true);
-    await (openingKind === "rare" ? onOpenRareTicket() : openingKind === "epic" ? onOpenEpicTicket() : onOpenBannerTicket());
-    setTicketBusy(false);
-    setOpeningKind(null);
+    try {
+      await (openingKind === "rare" ? onOpenRareTicket() : openingKind === "epic" ? onOpenEpicTicket() : onOpenBannerTicket());
+    } finally {
+      _openingRef.current = false;
+      setTicketBusy(false);
+      setOpeningKind(null);
+    }
   }
   // #690 — student direct pull: no confirmation modal, call immediately from Wish ×1
   async function handleDirectOpen(kind) {
-    if (ticketBusy) return;
+    if (_openingRef.current) return;
+    _openingRef.current = true;
     setTicketBusy(true);
-    await (kind === "rare" ? onOpenRareTicket() : kind === "epic" ? onOpenEpicTicket() : onOpenBannerTicket());
-    setTicketBusy(false);
+    try {
+      await (kind === "rare" ? onOpenRareTicket() : kind === "epic" ? onOpenEpicTicket() : onOpenBannerTicket());
+    } finally {
+      _openingRef.current = false;
+      setTicketBusy(false);
+    }
+  }
+  async function handleOpenDawn() {
+    if (_openingRef.current) return;
+    _openingRef.current = true;
+    setTicketBusy(true);
+    try {
+      await onOpenDawnTicket?.();
+    } finally {
+      _openingRef.current = false;
+      setTicketBusy(false);
+    }
   }
   async function handleKeep() {
-    if (ticketBusy) return;
+    if (_openingRef.current) return;
+    _openingRef.current = true;
     setTicketBusy(true);
-    await onKeepRareTicket();
-    setTicketBusy(false);
-    setOpeningKind(null);
-    setBlockedKind(null);
+    try {
+      await onKeepRareTicket();
+    } finally {
+      _openingRef.current = false;
+      setTicketBusy(false);
+      setOpeningKind(null);
+      setBlockedKind(null);
+    }
   }
   async function handleRefund() {
-    if (ticketBusy) return;
+    if (_openingRef.current) return;
+    _openingRef.current = true;
     setTicketBusy(true);
-    await onRefundRareTicket();
-    setTicketBusy(false);
-    setOpeningKind(null);
-    setBlockedKind(null);
+    try {
+      await onRefundRareTicket();
+    } finally {
+      _openingRef.current = false;
+      setTicketBusy(false);
+      setOpeningKind(null);
+      setBlockedKind(null);
+    }
   }
 
   const owned = new Set(profile.unlockedAvatars || []);
@@ -22250,7 +22282,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
                   onClick={() => {
                     if (slide.locked) return;
                     const kind = slide.kind;
-                    if (kind === "dawn") { onOpenDawnTicket?.(); return; }
+                    if (kind === "dawn") { handleOpenDawn(); return; }
                     if (kind === "rare" && ownsAllOfRarity("rare", profile)) { setBlockedKind("rare-blocked"); return; }
                     if (kind === "epic" && getEpicTicketScenario(profile) === "CASHBACK") { setBlockedKind("epic-cashback"); return; }
                     handleDirectOpen(kind);
@@ -22324,7 +22356,7 @@ function StoreScreen({ profile, coins, gachaTickets, priceOverrides, powersConfi
                             }
                             wishBtnsRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); return;
                           }
-                          if (s.kind === "dawn") { onOpenDawnTicket?.(); return; }
+                          if (s.kind === "dawn") { handleOpenDawn(); return; }
                           if (s.kind === "rare" && ownsAllOfRarity("rare", profile)) { setBlockedKind("rare-blocked"); return; }
                           if (s.kind === "epic" && getEpicTicketScenario(profile) === "CASHBACK") { setBlockedKind("epic-cashback"); return; }
                           handleDirectOpen(s.kind);
