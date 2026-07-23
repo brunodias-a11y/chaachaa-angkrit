@@ -4,6 +4,13 @@
     879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889
   ],
   "blocked": {
-    "14": "Aguardando issues de design corretivas do ChaaChaaThai para #890 (My Results / Skill Tiles) antes de portar"
+    "14": "Aguardando implementação de #15-18 (sub-issues derivadas de #890-894). Ver issues angkrit #15, #16, #17, #18."
+  },
+  "notes": {
+    "890": "portado como #14 (My Results tab)",
+    "891": "portado como #15 (Personal Weekly Challenge)",
+    "892": "portado como #16 (Activity Feed View More)",
+    "893": "portado parcialmente em #14 (visual/layout) e #18 (onTicketAwarded qty)",
+    "894": "portado como #17 (Avatar card + ADR-026)"
   }
 }
