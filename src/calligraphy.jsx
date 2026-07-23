@@ -43,6 +43,18 @@ export function getSvgPathFromStroke(stroke) {
 
 export const TRACE_FREEHAND_OPTS = { size: 3.5, thinning: 0.6, smoothing: 0.55, streamlining: 0.5 };
 const TRACE_PASS_THRESHOLD = 0.68;
+// Pairs where same-indexed strokes are visually similar enough to cause confusion.
+// After a stroke passes the threshold, the drawn stroke is also scored against each
+// confusable's same-indexed template. If a confusable scores more than MARGIN points
+// higher than the target, the attempt is rejected (best-analysis principle: the
+// student more likely drew the wrong letter).
+const CONFUSABLE_PAIRS = {
+  b: ["p"], p: ["b"],   // same stroke order: vertical stem → bump
+  d: ["q"], q: ["d"],   // same stroke order: oval → vertical stem
+  n: ["h"], h: ["n"],   // stroke1 (arch) is near-identical; stroke0 length differs
+  B: ["D", "P"], D: ["B"], P: ["B"],
+};
+const CONFUSABLE_MARGIN = 0.05; // confusable must beat target by this margin to reject
 const TRACE_PASS_THRESHOLD_OVERRIDES = {
   "ส": { 1: 0.58 },
   "ศ": { 1: 0.58 },
@@ -242,8 +254,23 @@ export function TracingCanvas({ char, size = 260, onComplete }) {
       templatePoints.push([p.x, p.y]);
     }
     const drawnXY = rawPoints.map(([x, y]) => [x, y]);
-    const score = scoreStroke(normalizeStroke(drawnXY), normalizeStroke(templatePoints));
-    const passed = score >= getTracePassThreshold(char, strokeIndex);
+    const normalizedDrawn = normalizeStroke(drawnXY);
+    const score = scoreStroke(normalizedDrawn, normalizeStroke(templatePoints));
+    let passed = score >= getTracePassThreshold(char, strokeIndex);
+
+    // Anti-confusion: if a visually similar letter's same-indexed stroke matches
+    // the drawn stroke better (by CONFUSABLE_MARGIN), the student likely drew the
+    // wrong letter — reject so they try again with the correct form.
+    if (passed) {
+      for (const alt of CONFUSABLE_PAIRS[char] ?? []) {
+        const altRaw = ALL_THAI_STROKES[alt]?.strokes?.[strokeIndex];
+        if (!altRaw) continue;
+        if (scoreStroke(normalizedDrawn, normalizeStroke(altRaw)) > score + CONFUSABLE_MARGIN) {
+          passed = false;
+          break;
+        }
+      }
+    }
     const outlineD = getSvgPathFromStroke(getStroke(rawPoints, TRACE_FREEHAND_OPTS));
 
     if (passed) {
