@@ -3,6 +3,29 @@
 // Feature module: data layer (LP1), authoring UI (LP2), player (LP3),
 // path map (LP4), decorative background (LP5), rewards (LP6), social (LP7).
 // ---------------------------------------------------------------------------
+
+// #895 — step type metadata: emoji, display label, accent color for tiles + counter
+const STEP_TYPE_META = {
+  "vocab":              { emoji: "📖", label: "Vocab",              color: "#4A90C4" },
+  "tip":                { emoji: "💡", label: "Tip",                color: "#F59E0B" },
+  "calligraphy":        { emoji: "✍️",  label: "Calligraphy",        color: "#E8703A" },
+  "listening":          { emoji: "👂",  label: "Listening",          color: "#14B8A6" },
+  "listen-write":       { emoji: "🎧✍️", label: "Listen & Write",    color: "#8B5CF6" },
+  "memory-check":       { emoji: "🖼️✍️", label: "Memory Check",     color: "#10B981" },
+  "write-word":         { emoji: "📝",  label: "Write Word",         color: "#EF4444" },
+  "image-match":        { emoji: "🖼️",  label: "Image Match",        color: "#EC4899" },
+  "listen-write-word":  { emoji: "🎧📝", label: "Listen & Write Word", color: "#6366F1" },
+  "match-write-word":   { emoji: "🖼️📝", label: "Match & Write Word",  color: "#D97706" },
+};
+
+// #896 — step type groups by skill (types may repeat across groups; empty = coming soon)
+const STEP_TYPE_GROUPS = [
+  { key: "listening", label: "Listening", emoji: "👂", types: ["listening", "image-match", "listen-write", "listen-write-word"] },
+  { key: "writing",   label: "Writing",   emoji: "✍️",  types: ["calligraphy", "write-word", "memory-check", "listen-write", "listen-write-word", "match-write-word"] },
+  { key: "reading",   label: "Reading",   emoji: "📖", types: [] },
+  { key: "speaking",  label: "Speaking",  emoji: "🎤", types: [] },
+];
+
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Plus, ChevronUp, ChevronDown, Trash2, BookOpen, Lightbulb, Search, Volume2, ChevronLeft, ChevronRight, Lock, Check, Star } from "lucide-react";
@@ -697,6 +720,11 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   const [codeMetas,     setCodeMetas]     = useState({}); // #793 — { [code]: { cefrLevel } }
   const [newCodeCefr,   setNewCodeCefr]   = useState(""); // cefrLevel for "+ New code" flow
   const [editingCefr,   setEditingCefr]   = useState(false); // inline edit mode for active code
+  const [openGroups,    setOpenGroups]    = useState({}); // #896 — { [groupKey]: bool }
+  const [cefrView,      setCefrView]      = useState(true);  // #897 — true = CEFR overview, false = builder
+  const [cefrStats,     setCefrStats]     = useState({});    // #897 — { [level]: { count, secIdxs, codes } }
+  const [addingToLevel, setAddingToLevel] = useState(null);  // #897 — CEFR level card with open "add code" input
+  const [newCodeForLvl, setNewCodeForLvl] = useState("");    // #897 — code value being typed in card
 
   // Issue #426 — classCodes may arrive after mount (async fetch in App.jsx).
   // When the prop updates from [] to a real list, set the first code automatically.
@@ -739,6 +767,27 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     setTimeout(() => setCodeToast(null), 3000);
   }
 
+  async function handleAddCodeForLevel(lvl) {
+    const code = newCodeForLvl.trim().toUpperCase();
+    if (!code) return;
+    if (!/^S\d+C\d+$/.test(code)) { alert("Class code must follow the pattern S<n>C<n> — ex: S0C1, S1C2."); return; }
+    const cefrLevel = isPreA1Prefix(code) ? "Pre-A1" : lvl;
+    if (localCodes.some(c => c.code === code)) {
+      setSelectedCode(code); setAddingToLevel(null); setNewCodeForLvl("");
+      startCreate(); setCefrView(false); return;
+    }
+    await storageSet(`${LESSON_INDEX_PREFIX}${code}`, [], true);
+    await setCodeMeta(code, { cefrLevel });
+    const next = [...localCodes, { code }].sort((a, b) => a.code.localeCompare(b.code));
+    setLocalCodes(next);
+    setCodeMetas(m => ({ ...m, [code]: { cefrLevel } }));
+    setSelectedCode(code);
+    setAddingToLevel(null); setNewCodeForLvl("");
+    startCreate(); setCefrView(false);
+    setCodeToast(`Class code ${code} (${cefrLevel}) created.`);
+    setTimeout(() => setCodeToast(null), 3000);
+  }
+
   const reload = useCallback(async (code) => {
     if (!code) return;
     setLoading(true);
@@ -761,6 +810,25 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   useEffect(() => {
     if (selectedCode) setForm(f => ({ ...f, classCode: selectedCode }));
   }, [selectedCode]);
+
+  // #897 — load lesson counts for CEFR overview (first 4 codes per level)
+  useEffect(() => {
+    if (Object.keys(codeMetas).length === 0 && localCodes.length > 0) return;
+    const byLevel = {};
+    for (const { code } of localCodes) {
+      const lvl = resolveCodeLevel(code, codeMetas) || "—";
+      if (!byLevel[lvl]) byLevel[lvl] = [];
+      byLevel[lvl].push(code);
+    }
+    const fetches = Object.entries(byLevel).map(async ([lvl, codes]) => {
+      const first4 = codes.slice(0, 4);
+      const results = await Promise.all(first4.map(c => listLessonsByClassCode(c)));
+      const allLessons = results.flat();
+      const secIdxs = [...new Set(allLessons.map(l => l.sectionIndex))].sort((a, b) => a - b);
+      return [lvl, { count: allLessons.length, codes, secIdxs }];
+    });
+    Promise.all(fetches).then(entries => setCefrStats(Object.fromEntries(entries)));
+  }, [codeMetas, localCodes]);
 
   function startCreate() {
     setEditingId(null);
@@ -905,18 +973,104 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     sections[l.sectionIndex].push(l);
   });
 
+  // #897 — CEFR overview card grid
+  const cefrOverview = (
+    <div className="lp-cefr-overview">
+      <div className="lp-cefr-overview-header">
+        <span className="lp-cefr-overview-title">Lessons by CEFR Level</span>
+      </div>
+      <div className="lp-cefr-card-grid">
+        {CEFR_LEVELS_ORDERED.map(lvl => {
+          const stats   = cefrStats[lvl];
+          const codes   = stats?.codes   || [];
+          const count   = stats?.count   || 0;
+          const secIdxs = stats?.secIdxs || [];
+          const hasAny  = count > 0;
+          const first4  = codes.slice(0, 4);
+          const extra   = codes.length - first4.length;
+          const secLabel = secIdxs.length >= 2
+            ? `S${secIdxs[0]} – S${secIdxs[secIdxs.length - 1]}`
+            : secIdxs.length === 1 ? `S${secIdxs[0]}` : null;
+          return (
+            <div key={lvl} className="lp-cefr-card" onClick={() => {
+              const firstCode = codes[0];
+              if (!firstCode) return;
+              setSelectedCode(firstCode);
+              startCreate();
+              setCefrView(false);
+            }}>
+              <div className="lp-cefr-card-level">{lvl}</div>
+              <div className="lp-cefr-card-body">
+                {hasAny ? (
+                  <>
+                    <div className="lp-cefr-card-count">{count} lesson{count !== 1 ? "s" : ""}</div>
+                    {secLabel && <div className="lp-cefr-card-sections">{secLabel}</div>}
+                  </>
+                ) : (
+                  <div className="lp-cefr-card-empty">No lessons registered yet.</div>
+                )}
+              </div>
+              {codes.length > 0 && (
+                <div className="lp-cefr-card-codes">
+                  {first4.map(c => <span key={c} className="lp-cefr-code-chip">{c}</span>)}
+                  {extra > 0 && <span className="lp-cefr-code-extra">+{extra}</span>}
+                </div>
+              )}
+              <div className="lp-cefr-card-footer">
+                {addingToLevel === lvl ? (
+                  <div className="lp-cefr-add-row" onClick={e => e.stopPropagation()}>
+                    <input
+                      className="lp-cefr-code-input"
+                      placeholder="e.g. S2C1"
+                      value={newCodeForLvl}
+                      autoFocus
+                      onChange={e => setNewCodeForLvl(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") handleAddCodeForLevel(lvl);
+                        if (e.key === "Escape") { setAddingToLevel(null); setNewCodeForLvl(""); }
+                      }}
+                    />
+                    <button className="lp-cefr-add-confirm" onClick={() => handleAddCodeForLevel(lvl)}>Add</button>
+                    <button className="lp-cefr-add-cancel" onClick={e => { e.stopPropagation(); setAddingToLevel(null); setNewCodeForLvl(""); }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="lp-cefr-card-cta-row">
+                    {codes.length > 0 && (
+                      <span className="lp-cefr-card-cta">
+                        {hasAny ? "Keep creating →" : "Create the first →"}
+                      </span>
+                    )}
+                    <button className="lp-cefr-add-btn" onClick={e => { e.stopPropagation(); setAddingToLevel(lvl); setNewCodeForLvl(""); }}>
+                      + New code
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   // Issue #521 — shared body used by both tab and modal modes
   const manageLessonsBody = (
     <div className="lp-manage-body">
           {/* Left: lesson list */}
           <div className="lp-manage-list">
+            {/* #897 — back to CEFR overview */}
+            <button className="lp-back-to-cefr" onClick={() => setCefrView(true)}>
+              ← CEFR Overview
+            </button>
             <div className="lp-manage-code-row">
               <select
                 className="lp-code-select"
                 value={selectedCode}
                 onChange={e => { setSelectedCode(e.target.value); startCreate(); }}
               >
-                {localCodes.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                {localCodes
+                  .filter(c => resolveCodeLevel(c.code, codeMetas) === resolveCodeLevel(selectedCode, codeMetas))
+                  .map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                 {localCodes.length === 0 && <option value="">No class codes</option>}
               </select>
               <button className="btn-secondary lp-new-btn" onClick={startCreate}>
@@ -1087,40 +1241,58 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
                 </div>
               </div>
 
-              <div className="lp-steps-header">
-                <span className="level-settings-field-label">Steps ({form.steps.length})</span>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("vocab")}>
-                    <BookOpen size={12} /> Vocab
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("tip")}>
-                    <Lightbulb size={12} /> Tip
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("calligraphy")}>
-                    ✍️ Calligraphy
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("listening")}>
-                    👂 Listening
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("image-match")}>
-                    🖼️ Image-match
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("listen-write")}>
-                    👂✍️ Listen &amp; Write
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("memory-check")}>
-                    🖼️✍️ Memory Check
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("write-word")}>
-                    ✍️📝 Write Word
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("listen-write-word")}>
-                    👂✍️📝 Listen &amp; Write Word
-                  </button>
-                  <button className="btn-secondary lp-add-step-btn" onClick={() => addStep("match-write-word")}>
-                    🖼️✍️📝 Match &amp; Write Word
-                  </button>
-                </div>
+              {/* #895 — step counter chips */}
+              <div className="lp-step-counter">
+                <span className="lp-step-counter-total">{form.steps.length} {form.steps.length === 1 ? "step" : "steps"}</span>
+                {Object.entries(
+                  form.steps.reduce((acc, s) => { acc[s.type] = (acc[s.type] || 0) + 1; return acc; }, {})
+                ).map(([type, count]) => {
+                  const m = STEP_TYPE_META[type];
+                  if (!m) return null;
+                  return (
+                    <span key={type} className="lp-step-counter-chip" style={{ "--chip-color": m.color }}>
+                      {m.emoji} {count}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* #896 — step type strip: skill chips + inline tiles when open */}
+              <div className="lp-skill-strip">
+                {["vocab", "tip"].map(type => {
+                  const m = STEP_TYPE_META[type];
+                  return (
+                    <button key={type} className="lp-step-type-tile" style={{ "--tile-color": m.color }} onClick={() => addStep(type)}>
+                      <span className="lp-step-type-tile-icon">{m.emoji}</span>
+                      <span className="lp-step-type-tile-label">{m.label}</span>
+                    </button>
+                  );
+                })}
+                <div className="lp-skill-strip-divider" />
+                {STEP_TYPE_GROUPS.map(group => {
+                  const isOpen = !!openGroups[group.key];
+                  return (
+                    <React.Fragment key={group.key}>
+                      <button
+                        className={`lp-skill-chip${isOpen ? " lp-skill-chip--open" : ""}${group.types.length === 0 ? " lp-skill-chip--soon" : ""}`}
+                        disabled={group.types.length === 0}
+                        onClick={() => setOpenGroups(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
+                      >
+                        <span>{group.emoji} {group.label}</span>
+                        <span className="lp-skill-chip-arrow">{isOpen ? "◄" : "►"}</span>
+                      </button>
+                      {isOpen && group.types.map(type => {
+                        const m = STEP_TYPE_META[type];
+                        return (
+                          <button key={type} className="lp-step-type-tile" style={{ "--tile-color": m.color }} onClick={() => addStep(type)}>
+                            <span className="lp-step-type-tile-icon">{m.emoji}</span>
+                            <span className="lp-step-type-tile-label">{m.label}</span>
+                          </button>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             </div>
 
@@ -1196,7 +1368,11 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   );
 
   if (asTab) {
-    return <div className="lp-manage-tab-screen">{manageLessonsBody}</div>;
+    return (
+      <div className="lp-manage-tab-screen">
+        {cefrView ? cefrOverview : manageLessonsBody}
+      </div>
+    );
   }
 
   return createPortal(

@@ -30604,13 +30604,14 @@ select.modal-input { appearance: none; }
   padding: 7px 10px; border-radius: 8px; cursor: pointer;
   display: flex; justify-content: space-between; align-items: center;
   transition: background 0.15s;
-  background: #dde4f2; color: #14172e;
+  background: rgba(139,92,246,0.08);
+  border: 1px solid rgba(139,92,246,0.12);
 }
-.lp-lesson-row:hover              { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.lp-lesson-row.active             { background: #f9edd8; color: #14172e; border-left: 3px solid var(--accent); padding-left: 7px; }
-.lp-lesson-row-locked             { opacity: 0.7; }
-.lp-lesson-title { font-size: 13px; font-weight: 600; color: var(--ink); }
-.lp-lesson-meta  { font-size: 11px; color: var(--ink); opacity: 0.6; }
+.lp-lesson-row:hover              { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.28); }
+.lp-lesson-row.active             { background: rgba(139,92,246,0.28); border-color: rgba(139,92,246,0.55); border-left: 3px solid #A78BFA; padding-left: 7px; }
+.lp-lesson-row-locked             { opacity: 0.55; }
+.lp-lesson-title { font-size: 13px; font-weight: 600; color: rgba(245,239,230,0.9); }
+.lp-lesson-meta  { font-size: 11px; color: rgba(245,239,230,0.45); }
 /* #704 — lock/unlock button in lesson list */
 .lp-lock-btn { background: none; border: none; cursor: pointer; font-size: 15px; padding: 2px 4px; border-radius: 4px; opacity: 0.5; transition: opacity 0.15s; flex-shrink: 0; }
 .lp-lock-btn:hover    { opacity: 1; }
@@ -30627,11 +30628,100 @@ select.modal-input { appearance: none; }
 .lp-form-row    { display: flex; gap: 12px; }
 .lp-input {
   width: 100%; padding: 7px 10px; border-radius: 8px; font-size: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  background: #dfe1f2; color: #14172e;
+  border: 1px solid rgba(139,92,246,0.25);
+  background: rgba(255,255,255,0.06); color: rgba(245,239,230,0.9);
 }
-.lp-steps-header { display: flex; justify-content: space-between; align-items: center; }
-.lp-add-step-btn { font-size: 12px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
+.lp-input:focus { outline: none; border-color: rgba(167,139,250,0.55); }
+
+/* #895 — step counter */
+.lp-step-counter {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 4px 0 2px;
+}
+.lp-step-counter-total {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(245,239,230,0.4); margin-right: 2px;
+}
+.lp-step-counter-chip {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 99px;
+  background: color-mix(in srgb, var(--chip-color, #8B5CF6) 18%, transparent);
+  color: var(--chip-color, #A78BFA);
+  border: 1px solid color-mix(in srgb, var(--chip-color, #8B5CF6) 35%, transparent);
+}
+
+/* #896 — horizontal skill strip */
+.lp-skill-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.lp-skill-strip-divider {
+  width: 1px; height: 32px; background: rgba(139,92,246,0.25); flex-shrink: 0;
+}
+.lp-skill-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 20px; cursor: pointer;
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.25);
+  color: rgba(245,239,230,0.65); font-size: 11px; font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.lp-skill-chip:hover { background: rgba(139,92,246,0.22); color: rgba(245,239,230,0.9); }
+.lp-skill-chip--open {
+  background: rgba(139,92,246,0.3);
+  border-color: rgba(167,139,250,0.55);
+  color: #fff;
+}
+.lp-skill-chip-arrow { font-size: 8px; opacity: 0.6; }
+.lp-skill-chip--soon { opacity: 0.35; cursor: not-allowed; }
+.lp-step-type-tile {
+  width: 68px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 8px 4px 7px;
+  border-radius: 10px; cursor: pointer;
+  background: color-mix(in srgb, var(--tile-color, #8B5CF6) 14%, rgba(255,255,255,0.04));
+  border: 1px solid color-mix(in srgb, var(--tile-color, #8B5CF6) 30%, transparent);
+  transition: background 0.15s, transform 0.1s;
+}
+.lp-step-type-tile:hover  { background: color-mix(in srgb, var(--tile-color, #8B5CF6) 28%, rgba(255,255,255,0.06)); transform: translateY(-1px); }
+.lp-step-type-tile:active { transform: scale(0.95); }
+.lp-step-type-tile-icon  { font-size: 20px; line-height: 1; }
+.lp-step-type-tile-label { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.2;
+  color: color-mix(in srgb, var(--tile-color, #A78BFA) 90%, #fff); letter-spacing: 0.02em; }
+
+/* #897 — CEFR overview */
+.lp-cefr-overview { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; gap: 16px; }
+.lp-cefr-overview-header { display: flex; align-items: center; gap: 12px; }
+.lp-cefr-overview-title { font-size: 16px; font-weight: 800; color: rgba(245,239,230,0.9); letter-spacing: 0.04em; text-transform: uppercase; }
+.lp-cefr-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.lp-cefr-card {
+  background: rgba(139,92,246,0.08);
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: 16px; padding: 18px 16px 14px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+.lp-cefr-card:hover { background: rgba(139,92,246,0.16); border-color: rgba(167,139,250,0.45); transform: translateY(-2px); }
+.lp-cefr-card-level { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #A78BFA; }
+.lp-cefr-card-body { flex: 1; }
+.lp-cefr-card-count { font-size: 22px; font-weight: 800; color: rgba(245,239,230,0.95); line-height: 1; }
+.lp-cefr-card-sections { font-size: 11px; color: rgba(245,239,230,0.4); margin-top: 4px; font-family: monospace; letter-spacing: 0.05em; }
+.lp-cefr-card-empty { font-size: 12px; color: rgba(245,239,230,0.3); font-style: italic; }
+.lp-cefr-card-codes { display: flex; flex-wrap: wrap; gap: 5px; }
+.lp-cefr-code-chip { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: rgba(139,92,246,0.18); color: rgba(245,239,230,0.65); font-family: monospace; letter-spacing: 0.04em; }
+.lp-cefr-code-extra { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: rgba(255,255,255,0.07); color: rgba(245,239,230,0.4); }
+.lp-cefr-card-footer { margin-top: 2px; }
+.lp-cefr-card-cta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lp-cefr-card-cta { font-size: 12px; font-weight: 700; color: #A78BFA; }
+.lp-cefr-add-btn { background: none; border: 1px dashed rgba(139,92,246,0.35); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: rgba(167,139,250,0.6); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+.lp-cefr-add-btn:hover { border-color: rgba(167,139,250,0.7); color: #A78BFA; }
+.lp-cefr-add-row { display: flex; gap: 6px; align-items: center; }
+.lp-cefr-code-input { flex: 1; font-size: 12px; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(167,139,250,0.45); background: rgba(255,255,255,0.1); color: rgba(245,239,230,0.9); text-transform: uppercase; font-family: monospace; min-width: 0; }
+.lp-cefr-code-input:focus { outline: none; border-color: rgba(167,139,250,0.75); }
+.lp-cefr-add-confirm { background: rgba(139,92,246,0.5); border: none; border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; }
+.lp-cefr-add-cancel { background: none; border: none; font-size: 13px; color: rgba(245,239,230,0.35); cursor: pointer; padding: 0 2px; }
+.lp-back-to-cefr { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(139,92,246,0.15); padding: 8px 4px 10px; margin-bottom: 4px; font-size: 11px; font-weight: 700; color: rgba(167,139,250,0.7); cursor: pointer; text-align: left; letter-spacing: 0.04em; transition: color 0.15s; }
+.lp-back-to-cefr:hover { color: #A78BFA; }
 
 /* Step cards */
 .lp-step-card {
