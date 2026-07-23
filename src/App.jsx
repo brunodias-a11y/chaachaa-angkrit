@@ -29361,6 +29361,8 @@ select.modal-input { appearance: none; }
    still call getTotalLength()/getPointAtLength() on them for scoring; SVG
    geometry methods work regardless of visibility. */
 .tracing-ghost-pending, .tracing-ghost-active, .tracing-ghost-done { stroke: none; opacity: 0; }
+.tracing-ghost-hidden { stroke: none; opacity: 0; }
+.tracing-give-up-row { display: flex; gap: 10px; justify-content: center; }
 .tracing-ink-passed, .tracing-ink-live { fill: var(--ink-soft); }
 .tracing-ink-fail { fill: var(--lacquer) !important; }
 .tracing-canvas-status { display: flex; align-items: center; gap: 8px; }

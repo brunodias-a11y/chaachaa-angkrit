@@ -181,7 +181,7 @@ export function StrokeAnimation({ char, size = 180, speed = "normal", showGlyphG
   );
 }
 
-export function TracingCanvas({ char, size = 260, onComplete }) {
+export function TracingCanvas({ char, size = 260, onComplete, hideGuide = false }) {
   const strokes = ALL_THAI_STROKES[char]?.strokes || [];
   const viewBox = "-5 0 95 125";
   const aspect = 125 / 95;
@@ -322,7 +322,7 @@ export function TracingCanvas({ char, size = 260, onComplete }) {
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
-        <text x="4" y="100" fontSize="100" className="stroke-anim-glyph-guide">{char}</text>
+        {!hideGuide && <text x="4" y="100" fontSize="100" className="stroke-anim-glyph-guide">{char}</text>}
         {strokes.map((pts, i) => (
           <path
             key={i}
@@ -330,7 +330,8 @@ export function TracingCanvas({ char, size = 260, onComplete }) {
             d={buildSmoothStrokePathD(pts)}
             fill="none"
             className={
-              i === strokeIndex ? "tracing-ghost-active" : i < strokeIndex ? "tracing-ghost-done" : "tracing-ghost-pending"
+              hideGuide ? "tracing-ghost-hidden"
+              : i === strokeIndex ? "tracing-ghost-active" : i < strokeIndex ? "tracing-ghost-done" : "tracing-ghost-pending"
             }
           />
         ))}
@@ -354,14 +355,25 @@ export function TracingCanvas({ char, size = 260, onComplete }) {
       </div>
 
       {showReplayHint && !isDone && (
-        <div className="tracing-hint-overlay">
-          <img src="/mascote-crying.png" alt="" className="tracing-mascot" />
-          <p className="page-sub">ยากเกินไปมั้ย? มาดูลำดับเส้นอีกครั้งกันเลย</p>
-          <StrokeAnimation char={char} size={140} />
-          <button className="save-btn" onClick={() => { setShowReplayHint(false); setAttemptCount(0); }}>
-            เข้าใจแล้ว ลองใหม่เลย
-          </button>
-        </div>
+        hideGuide ? (
+          <div className="tracing-hint-overlay">
+            <img src="/mascote-crying.png" alt="" className="tracing-mascot" />
+            <p className="page-sub">Having trouble? That's okay!</p>
+            <div className="tracing-give-up-row">
+              <button className="btn-secondary" onClick={() => { setShowReplayHint(false); setAttemptCount(0); }}>Try again</button>
+              <button className="btn-primary"   onClick={() => onComplete?.(0)}>Give up</button>
+            </div>
+          </div>
+        ) : (
+          <div className="tracing-hint-overlay">
+            <img src="/mascote-crying.png" alt="" className="tracing-mascot" />
+            <p className="page-sub">ยากเกินไปมั้ย? มาดูลำดับเส้นอีกครั้งกันเลย</p>
+            <StrokeAnimation char={char} size={140} />
+            <button className="save-btn" onClick={() => { setShowReplayHint(false); setAttemptCount(0); }}>
+              เข้าใจแล้ว ลองใหม่เลย
+            </button>
+          </div>
+        )
       )}
     </div>
   );

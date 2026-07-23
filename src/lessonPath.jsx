@@ -1339,189 +1339,63 @@ function CalligraphyStep({ step, onDone, speakEnglish }) {
 // ---------------------------------------------------------------------------
 
 function ListenWriteStep({ step, speakEnglish, onDone }) {
-  const svgRef = useRef(null);
-  const isDrawingRef = useRef(false);
-  const rawPointsRef = useRef([]);
-  const [paths, setPaths] = useState([]);
-  const [livePath, setLivePath] = useState("");
-  const [phase, setPhase] = useState("draw"); // "draw" | "reveal"
-
-  const viewBox = "-5 0 95 125";
-  const aspect  = 125 / 95;
-  const size    = 220;
-
-  function svgPoint(e) {
-    const svg = svgRef.current;
-    if (!svg) return [0, 0];
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return [0, 0];
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const p = pt.matrixTransform(ctm.inverse());
-    return [p.x, p.y];
+  const [done, setDone] = useState(false);
+  const [correct, setCorrect] = useState(false);
+  if (!step.char) return null;
+  function handleComplete(score) {
+    const passed = score > 0;
+    setCorrect(passed);
+    setDone(true);
+    onDone?.(passed);
   }
-
-  function handlePointerDown(e) {
-    if (phase === "reveal") return;
-    e.target.setPointerCapture?.(e.pointerId);
-    isDrawingRef.current = true;
-    const [x, y] = svgPoint(e);
-    rawPointsRef.current = [[x, y, e.pressure || 0.5]];
-    setLivePath("");
-  }
-  function handlePointerMove(e) {
-    if (!isDrawingRef.current) return;
-    const [x, y] = svgPoint(e);
-    rawPointsRef.current = [...rawPointsRef.current, [x, y, e.pressure || 0.5]];
-    setLivePath(getSvgPathFromStroke(getStroke(rawPointsRef.current, TRACE_FREEHAND_OPTS)));
-  }
-  function handlePointerUp() {
-    if (!isDrawingRef.current) return;
-    isDrawingRef.current = false;
-    const d = getSvgPathFromStroke(getStroke(rawPointsRef.current, TRACE_FREEHAND_OPTS));
-    if (d) setPaths(prev => [...prev, d]);
-    setLivePath("");
-  }
-
-  function handleClear() { setPaths([]); setLivePath(""); }
-
-  function handleCheck() {
-    setPhase("reveal");
-    setTimeout(() => { onDone?.(); }, 1800);
-  }
-
   return (
     <div className="lp-calli-step">
-      {step.speakText && (
+      {step.speakText && !done && (
         <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
-      <svg
-        ref={svgRef}
-        viewBox={viewBox}
-        width={size}
-        height={Math.round(size * aspect)}
-        className="tracing-canvas-svg"
-        style={{ touchAction: "none" }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      >
-        {phase === "reveal" && (
-          <text x="42.5" y="100" fontSize="100" textAnchor="middle" className="stroke-anim-glyph-guide lp-lw-reveal-char">{step.char}</text>
-        )}
-        {paths.map((d, i) => <path key={i} d={d} className="tracing-ink-passed" />)}
-        {livePath && <path d={livePath} className="tracing-ink-live" />}
-      </svg>
-      {phase === "draw" ? (
-        <div className="lp-lw-actions">
-          <button className="btn-secondary" onClick={handleClear} disabled={!paths.length}>Clear</button>
-          <button className="btn-primary"   onClick={handleCheck} disabled={!paths.length}>Check ✓</button>
+      {done ? (
+        <div className="lp-calli-done">
+          {correct
+            ? <><div className="lp-calli-great">Well done!</div><div className="lp-calli-great-sub">เก่งมาก</div><div className="lp-calli-great-en">Great job!</div></>
+            : <><div className="lp-calli-great">Keep going!</div><div className="lp-calli-great-en">You'll get it next time 💪</div></>
+          }
         </div>
       ) : (
-        <div className="lp-calli-done">
-          <div className="lp-calli-great">Well done!</div>
-          <div className="lp-calli-great-sub">เก่งมาก</div>
-          <div className="lp-calli-great-en">Great job!</div>
-        </div>
+        <TracingCanvas char={step.char} size={220} hideGuide onComplete={handleComplete} />
       )}
     </div>
   );
 }
 
 function MemoryCheckStep({ step, speakEnglish, onDone }) {
-  const svgRef = useRef(null);
-  const isDrawingRef = useRef(false);
-  const rawPointsRef = useRef([]);
-  const [paths, setPaths] = useState([]);
-  const [livePath, setLivePath] = useState("");
-  const [phase, setPhase] = useState("draw"); // "draw" | "reveal"
-
-  const viewBox = "-5 0 95 125";
-  const aspect  = 125 / 95;
-  const size    = 220;
-
-  function svgPoint(e) {
-    const svg = svgRef.current;
-    if (!svg) return [0, 0];
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return [0, 0];
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const p = pt.matrixTransform(ctm.inverse());
-    return [p.x, p.y];
+  const [done, setDone] = useState(false);
+  const [correct, setCorrect] = useState(false);
+  if (!step.char) return null;
+  function handleComplete(score) {
+    const passed = score > 0;
+    setCorrect(passed);
+    setDone(true);
+    onDone?.(passed);
   }
-
-  function handlePointerDown(e) {
-    if (phase === "reveal") return;
-    e.target.setPointerCapture?.(e.pointerId);
-    isDrawingRef.current = true;
-    const [x, y] = svgPoint(e);
-    rawPointsRef.current = [[x, y, e.pressure || 0.5]];
-    setLivePath("");
-  }
-  function handlePointerMove(e) {
-    if (!isDrawingRef.current) return;
-    const [x, y] = svgPoint(e);
-    rawPointsRef.current = [...rawPointsRef.current, [x, y, e.pressure || 0.5]];
-    setLivePath(getSvgPathFromStroke(getStroke(rawPointsRef.current, TRACE_FREEHAND_OPTS)));
-  }
-  function handlePointerUp() {
-    if (!isDrawingRef.current) return;
-    isDrawingRef.current = false;
-    const d = getSvgPathFromStroke(getStroke(rawPointsRef.current, TRACE_FREEHAND_OPTS));
-    if (d) setPaths(prev => [...prev, d]);
-    setLivePath("");
-  }
-
-  function handleClear() { setPaths([]); setLivePath(""); }
-
-  function handleCheck() {
-    setPhase("reveal");
-    setTimeout(() => { onDone?.(); }, 1800);
-  }
-
   return (
     <div className="lp-calli-step">
-      {phase === "draw" && step.imageUrl && (
-        <img src={step.imageUrl} alt="prompt" className="lp-mc-image" />
-      )}
-      {step.speakText && (
+      {!done && step.imageUrl && <img src={step.imageUrl} alt="prompt" className="lp-mc-image" />}
+      {step.speakText && !done && (
         <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText)} aria-label="Listen again">
           <Volume2 size={28} />
         </button>
       )}
-      <svg
-        ref={svgRef}
-        viewBox={viewBox}
-        width={size}
-        height={Math.round(size * aspect)}
-        className="tracing-canvas-svg"
-        style={{ touchAction: "none" }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      >
-        {phase === "reveal" && (
-          <text x="42.5" y="100" fontSize="100" textAnchor="middle" className="stroke-anim-glyph-guide lp-lw-reveal-char">{step.char}</text>
-        )}
-        {paths.map((d, i) => <path key={i} d={d} className="tracing-ink-passed" />)}
-        {livePath && <path d={livePath} className="tracing-ink-live" />}
-      </svg>
-      {phase === "draw" ? (
-        <div className="lp-lw-actions">
-          <button className="btn-secondary" onClick={handleClear} disabled={!paths.length}>Clear</button>
-          <button className="btn-primary"   onClick={handleCheck} disabled={!paths.length}>Check ✓</button>
+      {done ? (
+        <div className="lp-calli-done">
+          {correct
+            ? <><div className="lp-calli-great">Well done!</div><div className="lp-calli-great-sub">เก่งมาก</div><div className="lp-calli-great-en">Great job!</div></>
+            : <><div className="lp-calli-great">Keep going!</div><div className="lp-calli-great-en">You'll get it next time 💪</div></>
+          }
         </div>
       ) : (
-        <div className="lp-calli-done">
-          <div className="lp-calli-great">Well done!</div>
-          <div className="lp-calli-great-sub">เก่งมาก</div>
-          <div className="lp-calli-great-en">Great job!</div>
-        </div>
+        <TracingCanvas char={step.char} size={220} hideGuide onComplete={handleComplete} />
       )}
     </div>
   );
@@ -1931,7 +1805,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
             key={index}
             step={step}
             speakEnglish={speakEnglish}
-            onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, listenWrite: c.listenWrite + 1})); autoNext(); }}
+            onDone={(correct) => { setChoiceDone(true); if (correct) setCorrectCounts(c => ({...c, listenWrite: c.listenWrite + 1})); autoNext(); }}
           />
         )}
 
@@ -1940,7 +1814,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
             key={index}
             step={step}
             speakEnglish={speakEnglish}
-            onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({...c, memoryCheck: c.memoryCheck + 1})); autoNext(); }}
+            onDone={(correct) => { setChoiceDone(true); if (correct) setCorrectCounts(c => ({...c, memoryCheck: c.memoryCheck + 1})); autoNext(); }}
           />
         )}
 
