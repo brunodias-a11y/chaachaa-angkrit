@@ -7247,18 +7247,19 @@ export default function App() {
               }
             }}
             onCoinsFly={() => handleCoinsFly({ x: window.innerWidth / 2, y: window.innerHeight / 2 })}
-            onTicketAwarded={async (rarity = "rare") => {
+            onTicketAwarded={async (rarity = "rare", qty = 1) => {
+              const n = Math.max(1, qty);
               if (rarity === "dawn") {
                 // #863 — dawn tickets live in HEARTHBOUND_TICKETS_KEY, not GACHA_TICKETS_KEY
-                const next = await grantDawnTickets(1);
+                const next = await grantDawnTickets(n);
                 setDawnTickets(next);
               } else {
                 const ticketKey = rarity === "solstice" ? "banner" : rarity;
                 const tickets = (await storageGet(GACHA_TICKETS_KEY, false)) || {};
-                await storageSet(GACHA_TICKETS_KEY, { ...tickets, [ticketKey]: (tickets[ticketKey] || 0) + 1 }, false);
-                setGachaTickets(t => ({ ...t, [ticketKey]: (t[ticketKey] || 0) + 1 }));
+                await storageSet(GACHA_TICKETS_KEY, { ...tickets, [ticketKey]: (tickets[ticketKey] || 0) + n }, false);
+                setGachaTickets(t => ({ ...t, [ticketKey]: (t[ticketKey] || 0) + n }));
               }
-              pushCelebrations([{ type: "ticket", data: { rarity } }]);
+              pushCelebrations([{ type: "ticket", data: { rarity, qty: n } }]);
               { const _u = getCurrentUsername(); if (_u) mirrorStudentWallet(_u).catch(() => {}); }
               // #758 — timeline event
               { const _u = getCurrentUsername(); if (_u) appendStudentEvent(_u, { type: "ticket", desc: `${rarity} ticket received`, icon: "🎟️" }).catch(() => {}); }
@@ -7694,6 +7695,7 @@ export default function App() {
       {activeCelebration?.type === "ticket" && (
         <TicketUnlockMoment
           rarity={activeCelebration.data.rarity}
+          qty={activeCelebration.data.qty ?? 1}
           onDismiss={() => setActiveCelebration(null)}
         />
       )}
@@ -24902,7 +24904,7 @@ function EventPopup({ bannerUrl, onNavigate, onDismiss }) {
 // Issue #535 — Ticket unlock full-screen moment (TicketUnlockMoment)
 // Reuses the same overlay/burst/card structure as AchievementUnlockMoment.
 // ---------------------------------------------------------------------------
-function TicketUnlockMoment({ rarity, onDismiss }) {
+function TicketUnlockMoment({ rarity, qty = 1, onDismiss }) {
   const ticketKey = rarity === "solstice" ? "banner" : rarity;
   const def = GACHA_TICKET_CATALOG[ticketKey] || GACHA_TICKET_CATALOG.rare;
   const ringColors = { rare: "#3D6FA8", epic: "#7B4FA8", banner: "#C2780D" };
@@ -24911,8 +24913,13 @@ function TicketUnlockMoment({ rarity, onDismiss }) {
     <div className="ach-moment-overlay" onClick={onDismiss}>
       <div className="ach-moment-burst" style={{ "--ach-color": color }} />
       <div className="ach-moment-card" style={{ "--ach-color": color }}>
-        <div className="ach-moment-super">You received a ticket!</div>
-        <img src={def.image} alt={def.name} className={`ach-moment-emoji gacha-ticket-img ${def.ringClass}`} style={{ width: 96, height: 96, objectFit: "contain", borderRadius: 12, margin: "8px auto" }} />
+        <div className="ach-moment-super">{qty > 1 ? `You received ${qty} tickets!` : "You received a ticket!"}</div>
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <img src={def.image} alt={def.name} className={`ach-moment-emoji gacha-ticket-img ${def.ringClass}`} style={{ width: 96, height: 96, objectFit: "contain", borderRadius: 12, margin: "8px auto", display: "block" }} />
+          {qty > 1 && (
+            <span style={{ position: "absolute", bottom: 8, right: -4, background: color, color: "#fff", fontSize: 12, fontWeight: 700, borderRadius: 999, padding: "2px 6px", lineHeight: 1.4 }}>×{qty}</span>
+          )}
+        </div>
         <div className="ach-moment-ring" />
         <div className="ach-moment-title">{def.name}</div>
         <button className="ach-moment-btn" onClick={onDismiss}>Nice! 🎫</button>
