@@ -582,6 +582,30 @@ function getUnlockedIds(stats) {
 // Sprint 9.4 — Weekly challenges
 // ---------------------------------------------------------------------------
 const WEEKLY_DONE_KEY = (wk) => `weekly-done:${wk}`;
+const PERSONAL_CHALLENGE_KEY = "personal-weekly-challenge";
+
+// Solstice Week: the ISO week that "contains" the start of the next Solstice
+// banner. When the banner starts Thu–Sun (or Sun=0), that week qualifies; when
+// Mon–Wed, the PREVIOUS week qualifies (so the prize drops before the banner).
+function isSolsticeWeek(weekKey) {
+  const banner = getActiveBanner();
+  if (!banner || !banner.windowStart) return false;
+  const start = banner.windowStart;
+  const dow = start.getDay(); // 0=Sun
+  const d = new Date(start);
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); // Monday of banner's week
+  if (dow === 0 || dow >= 4) {
+    // Solstice Week = banner's own week
+  } else {
+    // Solstice Week = previous week
+    d.setDate(d.getDate() - 7);
+  }
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  utc.setUTCDate(utc.getUTCDate() + 4 - (utc.getUTCDay() || 7));
+  const ys = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  const wn = Math.ceil((((utc - ys) / 86400000) + 1) / 7);
+  return weekKey === `${utc.getUTCFullYear()}-W${String(wn).padStart(2, "0")}`;
+}
 
 // ISO week key: "2026-W27"
 function getCurrentWeekKey() {
@@ -6134,6 +6158,12 @@ export default function App() {
         (newProgMap[id]?.srsInterval || 0) >= 14 && (progMap[id]?.srsInterval || 0) < 14
       ).length;
       if (_newlyMastered > 0) appendStudentEvent(profile.username, { type: "mastered-words", desc: `+${_newlyMastered} word${_newlyMastered > 1 ? 's' : ''} mastered (SRS ≥14)`, icon: "🧠" }).catch(() => {});
+      // #16 — session event for Activity Feed
+      const isSunday = !!extra?.lastSundayTestDate;
+      appendStudentEvent(profile.username, isSunday
+        ? { type: "lesson", desc: "Completed Sunday Test", icon: "📝", date: Date.now() }
+        : { type: "lesson", desc: "Completed a practice session", icon: "📚", date: Date.now() }
+      ).catch(() => {});
     }
     setProgMap(newProgMap);
     if (newStreak) setStreak(newStreak);
@@ -7527,6 +7557,26 @@ export default function App() {
                   pushCelebrations([{ type: "ticket", data: { rarity: "dawn", label: "Dawn Ticket — Achievements explored! 🏆" } }]);
                 }
               } catch (_) {}
+            }}
+            onAwardTicket={async (rarity, qty = 1) => {
+              const n = Math.max(1, qty);
+              if (rarity === "dawn") {
+                const cfg2 = await getAvatarPowersConfig();
+                const boosts2 = await getActiveBoosts();
+                const next = await grantDawnTickets(n, { profile, powersConfig: cfg2, activeBoosts: boosts2, doubleEffect: false });
+                setDawnTickets(next);
+              } else {
+                const tickets = (await storageGet("gacha-tickets", false)) || {};
+                tickets[rarity] = (tickets[rarity] || 0) + n;
+                await storageSet("gacha-tickets", tickets, false);
+                setGachaTickets(tickets);
+              }
+              pushCelebrations([{ type: "ticket", data: { rarity, qty: n } }]);
+            }}
+            onSpendCoins={async (amount, reason) => {
+              const bal = await creditCoins(-amount, reason);
+              if (bal != null) setCoins(bal);
+              return bal;
             }}
           />
         )}
@@ -14284,6 +14334,13 @@ function PracticeModeScreen({ words, wordsLoaded, progMap, streak, profile, onPr
     // Issue #56 — log this attempt's outcome (success OR failure) so the
     // weekly report can compute this week's Berserk attempts + success rate.
     await appendSharedBerserkAttempt(profile.username, tier, cleared);
+    // #16 — session event for Activity Feed
+    appendStudentEvent(profile.username, {
+      type: "lesson",
+      desc: cleared ? `Berserk tier ${tier} cleared!` : `Berserk tier ${tier} attempted`,
+      icon: "⚔️",
+      date: Date.now(),
+    }).catch(() => {});
     if (cleared) {
       const updated = await markBerserkTierCleared(tier);
       if (updated) {
@@ -19818,7 +19875,328 @@ const CEFR_LEVELS = ["Pre-A1", "A1", "A2", "B1", "B2", "C1"];
 // ---------------------------------------------------------------------------
 // Sprint 6.5 — Personal progress screen (redesign #613)
 // ---------------------------------------------------------------------------
-function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, stHistory, stLoading, weeklyDone, coins, gachaTickets, examHistory, examFeedback, berserkStars, berserkAttempts, calligraphyProg, wordCalligraphyProg = {}, powersConfig, activityLog = [], sessionTimeLog = [], pathStats = {}, energySpendLog = [], pathAccuracyLog = [], pathTotalLessons = 0, onboardingMeta = null, visitedEventsTab = false, visitedProgressTab = false, unlockedAchIds = [], dailyRewardTickets = null, usedDailyDouble = false, onChangeAvatar = null, onGoToSunday, onFirstAchievementsVisit }) {
+// ── #17 ADR-026 Avatar suggestion scoring ───────────────────────────────────
+const EFFECT_BASE_SCORES = {
+  weeklyStarlightTicket:  90,
+  gachaRareChance:        80,
+  dailyRewardDouble:      75,
+  coinsMultiplierBonus:   null, // value × 60 (e.g. 0.75→45, 1.0→60)
+  streakFreeze:           40,
+  removeWrongOption:      30,
+};
+const EFFECT_BASE_SCORE_FALLBACK = 10;
+
+function _effectBaseScore(effect) {
+  if (!effect?.type) return 0;
+  const base = EFFECT_BASE_SCORES[effect.type];
+  if (base === null) return (effect.value ?? 0) * 60;
+  return base ?? EFFECT_BASE_SCORE_FALLBACK;
+}
+
+const MECHANIC_MULT = { passive: 1.0, special: 0.5, simple: 0.2 };
+const WINDOW_MULT   = { morning: 0.5, afternoon: 0.5, evening: 0.5, night: 0.5 };
+
+function scoreAvatarBonuses(avatarId, powersConfig) {
+  const assignment = (powersConfig || {})[avatarId];
+  if (!assignment) return 0;
+  let total = 0;
+  for (const slot of ["passive", "passive2", "special", "simple"]) {
+    const powerId = assignment[slot];
+    if (!powerId) continue;
+    const power = getPowerById(powerId);
+    if (!power) continue;
+    const base  = _effectBaseScore(power.effect);
+    const mMult = MECHANIC_MULT[power.mechanic] ?? 1.0;
+    const wMult = (power.mechanic === "passive" ? (WINDOW_MULT[power.window] ?? 1.0) : 1.0);
+    total += base * mMult * wMult;
+  }
+  return total;
+}
+
+function AvatarSuggestionCard({ profile, powersConfig, onEquip }) {
+  const owned = profile?.unlockedAvatars || [];
+  const currentId = profile?.avatar;
+  const currentAvatar  = currentId ? getAvatarById(currentId) : null;
+  const currentScore   = currentId ? scoreAvatarBonuses(currentId, powersConfig) : 0;
+
+  const bestAlt = React.useMemo(() => {
+    let best = null, bestScore = -Infinity;
+    for (const id of owned) {
+      if (id === currentId) continue;
+      const s = scoreAvatarBonuses(id, powersConfig);
+      if (s > bestScore) { bestScore = s; best = id; }
+    }
+    return bestScore > currentScore ? best : null;
+  }, [owned, currentId, currentScore, powersConfig]);
+
+  const bestAvatar = bestAlt ? getAvatarById(bestAlt) : null;
+
+  const rarityColors = { legendary: "#D4AF37", epic: "#9B59B6", rare: "#3B82F6", uncommon: "#22C55E", common: "#6B7280" };
+
+  function avatarRingStyle(avatar) {
+    const c = rarityColors[avatar?.rarity] || "#6B7280";
+    return { border: `2px solid ${c}`, boxShadow: `0 0 8px ${c}55` };
+  }
+
+  return (
+    <div className="asc-card">
+      <div className="mr-card-title">YOUR AVATAR</div>
+      <div className="asc-row">
+        <div className="asc-side">
+          <div className="asc-label">Current</div>
+          <div className="asc-avatar-wrap" style={currentAvatar ? avatarRingStyle(currentAvatar) : undefined}>
+            {currentAvatar
+              ? <img src={currentAvatar.image} alt={currentAvatar.name} className="asc-avatar-img" />
+              : <span className="asc-avatar-placeholder">🐱</span>}
+          </div>
+          <div className="asc-name">{currentAvatar?.name || "—"}</div>
+          {currentAvatar?.rarity && <div className="asc-rarity" style={{ color: rarityColors[currentAvatar.rarity] }}>{currentAvatar.rarity.toUpperCase()}</div>}
+        </div>
+
+        <div className="asc-divider" />
+
+        <div className="asc-side">
+          <div className="asc-label">Suggestion</div>
+          {bestAvatar ? (
+            <>
+              <div className="asc-avatar-wrap" style={avatarRingStyle(bestAvatar)}>
+                <img src={bestAvatar.image} alt={bestAvatar.name} className="asc-avatar-img" />
+              </div>
+              <div className="asc-name">{bestAvatar.name}</div>
+              {bestAvatar.rarity && <div className="asc-rarity" style={{ color: rarityColors[bestAvatar.rarity] }}>{bestAvatar.rarity.toUpperCase()}</div>}
+              {onEquip && (
+                <button className="asc-equip-btn" onClick={() => onEquip(bestAlt)}>Equip</button>
+              )}
+            </>
+          ) : (
+            <div className="asc-no-suggestion">
+              {owned.length <= 1 ? "Unlock more cats via Wish! 🎴" : "You're using your best avatar!"}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── #16 Activity Feed with 2h-window "View More..." ────────────────────────
+const FEED_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+function getEventTs(ev) {
+  if (!ev.date) return 0;
+  return typeof ev.date === "number" ? ev.date : new Date(ev.date).getTime();
+}
+
+function ActivityFeed({ events, fmt }) {
+  // cutoff: events OLDER than this timestamp are hidden. Starts at "now" so
+  // only the most-recent 2h window is visible; each "View More..." click
+  // extends by another 2h into the past.
+  const [cutoff, setCutoff] = React.useState(() => Date.now());
+  const [hasMore, setHasMore] = React.useState(false);
+
+  const sorted = React.useMemo(() => {
+    if (!events) return [];
+    return [...events].sort((a, b) => getEventTs(b) - getEventTs(a));
+  }, [events]);
+
+  const visible = React.useMemo(() => sorted.filter(ev => getEventTs(ev) >= cutoff - FEED_WINDOW_MS), [sorted, cutoff]);
+
+  React.useEffect(() => {
+    setHasMore(sorted.some(ev => getEventTs(ev) < cutoff - FEED_WINDOW_MS));
+  }, [sorted, cutoff]);
+
+  function loadMore() {
+    setCutoff(c => c - FEED_WINDOW_MS);
+  }
+
+  function evDateLabel(ev) {
+    const ts = getEventTs(ev);
+    if (!ts) return null;
+    const d = new Date(ts);
+    const dateStr = d.toISOString().slice(0, 10);
+    const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `${fmt(dateStr)} ${timeStr}`;
+  }
+
+  return (
+    <div className="mr-card mr-card--feed">
+      <div className="mr-card-title">ACTIVITY FEED</div>
+      {events === null ? (
+        <div className="mr-feed-empty">Loading…</div>
+      ) : sorted.length === 0 ? (
+        <div className="mr-feed-empty">No activity yet — start practicing!</div>
+      ) : visible.length === 0 ? (
+        <div className="mr-feed-empty">No recent activity.</div>
+      ) : (
+        <div className="mr-feed-list">
+          {visible.map((ev, i) => (
+            <div key={i} className="mr-feed-item">
+              <div className={"mr-feed-dot mr-feed-dot--" + (ev.type || "default")}>{ev.icon || "•"}</div>
+              <div className="mr-feed-text">
+                <div className="mr-feed-desc">{ev.desc}</div>
+                <div className="mr-feed-date">{evDateLabel(ev)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {hasMore && (
+        <button className="mr-feed-more" onClick={loadMore}>View More…</button>
+      )}
+    </div>
+  );
+}
+
+// ── #15 Personal Weekly Challenge ──────────────────────────────────────────
+const PWC_SWAP_COST = 4000;
+// Eligible pool: exclude meta challenges that can't be driven by a single stat
+const PWC_POOL = CHALLENGE_POOL.filter(c => !["wc_c3", "wc_st"].includes(c.id));
+
+function pickPwcChallenge(weekKey, excluding = null) {
+  const pool = PWC_POOL.filter(c => c.id !== excluding);
+  if (!pool.length) return PWC_POOL[0];
+  // deterministic-ish rotation offset by week number, then random
+  const wn = parseInt(weekKey.split("-W")[1], 10) || 1;
+  const seed = pool.length * wn;
+  return pool[seed % pool.length];
+}
+
+function pickPwcPrize(weekKey, isPreA1) {
+  if (isSolsticeWeek(weekKey)) return { type: "solstice", qty: 3 };
+  const roll = Math.random();
+  if (isPreA1) {
+    if (roll < 0.33) return { type: "dawn", qty: 1 };
+    if (roll < 0.66) return { type: "rare", qty: 1 };
+    return { type: "starlight", qty: 1 };
+  }
+  return roll < 0.5 ? { type: "rare", qty: 1 } : { type: "starlight", qty: 1 };
+}
+
+const PRIZE_LABELS = { solstice: "Solstice Ticket ×3", starlight: "Starlight Ticket", rare: "Moonrise Ticket", dawn: "Dawn Ticket" };
+const PRIZE_ICONS  = { solstice: "🌟", starlight: "✨", rare: "🎫", dawn: "🌅" };
+
+function PersonalWeeklyChallenge({ weekKey, wStats, coins, profile, onAwardTicket, onSpendCoins }) {
+  const [data, setData] = React.useState(null);   // loaded from KV
+  const [loading, setLoading] = React.useState(true);
+  const [swapConfirm, setSwapConfirm] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+
+  const isPreA1 = !(profile?.lessonsCompleted > 0 || profile?.wordsLearned > 0);
+
+  React.useEffect(() => {
+    storageGet(PERSONAL_CHALLENGE_KEY, false).then(saved => {
+      if (saved?.weekKey === weekKey) {
+        setData(saved);
+      } else {
+        // New week — assign fresh challenge + prize
+        const c = pickPwcChallenge(weekKey);
+        const p = pickPwcPrize(weekKey, isPreA1);
+        const fresh = { weekKey, challengeId: c.id, prize: p, swapsUsed: 0, completedAt: null };
+        storageSet(PERSONAL_CHALLENGE_KEY, fresh, false).catch(() => {});
+        setData(fresh);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [weekKey]); // eslint-disable-line
+
+  const challenge = data ? PWC_POOL.find(c => c.id === data.challengeId) || PWC_POOL[0] : null;
+  const done = data?.completedAt != null;
+
+  // Evaluate progress
+  const progress = challenge && wStats ? (() => {
+    const crit = challenge.criterion;
+    if (!crit) return done ? 1 : 0;
+    const val = wStats[crit] ?? 0;
+    const thr = challenge.threshold ?? 1;
+    return Math.min(val / thr, 1);
+  })() : 0;
+  const progressPct = Math.round(progress * 100);
+  const completed = progress >= 1 && !done;
+
+  async function handleClaim() {
+    if (!data || done || progress < 1 || busy) return;
+    setBusy(true);
+    try {
+      const updated = { ...data, completedAt: Date.now() };
+      await storageSet(PERSONAL_CHALLENGE_KEY, updated, false);
+      setData(updated);
+      if (onAwardTicket) await onAwardTicket(data.prize.type, data.prize.qty);
+    } catch (_) {}
+    setBusy(false);
+  }
+
+  async function handleSwap() {
+    if (!data || done || busy) return;
+    if (data.swapsUsed >= 1 && !swapConfirm) { setSwapConfirm(true); return; }
+    if (data.swapsUsed >= 1) {
+      // Paid swap — deduct coins first
+      const newBal = await onSpendCoins?.(PWC_SWAP_COST, "Personal Challenge swap");
+      if (newBal == null) { setSwapConfirm(false); return; } // not enough
+    }
+    setBusy(true);
+    const newC = pickPwcChallenge(weekKey, data.challengeId);
+    const updated = { ...data, challengeId: newC.id, swapsUsed: (data.swapsUsed || 0) + 1 };
+    await storageSet(PERSONAL_CHALLENGE_KEY, updated, false).catch(() => {});
+    setData(updated);
+    setSwapConfirm(false);
+    setBusy(false);
+  }
+
+  if (loading) return <div className="pwc-card"><div className="pwc-loading">Loading…</div></div>;
+  if (!challenge) return null;
+
+  return (
+    <div className={"pwc-card" + (done ? " pwc-card--done" : "")}>
+      <div className="pwc-header">
+        <span className="pwc-eyebrow">WEEKLY CHALLENGE</span>
+        {done && <span className="pwc-badge-done">✓ Complete</span>}
+      </div>
+      <div className="pwc-body">
+        <span className="pwc-emoji">{challenge.emoji}</span>
+        <div className="pwc-info">
+          <div className="pwc-title">{challenge.title}</div>
+          <div className="pwc-desc">{challenge.descEn || challenge.desc}</div>
+        </div>
+      </div>
+      <div className="pwc-progress-wrap">
+        <div className="pwc-progress-bar" style={{ width: done ? "100%" : `${progressPct}%` }} />
+      </div>
+      <div className="pwc-footer">
+        <div className="pwc-prize">
+          <span className="pwc-prize-icon">{PRIZE_ICONS[data.prize?.type] || "🎫"}</span>
+          <span className="pwc-prize-label">{PRIZE_LABELS[data.prize?.type] || "Ticket"}</span>
+        </div>
+        <div className="pwc-actions">
+          {!done && (
+            <button className="pwc-btn pwc-btn--swap" onClick={handleSwap} disabled={busy || done} title={data.swapsUsed >= 1 ? `Swap costs ${PWC_SWAP_COST} coins` : "Free swap"}>
+              🔀 {data.swapsUsed >= 1 ? `${PWC_SWAP_COST}🪙` : "Free"}
+            </button>
+          )}
+          {completed && (
+            <button className="pwc-btn pwc-btn--claim" onClick={handleClaim} disabled={busy}>
+              {busy ? "…" : "Claim!"}
+            </button>
+          )}
+        </div>
+      </div>
+      {swapConfirm && (
+        <div className="pwc-confirm-overlay">
+          <div className="pwc-confirm-box">
+            <div className="pwc-confirm-text">Spend {PWC_SWAP_COST} Meowtongs to swap the challenge?</div>
+            <div className="pwc-confirm-actions">
+              <button className="pwc-btn pwc-btn--cancel" onClick={() => setSwapConfirm(false)}>Cancel</button>
+              <button className="pwc-btn pwc-btn--confirm" onClick={handleSwap} disabled={busy || coins < PWC_SWAP_COST}>
+                {coins < PWC_SWAP_COST ? "Not enough coins" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, stHistory, stLoading, weeklyDone, coins, gachaTickets, examHistory, examFeedback, berserkStars, berserkAttempts, calligraphyProg, wordCalligraphyProg = {}, powersConfig, activityLog = [], sessionTimeLog = [], pathStats = {}, energySpendLog = [], pathAccuracyLog = [], pathTotalLessons = 0, onboardingMeta = null, visitedEventsTab = false, visitedProgressTab = false, unlockedAchIds = [], dailyRewardTickets = null, usedDailyDouble = false, onChangeAvatar = null, onGoToSunday, onFirstAchievementsVisit, onAwardTicket = null, onSpendCoins = null }) {
   const loading = stLoading ?? true;
 
   // #502 — use real session dates (activity-log) instead of word lastDate
@@ -19843,6 +20221,10 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
     Object.values(progMap).filter(p => p.count > 0).length, [progMap]);
   const wordsMastered  = useMemo(() =>
     Object.values(progMap).filter(p => p.srsInterval >= 14).length, [progMap]);
+  const wordsReviewing = useMemo(() =>
+    Object.values(progMap).filter(p => p.count > 0 && (p.srsInterval || 1) < 14).length, [progMap]);
+  const wordsNew = useMemo(() =>
+    words.filter(w => !(progMap[w.id]?.count > 0)).length, [words, progMap]);
 
   const currentStreak = streak?.count  || 0;
   const bestStreak    = streak?.best   || currentStreak;
@@ -20046,13 +20428,39 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
     ? fmt(String(profile.createdAt).slice(0, 10))
     : (activityLog?.length ? fmt(activityLog[0]) : null);
 
+  // ── #14 My Results — skill percentages ───────────────────────────────────
+  const mrListenPct = (pathStats.skillListeningTotal  || 0) > 0
+    ? Math.round((pathStats.skillListeningCorrect  || 0) / pathStats.skillListeningTotal  * 100) : null;
+  const mrVocabPct  = (pathStats.skillVocabularyTotal || 0) > 0
+    ? Math.round((pathStats.skillVocabularyCorrect || 0) / pathStats.skillVocabularyTotal * 100) : null;
+  const mrWritePct  = (pathStats.skillWritingTotal    || 0) > 0
+    ? Math.round((pathStats.skillWritingCorrect    || 0) / pathStats.skillWritingTotal    * 100) : null;
+  const mrSpeakPct  = useMemo(() => {
+    const entries = Object.values(progMap).filter(v => Array.isArray(v?.pronScores) && v.pronScores.length > 0);
+    const sum   = entries.reduce((s, v) => s + v.pronScores.reduce((a, b) => a + b, 0), 0);
+    const count = entries.reduce((s, v) => s + v.pronScores.length, 0);
+    return count > 0 ? Math.round(sum / count) : null;
+  }, [progMap]);
+  const [ownEvents, setOwnEvents] = useState(null);
+  useEffect(() => {
+    if (!profile?.username) return;
+    storageGet(`student-events:${profile.username}`, true).then(v => setOwnEvents(v || []));
+  }, [profile?.username]); // eslint-disable-line
+
+  function mrSkillColor(p) {
+    if (p == null) return "rgba(139,92,246,0.25)";
+    if (p >= 70) return "#4ade80";
+    if (p >= 40) return "#f59e0b";
+    return "#f87171";
+  }
+
   return (
     <div className="prg2-root">
       {/* ── Page header ── */}
       <div className="prg2-header">
         <h1 className="prg2-title">My Progress ✨</h1>
         <div className="prg2-tabs">
-          {[["results","Results"],["achievements","Achievements"],["milestones","Milestones"]].map(([k,l]) => (
+          {[["results","Overview"],["my-results","My Results"],["achievements","Achievements"],["milestones","Milestones"]].map(([k,l]) => (
             <button key={k} className={"prg2-tab"+(pTab===k?" prg2-tab--active":"")} onClick={() => handlePTabChange(k)}>{l}</button>
           ))}
         </div>
@@ -20317,6 +20725,87 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
           <div className="prg2-tip">
             💡 <span className="prg2-tip-text">เคล็ดลับ: รักษา streak ทุกวันและทำ weekly challenges เพื่อรับ Meowtong เพิ่มขึ้น!</span>
             <img src="/coins/catcoin.png" alt="" className="prg2-tip-coins" />
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════ MY RESULTS TAB ══════════════════ */}
+      {pTab === "my-results" && (
+        <div className="mr-grid">
+          {/* ── Left column: Skills Overview + Weekly Activity ── */}
+          <div className="mr-col">
+            <div className="mr-card">
+              <div className="mr-card-title">SKILLS OVERVIEW</div>
+              {[
+                { icon: "🎧", label: "Listening",  pct: mrListenPct },
+                { icon: "📖", label: "Vocabulary", pct: mrVocabPct  },
+                { icon: "✍️", label: "Writing",    pct: mrWritePct  },
+                { icon: "🗣️", label: "Speaking",   pct: mrSpeakPct  },
+                { icon: "📚", label: "Reading",    pct: null        },
+              ].map(({ icon, label, pct: p }) => (
+                <div key={label} className="mr-skill-row">
+                  <div className="mr-skill-icon">{icon}</div>
+                  <div className="mr-skill-info">
+                    <div className="mr-skill-label">{label}</div>
+                    <div className="mr-skill-bar-wrap">
+                      <div className="mr-skill-bar" style={{ width: p != null ? `${p}%` : "0%", background: mrSkillColor(p) }} />
+                    </div>
+                  </div>
+                  <div className="mr-skill-pct" style={{ color: mrSkillColor(p) }}>{p != null ? `${p}%` : "—"}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mr-card">
+              <div className="mr-card-title">WEEKLY ACTIVITY</div>
+              <div className="mr-week-bars">
+                {thisWeekDates.map((d, i) => {
+                  const active = activeDaySet.has(d);
+                  return (
+                    <div key={d} className="mr-week-day">
+                      <div className="mr-week-bar-wrap">
+                        <div className={"mr-week-bar" + (active ? " mr-week-bar--active" : "")} />
+                      </div>
+                      <div className={"mr-week-label" + (active ? " mr-week-label--active" : "")}>{DAY_LABELS[i]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Center column: Vocabulary SRS + Personal Challenge (#15) ── */}
+          <div className="mr-col mr-center-col">
+            <div className="mr-card">
+              <div className="mr-card-title">VOCABULARY</div>
+              <div className="mr-vocab-row">
+                <div className="mr-vocab-stat"><div className="mr-vocab-val">{wordsAttempted}</div><div className="mr-vocab-lbl">practiced</div></div>
+                <div className="mr-vocab-stat"><div className="mr-vocab-val">{wordsMastered}</div><div className="mr-vocab-lbl">mastered</div></div>
+              </div>
+              <div className="mr-vocab-divider" />
+              <div className="mr-vocab-row">
+                <div className="mr-vocab-stat"><div className="mr-vocab-val">{wordsReviewing}</div><div className="mr-vocab-lbl">in review</div></div>
+                <div className="mr-vocab-stat"><div className="mr-vocab-val">{wordsNew}</div><div className="mr-vocab-lbl">new</div></div>
+              </div>
+            </div>
+            <PersonalWeeklyChallenge
+              weekKey={getCurrentWeekKey()}
+              wStats={wStats}
+              coins={coins}
+              profile={profile}
+              onAwardTicket={onAwardTicket}
+              onSpendCoins={onSpendCoins}
+            />
+            <AvatarSuggestionCard
+              profile={profile}
+              powersConfig={powersConfig}
+              onEquip={onChangeAvatar}
+            />
+          </div>
+
+          {/* ── Right column: Activity Feed ── */}
+          <div className="mr-col">
+            <ActivityFeed events={ownEvents} fmt={fmt} />
           </div>
         </div>
       )}
@@ -30744,4 +31233,107 @@ select.modal-input { appearance: none; }
   .ev-carousel-dot--active { background: #fff; }
 
 }
+
+/* ══════════════════ MY RESULTS TAB ══════════════════ */
+.mr-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-areas: "left center right"; gap: 14px; padding: 16px 20px 24px; align-items: start; }
+.mr-col { display: flex; flex-direction: column; gap: 14px; }
+.mr-center-col { grid-area: center; }
+
+.mr-card { background: rgba(30,20,60,0.9); border: 1px solid rgba(139,92,246,0.18); border-radius: 14px; padding: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+.mr-card--feed { display: flex; flex-direction: column; gap: 8px; }
+.mr-card-title { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: rgba(139,92,246,0.7); margin-bottom: 12px; }
+
+/* Skills */
+.mr-skill-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.mr-skill-row:last-child { margin-bottom: 0; }
+.mr-skill-icon { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,rgba(139,92,246,0.25),rgba(79,70,229,0.3)); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.mr-skill-info { flex: 1; min-width: 0; }
+.mr-skill-label { font-size: 11px; font-weight: 600; color: rgba(245,239,230,0.75); margin-bottom: 4px; }
+.mr-skill-bar-wrap { height: 6px; border-radius: 99px; background: rgba(139,92,246,0.12); overflow: hidden; }
+.mr-skill-bar { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(0.22,1,0.36,1); }
+.mr-skill-pct { font-size: 11px; font-weight: 700; width: 30px; text-align: right; flex-shrink: 0; }
+
+/* Weekly Activity */
+.mr-week-bars { display: flex; gap: 4px; align-items: flex-end; justify-content: space-between; }
+.mr-week-day { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.mr-week-bar-wrap { height: 48px; width: 100%; display: flex; align-items: flex-end; }
+.mr-week-bar { width: 100%; height: 30%; border-radius: 4px 4px 0 0; background: rgba(139,92,246,0.18); transition: background .3s; }
+.mr-week-bar--active { height: 100%; background: linear-gradient(to top, #7c3aed, #a78bfa); box-shadow: 0 0 8px rgba(139,92,246,0.5); }
+.mr-week-label { font-size: 10px; color: rgba(245,239,230,0.4); font-weight: 500; }
+.mr-week-label--active { color: #a78bfa; font-weight: 700; }
+
+/* Vocabulary SRS */
+.mr-vocab-row { display: flex; gap: 8px; }
+.mr-vocab-stat { flex: 1; text-align: center; }
+.mr-vocab-val { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 700; color: #CCE2E6; line-height: 1; }
+.mr-vocab-lbl { font-size: 10px; color: rgba(245,239,230,0.5); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+.mr-vocab-divider { height: 1px; background: rgba(139,92,246,0.15); margin: 12px 0; }
+
+/* Activity Feed */
+.mr-feed-list { display: flex; flex-direction: column; gap: 8px; }
+.mr-feed-item { display: flex; gap: 10px; align-items: flex-start; }
+.mr-feed-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; background: rgba(139,92,246,0.2); }
+.mr-feed-dot--lesson { background: rgba(79,70,229,0.25); }
+.mr-feed-dot--achievement { background: rgba(212,175,55,0.2); }
+.mr-feed-dot--default { background: rgba(139,92,246,0.15); }
+.mr-feed-text { flex: 1; min-width: 0; }
+.mr-feed-desc { font-size: 12px; color: rgba(245,239,230,0.85); line-height: 1.35; }
+.mr-feed-date { font-size: 10px; color: rgba(245,239,230,0.4); margin-top: 2px; }
+.mr-feed-empty { font-size: 12px; color: rgba(245,239,230,0.4); text-align: center; padding: 16px 0; }
+.mr-feed-more { display: block; width: 100%; margin-top: 10px; background: none; border: 1px solid rgba(139,92,246,0.25); border-radius: 8px; color: rgba(139,92,246,0.8); font-size: 11px; font-weight: 600; padding: 6px 0; cursor: pointer; transition: background .15s; }
+.mr-feed-more:hover { background: rgba(139,92,246,0.08); }
+
+/* ══════════════════ AVATAR SUGGESTION CARD ══════════════════ */
+.asc-card { background: rgba(30,20,60,0.9); border: 1px solid rgba(139,92,246,0.18); border-radius: 14px; padding: 14px 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+.asc-row { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }
+.asc-side { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.asc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: rgba(245,239,230,0.4); text-transform: uppercase; margin-bottom: 4px; }
+.asc-avatar-wrap { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(139,92,246,0.08); flex-shrink: 0; }
+.asc-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.asc-avatar-placeholder { font-size: 28px; }
+.asc-name { font-size: 11px; font-weight: 600; color: rgba(245,239,230,0.85); text-align: center; line-height: 1.2; margin-top: 2px; }
+.asc-rarity { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; }
+.asc-equip-btn { margin-top: 6px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; padding: 4px 12px; cursor: pointer; box-shadow: 0 2px 8px rgba(124,58,237,0.35); }
+.asc-divider { width: 1px; background: rgba(139,92,246,0.15); align-self: stretch; margin: 0 4px; flex-shrink: 0; }
+.asc-no-suggestion { font-size: 11px; color: rgba(245,239,230,0.4); text-align: center; line-height: 1.4; padding: 8px 4px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .prg2-tab { font-size: 12px; padding: 8px 10px 12px; }
+  .mr-grid { grid-template-columns: 1fr; grid-template-areas: "left" "center" "right"; }
+}
+@media (max-width: 400px) {
+  .prg2-tab { font-size: 10px; }
+}
+
+/* ══════════════════ PERSONAL WEEKLY CHALLENGE ══════════════════ */
+.pwc-card { background: rgba(30,20,60,0.9); border: 1px solid rgba(139,92,246,0.25); border-radius: 14px; padding: 14px 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.35); position: relative; overflow: hidden; }
+.pwc-card--done { border-color: rgba(74,222,128,0.3); }
+.pwc-card--done::before { content:''; position:absolute; inset:0; background: rgba(74,222,128,0.04); pointer-events:none; }
+.pwc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pwc-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: rgba(139,92,246,0.7); }
+.pwc-badge-done { font-size: 10px; font-weight: 700; color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); border-radius: 99px; padding: 2px 8px; }
+.pwc-body { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.pwc-emoji { font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.pwc-info { flex: 1; min-width: 0; }
+.pwc-title { font-size: 14px; font-weight: 700; color: rgba(245,239,230,0.95); line-height: 1.2; }
+.pwc-desc { font-size: 11px; color: rgba(245,239,230,0.55); margin-top: 3px; line-height: 1.4; }
+.pwc-progress-wrap { height: 6px; border-radius: 99px; background: rgba(139,92,246,0.12); overflow: hidden; margin-bottom: 12px; }
+.pwc-progress-bar { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #7c3aed, #a78bfa); transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
+.pwc-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pwc-prize { display: flex; align-items: center; gap: 5px; }
+.pwc-prize-icon { font-size: 16px; }
+.pwc-prize-label { font-size: 11px; font-weight: 600; color: rgba(245,239,230,0.75); }
+.pwc-actions { display: flex; gap: 6px; }
+.pwc-btn { border: none; border-radius: 8px; font-size: 11px; font-weight: 700; padding: 5px 10px; cursor: pointer; transition: opacity .15s; }
+.pwc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pwc-btn--swap { background: rgba(139,92,246,0.15); color: rgba(245,239,230,0.7); border: 1px solid rgba(139,92,246,0.25); }
+.pwc-btn--claim { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; box-shadow: 0 2px 8px rgba(124,58,237,0.4); }
+.pwc-btn--cancel { background: rgba(255,255,255,0.06); color: rgba(245,239,230,0.6); }
+.pwc-btn--confirm { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; }
+.pwc-loading { font-size: 12px; color: rgba(245,239,230,0.4); text-align: center; padding: 12px 0; }
+.pwc-confirm-overlay { position: absolute; inset: 0; background: rgba(10,8,28,0.85); border-radius: 14px; display: flex; align-items: center; justify-content: center; z-index: 2; }
+.pwc-confirm-box { background: rgba(30,20,60,0.98); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 16px; max-width: 220px; text-align: center; }
+.pwc-confirm-text { font-size: 12px; color: rgba(245,239,230,0.85); margin-bottom: 12px; line-height: 1.4; }
+.pwc-confirm-actions { display: flex; gap: 8px; justify-content: center; }
 `;
