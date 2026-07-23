@@ -261,6 +261,22 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     const isFirstTime = !pathProgress[lessonId]?.completedAt;
     await markLessonComplete(lessonId);
 
+    // #499/#886/#888 — lesson totals shared by isFirstTime and !isFirstTime blocks
+    const {
+      correctCounts = {},
+      listeningTotal = 0, calligraphyTotal = 0, matchTotal = 0,
+      listenWriteTotal = 0, memoryCheckTotal = 0,
+      writeWordTotal = 0, listenWriteWordTotal = 0, matchWriteWordTotal = 0,
+      tipsInLesson = 0,
+    } = lessonStats;
+    const totalExercises = listeningTotal + calligraphyTotal + matchTotal
+      + listenWriteTotal + memoryCheckTotal
+      + writeWordTotal + listenWriteWordTotal + matchWriteWordTotal;
+    const totalCorrect = (correctCounts.listening    || 0) + (correctCounts.calligraphy    || 0)
+      + (correctCounts.match        || 0) + (correctCounts.listenWrite    || 0)
+      + (correctCounts.memoryCheck  || 0) + (correctCounts.writeWord      || 0)
+      + (correctCounts.listenWriteWord || 0) + (correctCounts.matchWriteWord || 0);
+
     // #467 — award 2 Meowtongs per step on first completion
     if (isFirstTime) {
       const lesson = pathLessons.find(l => l.id === lessonId);
@@ -288,9 +304,6 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
       }
 
       // #499 — accumulate Path Mode stats for achievements
-      const { correctCounts = {}, listeningTotal = 0, calligraphyTotal = 0, matchTotal = 0, listenWriteTotal = 0, memoryCheckTotal = 0, tipsInLesson = 0 } = lessonStats;
-      const totalExercises = listeningTotal + calligraphyTotal + matchTotal + listenWriteTotal + memoryCheckTotal;
-      const totalCorrect = (correctCounts.listening || 0) + (correctCounts.calligraphy || 0) + (correctCounts.match || 0) + (correctCounts.listenWrite || 0) + (correctCounts.memoryCheck || 0);
       if (totalExercises > 0) onPathAccuracy?.({ correct: totalCorrect, total: totalExercises });
       const isPerfect = totalExercises > 0 && totalCorrect === totalExercises;
 
@@ -312,13 +325,13 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
         matchCorrect:       correctCounts.match      || 0,
         listenWriteCorrect: correctCounts.listenWrite || 0,
         tipsRead: tipsInLesson,
-        // #757 — skill-level tracking (Listening / Vocabulary / Writing)
-        skillListeningCorrect: (correctCounts.listening || 0) + (correctCounts.listenWrite || 0),
-        skillListeningTotal:   listeningTotal + listenWriteTotal,
-        skillVocabularyCorrect: (correctCounts.match || 0) + (correctCounts.memoryCheck || 0),
-        skillVocabularyTotal:   matchTotal + memoryCheckTotal,
-        skillWritingCorrect: (correctCounts.calligraphy || 0) + (correctCounts.listenWrite || 0) + (correctCounts.memoryCheck || 0),
-        skillWritingTotal:   calligraphyTotal + listenWriteTotal + memoryCheckTotal,
+        // #757/#888 — skill-level tracking (Listening / Vocabulary / Writing)
+        skillListeningCorrect: (correctCounts.listening || 0) + (correctCounts.listenWrite || 0) + (correctCounts.listenWriteWord || 0),
+        skillListeningTotal:   listeningTotal + listenWriteTotal + listenWriteWordTotal,
+        skillVocabularyCorrect: (correctCounts.match || 0) + (correctCounts.memoryCheck || 0) + (correctCounts.matchWriteWord || 0),
+        skillVocabularyTotal:   matchTotal + memoryCheckTotal + matchWriteWordTotal,
+        skillWritingCorrect: (correctCounts.calligraphy || 0) + (correctCounts.listenWrite || 0) + (correctCounts.memoryCheck || 0) + (correctCounts.writeWord || 0) + (correctCounts.listenWriteWord || 0) + (correctCounts.matchWriteWord || 0),
+        skillWritingTotal:   calligraphyTotal + listenWriteTotal + memoryCheckTotal + writeWordTotal + listenWriteWordTotal + matchWriteWordTotal,
         ...(isPerfect && { perfectLessons: 1 }),
         ...(isMiddleConsonants && { middleConsonants2Done: true }),
         // #703 — consonant milestone flags (Section 0)
@@ -328,14 +341,9 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
       });
     }
 
-    // #703 — secret_repeat_perfect: replay with 100% accuracy
-    if (!isFirstTime) {
-      const { correctCounts: rcc = {}, listeningTotal: rlt = 0, calligraphyTotal: rcat = 0, matchTotal: rmt = 0 } = lessonStats;
-      const rTotal = rlt + rcat + rmt;
-      const rCorrect = (rcc.listening || 0) + (rcc.calligraphy || 0) + (rcc.match || 0);
-      if (rTotal > 0 && rCorrect === rTotal) {
-        await onPathStatsUpdate?.({ replayPerfectDone: true });
-      }
+    // #703/#888 — secret_repeat_perfect: replay with 100% accuracy across all exercise types
+    if (!isFirstTime && totalExercises > 0 && totalCorrect === totalExercises) {
+      await onPathStatsUpdate?.({ replayPerfectDone: true });
     }
 
     // #430 / #563 — energy deducted per 5 steps DURING the lesson (onEnergySpend callback);
