@@ -3,7 +3,7 @@
     870, 871, 872, 873, 874, 875, 876, 877, 878,
     879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889,
     890, 891, 892, 893, 894,
-    895, 896, 897
+    895, 896, 897, 898
   ],
   "notes": {
     "890": "portado como #14 (My Results tab) — commit cb949b9",
@@ -13,6 +13,7 @@
     "894": "portado como #17 (Avatar card + ADR-026 scoreAvatarBonuses) — commit cb949b9",
     "895": "portado como #19 (STEP_TYPE_META + step counter chips) — feat(#19-#21)",
     "896": "portado como #20 (STEP_TYPE_GROUPS + accordion skill strip) — feat(#19-#21)",
-    "897": "portado como #21 (CEFR Overview tab in Manage Lessons) — feat(#19-#21)"
+    "897": "portado como #21 (CEFR Overview tab in Manage Lessons) — feat(#19-#21)",
+    "898": "portado como #22 (Listen Word MCQ + Listen Letter rename) — feat(#22)"
   }
 }

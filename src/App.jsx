@@ -30723,6 +30723,13 @@ select.modal-input { appearance: none; }
 .lp-back-to-cefr { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(139,92,246,0.15); padding: 8px 4px 10px; margin-bottom: 4px; font-size: 11px; font-weight: 700; color: rgba(167,139,250,0.7); cursor: pointer; text-align: left; letter-spacing: 0.04em; transition: color 0.15s; }
 .lp-back-to-cefr:hover { color: #A78BFA; }
 
+/* #898 — Listen Word MCQ step editor */
+.lp-lwmcq-editor { display: flex; flex-direction: column; gap: 8px; }
+.lp-lwmcq-distractors { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lp-lwmcq-ai-btn { padding: 5px 12px; border-radius: 8px; border: none; background: linear-gradient(90deg, #7C3AED, #0EA5E9); color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+.lp-lwmcq-ai-btn:hover { opacity: 0.85; }
+.lp-lwmcq-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Step cards */
 .lp-step-card {
   background: #282d4e;

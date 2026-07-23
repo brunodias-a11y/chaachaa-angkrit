@@ -9,7 +9,8 @@ const STEP_TYPE_META = {
   "vocab":              { emoji: "📖", label: "Vocab",              color: "#4A90C4" },
   "tip":                { emoji: "💡", label: "Tip",                color: "#F59E0B" },
   "calligraphy":        { emoji: "✍️",  label: "Calligraphy",        color: "#E8703A" },
-  "listening":          { emoji: "👂",  label: "Listening",          color: "#14B8A6" },
+  "listening":          { emoji: "👂",  label: "Listen Letter",      color: "#14B8A6" },
+  "listen-word-mcq":    { emoji: "👂🔤", label: "Listen Word MCQ",    color: "#0EA5E9" },
   "listen-write":       { emoji: "🎧✍️", label: "Listen & Write",    color: "#8B5CF6" },
   "memory-check":       { emoji: "🖼️✍️", label: "Memory Check",     color: "#10B981" },
   "write-word":         { emoji: "📝",  label: "Write Word",         color: "#EF4444" },
@@ -20,10 +21,11 @@ const STEP_TYPE_META = {
 
 // #896 — step type groups by skill (types may repeat across groups; empty = coming soon)
 const STEP_TYPE_GROUPS = [
-  { key: "listening", label: "Listening", emoji: "👂", types: ["listening", "image-match", "listen-write", "listen-write-word"] },
-  { key: "writing",   label: "Writing",   emoji: "✍️",  types: ["calligraphy", "write-word", "memory-check", "listen-write", "listen-write-word", "match-write-word"] },
-  { key: "reading",   label: "Reading",   emoji: "📖", types: [] },
-  { key: "speaking",  label: "Speaking",  emoji: "🎤", types: [] },
+  { key: "listening",   label: "Listening",   emoji: "👂", types: ["listening", "listen-word-mcq", "image-match", "listen-write", "listen-write-word"] },
+  { key: "writing",    label: "Writing",     emoji: "✍️",  types: ["calligraphy", "write-word", "memory-check", "listen-write", "listen-write-word", "match-write-word"] },
+  { key: "vocabulary", label: "Vocabulary",  emoji: "🔤", types: ["listen-word-mcq"] },
+  { key: "reading",    label: "Reading",     emoji: "📖", types: [] },
+  { key: "speaking",   label: "Speaking",    emoji: "🎤", types: [] },
 ];
 
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
@@ -345,6 +347,96 @@ export async function listAllClassCodes() {
 
 const EMPTY_LESSON_FORM = { title: "", classCode: "", sectionIndex: 0, orderInSection: 0, steps: [], rewardCoins: 0, rewardTicket: "" };
 
+// #898 — AI helper: suggests distractors for an English word, filling only blank slots
+async function suggestListenWordMcqDistractors(word, existing) {
+  const blanks = existing.filter(d => !d.trim()).length;
+  if (!blanks) return existing;
+  const res = await fetch("/api/ai-enrich", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemPrompt: `You are an English language teacher. Given an English word, suggest ${blanks} distractor word(s) that are plausible but wrong MCQ options. They should be real English words, phonetically or visually similar to confuse learners. Return ONLY a JSON array of strings, no explanation. Example: ["cat","bat","can"]`,
+      userMessage: `Target word: "${word}"\nAlready chosen distractors (do not repeat): ${existing.filter(d => d.trim()).map(d => `"${d}"`).join(", ") || "none"}\nReturn exactly ${blanks} new distractor(s) as a JSON array.`,
+      maxTokens: 100,
+    }),
+  });
+  if (!res.ok) throw new Error("AI helper failed");
+  const data = await res.json();
+  const suggestions = JSON.parse(data.text.match(/\[[\s\S]*\]/)?.[0] || "[]");
+  const result = [...existing];
+  let si = 0;
+  for (let i = 0; i < result.length; i++) {
+    if (!result[i].trim() && si < suggestions.length) result[i] = suggestions[si++];
+  }
+  return result;
+}
+
+function ListenWordMcqStepEditor({ step, onChange }) {
+  const [aibusy, setAiBusy] = useState(false);
+  const distractors = step.distractors?.length === 3 ? step.distractors : ["", "", ""];
+
+  async function handleAiHelper() {
+    if (!step.word?.trim()) { alert("Enter the English word first."); return; }
+    setAiBusy(true);
+    try {
+      const filled = await suggestListenWordMcqDistractors(step.word.trim(), distractors);
+      onChange({ ...step, distractors: filled });
+    } catch (e) {
+      alert("AI helper error: " + e.message);
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  return (
+    <div className="lp-lwmcq-editor">
+      <div className="lp-step-char-row">
+        <label className="lp-step-char-label">English word</label>
+        <input
+          className="lp-step-char-input"
+          style={{ width: 140, fontSize: 16 }}
+          value={step.word || ""}
+          onChange={e => onChange({ ...step, word: e.target.value })}
+          placeholder="cat"
+        />
+        <label className="lp-step-char-label" style={{ marginLeft: 12 }}>Speak as</label>
+        <input
+          className="lp-step-char-input"
+          style={{ width: 140, fontSize: 14 }}
+          value={step.speakText || ""}
+          onChange={e => onChange({ ...step, speakText: e.target.value })}
+          placeholder="cat"
+        />
+      </div>
+      <div className="lp-lwmcq-distractors">
+        <span className="lp-step-char-label">Distractors</span>
+        {distractors.map((d, i) => (
+          <input
+            key={i}
+            className="lp-step-char-input"
+            style={{ width: 100, fontSize: 14 }}
+            value={d}
+            onChange={e => {
+              const next = [...distractors];
+              next[i] = e.target.value;
+              onChange({ ...step, distractors: next });
+            }}
+            placeholder={`Option ${i + 2}`}
+          />
+        ))}
+        <button
+          className="lp-lwmcq-ai-btn"
+          onClick={handleAiHelper}
+          disabled={aibusy}
+          title="AI suggests distractors for blank slots"
+        >
+          {aibusy ? "…" : "✨ AI"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown, words }) {
   const [query, setQuery] = useState("");
   const filtered = query.trim()
@@ -360,7 +452,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
       <div className="lp-step-header">
         <span className="lp-step-type-badge">
           {step.type === "vocab" ? <BookOpen size={12} /> : <Lightbulb size={12} />}
-          {step.type === "calligraphy" ? "✍️" : step.type === "listening" ? "👂" : step.type === "image-match" ? "🖼️" : step.type === "listen-write" ? "👂✍️" : step.type === "memory-check" ? "🖼️✍️" : step.type === "write-word" ? "✍️📝" : step.type === "listen-write-word" ? "👂✍️📝" : step.type === "match-write-word" ? "🖼️✍️📝" : null}
+          {step.type === "calligraphy" ? "✍️" : step.type === "listening" ? "👂" : step.type === "listen-word-mcq" ? "👂🔤" : step.type === "image-match" ? "🖼️" : step.type === "listen-write" ? "👂✍️" : step.type === "memory-check" ? "🖼️✍️" : step.type === "write-word" ? "✍️📝" : step.type === "listen-write-word" ? "👂✍️📝" : step.type === "match-write-word" ? "🖼️✍️📝" : null}
           {step.type}
         </span>
         <div className="lp-step-actions">
@@ -489,6 +581,10 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             placeholder="ay"
           />
         </div>
+      )}
+
+      {step.type === "listen-word-mcq" && (
+        <ListenWordMcqStepEditor step={step} onChange={onChange} />
       )}
 
       {(step.type === "listening" || step.type === "image-match") && (
@@ -861,6 +957,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
       : type === "write-word"         ? { type: "write-word",         word: "", speakText: "" }
       : type === "listen-write-word"  ? { type: "listen-write-word",  word: "", speakText: "" }
       : type === "match-write-word"   ? { type: "match-write-word",   word: "", imageUrl: "", speakText: "" }
+      : type === "listen-word-mcq"    ? { type: "listen-word-mcq",    word: "", speakText: "", distractors: ["", "", ""] }
       : { type: "tip", text: "" };
     setForm(f => ({ ...f, steps: [...f.steps, newStep] }));
   }
@@ -903,6 +1000,8 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
       if (s.type === "listen-write-word" && !s.speakText?.trim()) return "Listen & Write Word steps need a Speak as text.";
       if (s.type === "match-write-word"  && !s.word?.trim())      return "Match & Write Word steps need an English word.";
       if (s.type === "match-write-word"  && !s.imageUrl)          return "Match & Write Word steps need a reference image.";
+      if (s.type === "listen-word-mcq"   && !s.word?.trim())      return "Listen Word MCQ steps need an English word.";
+      if (s.type === "listen-word-mcq"   && !s.speakText?.trim()) return "Listen Word MCQ steps need a Speak as text.";
     }
     // Warn if deleting would orphan a section's rewards
     if (editingId === null) return null; // creating, no orphan risk
@@ -1764,7 +1863,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
   const [visible, setVisible]   = useState(true);   // false while transitioning
   const [completing, setCompleting] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [correctCounts, setCorrectCounts] = useState({ listening: 0, calligraphy: 0, match: 0, listenWrite: 0, memoryCheck: 0, writeWord: 0, listenWriteWord: 0, matchWriteWord: 0 });
+  const [correctCounts, setCorrectCounts] = useState({ listening: 0, calligraphy: 0, match: 0, listenWrite: 0, memoryCheck: 0, writeWord: 0, listenWriteWord: 0, matchWriteWord: 0, listenWordMcq: 0 });
   // #563 — live energy display, decremented at each 5-step threshold
   const [energyDisplay, setEnergyDisplay] = useState(energy);
 
@@ -1776,12 +1875,13 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
   const writeWordTotal         = React.useMemo(() => steps.filter(s => s.type === "write-word").length,         [steps]);
   const listenWriteWordTotal   = React.useMemo(() => steps.filter(s => s.type === "listen-write-word").length,  [steps]);
   const matchWriteWordTotal    = React.useMemo(() => steps.filter(s => s.type === "match-write-word").length,   [steps]);
+  const listenWordMcqTotal     = React.useMemo(() => steps.filter(s => s.type === "listen-word-mcq").length,    [steps]);
 
   const step    = steps[index];
   const isLast  = index === steps.length - 1;
   const wordMap = React.useMemo(() => Object.fromEntries(words.map(w => [w.id, w])), [words]);
   const word    = step?.type === "vocab" ? wordMap[step.wordId] : null;
-  const isChoiceStep = step?.type === "listening" || step?.type === "image-match";
+  const isChoiceStep = step?.type === "listening" || step?.type === "image-match" || step?.type === "listen-word-mcq";
   const isAutoStep   = isChoiceStep || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word";
   const [choiceDone, setChoiceDone] = useState(false);
 
@@ -1801,7 +1901,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
     if (ttsScheduledRef.current || ttsPlayed) return;
     const text =
       (step?.type === "vocab" && word?.english) ? word.english :
-      ((step?.type === "tip" || step?.type === "listening" || step?.type === "image-match" || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && step?.speakText) ? step.speakText :
+      ((step?.type === "tip" || step?.type === "listening" || step?.type === "listen-word-mcq" || step?.type === "image-match" || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && step?.speakText) ? step.speakText :
       null;
     if (!text) return;
     ttsScheduledRef.current = true;
@@ -1839,7 +1939,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
     setCompleting(true);
     try {
       const tipsInLesson = steps.filter(s => s.type === "tip").length;
-      await onComplete?.({ correctCounts, listeningTotal, calligraphyTotal, matchTotal, listenWriteTotal, memoryCheckTotal, writeWordTotal, listenWriteWordTotal, matchWriteWordTotal, tipsInLesson });
+      await onComplete?.({ correctCounts, listeningTotal, calligraphyTotal, matchTotal, listenWriteTotal, memoryCheckTotal, writeWordTotal, listenWriteWordTotal, matchWriteWordTotal, listenWordMcqTotal, tipsInLesson });
     } catch (e) {
       console.error("[LessonPlayerModal] completion callback failed:", e);
     } finally {
@@ -1976,6 +2076,28 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
           </>
         )}
 
+        {step?.type === "listen-word-mcq" && (
+          <>
+            <div className="lp-exercise-header">
+              <div className="lp-exercise-title">Listen &amp; Choose the Word</div>
+              <div className="lp-exercise-subtitle">Listen and select the correct word</div>
+            </div>
+            <button className="tts-btn lp-listen-round" onClick={() => speakEnglish?.(step.speakText || step.word)} aria-label="Listen again">
+              <Volume2 size={28} />
+            </button>
+            <ChoiceStep
+              key={index}
+              correct={step.word}
+              distractors={step.distractors}
+              speakEnglish={null}
+              removeWrongOption={removeWrongOption}
+              catName={catName}
+              onDone={() => { setChoiceDone(true); setCorrectCounts(c => ({ ...c, listenWordMcq: c.listenWordMcq + 1, listening: c.listening + 1 })); }}
+              onAutoNext={autoNext}
+            />
+          </>
+        )}
+
         {step?.type === "listen-write" && (
           <ListenWriteStep
             key={index}
@@ -2080,6 +2202,12 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
                 <div className="lp-stat-row">
                   <span className="lp-stat-label">🖼️✍️📝 Match &amp; Write Word</span>
                   <span className="lp-stat-value">{correctCounts.matchWriteWord}/{matchWriteWordTotal} <span className="lp-stat-pct">({Math.round(correctCounts.matchWriteWord / matchWriteWordTotal * 100)}%)</span></span>
+                </div>
+              )}
+              {listenWordMcqTotal > 0 && (
+                <div className="lp-stat-row">
+                  <span className="lp-stat-label">👂🔤 Listen Word MCQ</span>
+                  <span className="lp-stat-value">{correctCounts.listenWordMcq}/{listenWordMcqTotal} <span className="lp-stat-pct">({Math.round(correctCounts.listenWordMcq / listenWordMcqTotal * 100)}%)</span></span>
                 </div>
               )}
             </div>
