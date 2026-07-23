@@ -4118,6 +4118,52 @@ function buildLesson(words, progMap) {
 }
 
 // ---------------------------------------------------------------------------
+// #889 — Skill-tile deltas for Practice / Berserk / Sunday Test sessions.
+//
+// Exercise-type → skill mapping (D / flip are excluded: D is tracked separately
+// as pronScores; flip is general recall with no dedicated skill category).
+const SKILL_TYPE_MAP = {
+  A: "Listening",
+  C: "Vocabulary", E: "Vocabulary", R: "Vocabulary",
+  T: "Writing",    S: "Writing",    W: "Writing",
+};
+
+// Pure function — reads lesson.ids / exercises / results and returns the six
+// skill counters to ADD to PATH_STATS_KEY.
+function computeSessionSkillDelta(lesson) {
+  const delta = {
+    skillListeningCorrect: 0,  skillListeningTotal: 0,
+    skillVocabularyCorrect: 0, skillVocabularyTotal: 0,
+    skillWritingCorrect: 0,    skillWritingTotal: 0,
+  };
+  const { ids = [], exercises = [], results = {} } = lesson || {};
+  ids.forEach((id, i) => {
+    const skill = SKILL_TYPE_MAP[exercises[i]?.type];
+    if (!skill) return;
+    delta[`skill${skill}Total`]++;
+    if (results[id]?.result === "got_it") delta[`skill${skill}Correct`]++;
+  });
+  return delta;
+}
+
+// Merges a skill delta into PATH_STATS_KEY in storage. Does not touch React
+// state — callers that need an immediate UI refresh should read the return value.
+async function addPathSkillDelta(delta) {
+  const current = (await storageGet(PATH_STATS_KEY, false)) || {};
+  const updated = {
+    ...current,
+    skillListeningCorrect:  (current.skillListeningCorrect  || 0) + (delta.skillListeningCorrect  || 0),
+    skillListeningTotal:    (current.skillListeningTotal    || 0) + (delta.skillListeningTotal    || 0),
+    skillVocabularyCorrect: (current.skillVocabularyCorrect || 0) + (delta.skillVocabularyCorrect || 0),
+    skillVocabularyTotal:   (current.skillVocabularyTotal   || 0) + (delta.skillVocabularyTotal   || 0),
+    skillWritingCorrect:    (current.skillWritingCorrect    || 0) + (delta.skillWritingCorrect    || 0),
+    skillWritingTotal:      (current.skillWritingTotal      || 0) + (delta.skillWritingTotal      || 0),
+  };
+  await storageSet(PATH_STATS_KEY, updated, false);
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
 // Sprint 15 — Multi-provider AI with automatic fallback.
 // Primary:   Google Gemini 2.5 Flash (best Thai support, free tier)
 // Fallback 1: Groq Llama 3.3 70B (OpenAI-compatible API, 30 req/min free)
@@ -14230,8 +14276,9 @@ function PracticeModeScreen({ words, wordsLoaded, progMap, streak, profile, onPr
   // Issue #322 — always accumulate usedIds (mutual exclusivity applies
   // regardless of pass/fail — see #321's BerserkSession), only mark the
   // star/persist on an actual 100% clear.
-  async function handleBerserkComplete({ tier, cleared, usedIds }) {
+  async function handleBerserkComplete({ tier, cleared, lesson, usedIds }) {
     setBerserkExcludeIds(prev => [...prev, ...usedIds]);
+    if (lesson) addPathSkillDelta(computeSessionSkillDelta(lesson)).catch(() => {});
     // Issue #56 — log this attempt's outcome (success OR failure) so the
     // weekly report can compute this week's Berserk attempts + success rate.
     await appendSharedBerserkAttempt(profile.username, tier, cleared);
@@ -14338,6 +14385,9 @@ function PracticeModeScreen({ words, wordsLoaded, progMap, streak, profile, onPr
     // Issue #184 / #220 — encerra qualquer poder de duration "session"
     // (só valia pra esta sessão) e atualiza o estado local dos poderes.
     setActiveBoosts(await consumeSessionBoosts());
+
+    // #889 — accumulate skill-tile stats from this Practice session
+    addPathSkillDelta(computeSessionSkillDelta(finalLesson)).catch(() => {});
 
     await onProgressUpdate(newProg, newStreak);
     setPhase("complete");
@@ -15086,6 +15136,9 @@ function SundayTestScreen({ words, wordsLoaded, progMap, streak, profile, onProg
 
     // Issue #184 / #220 — encerra qualquer poder de duration "session"
     setActiveBoosts(await consumeSessionBoosts());
+
+    // #889 — accumulate skill-tile stats from this Sunday Test session
+    addPathSkillDelta(computeSessionSkillDelta(finalLesson)).catch(() => {});
 
     if (!outcome.canOfferStreak) {
       // Issue #338 — mirror completion date for the weekly report's
