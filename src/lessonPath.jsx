@@ -8,6 +8,7 @@
 const STEP_TYPE_META = {
   "vocab":              { emoji: "📖", label: "Vocab",              color: "#4A90C4" },
   "tip":                { emoji: "💡", label: "Tip",                color: "#F59E0B" },
+  "flashcard":          { emoji: "📇", label: "Flashcard",          color: "#A855F7" },
   "calligraphy":        { emoji: "✍️",  label: "Calligraphy",        color: "#E8703A" },
   "listening":          { emoji: "👂",  label: "Listen Letter",      color: "#14B8A6" },
   "listen-word-mcq":    { emoji: "👂🔤", label: "Listen Word MCQ",    color: "#0EA5E9" },
@@ -347,6 +348,31 @@ export async function listAllClassCodes() {
 
 const EMPTY_LESSON_FORM = { title: "", classCode: "", sectionIndex: 0, orderInSection: 0, steps: [], rewardCoins: 0, rewardTicket: "" };
 
+// #23 — Flashcard AI helpers
+const FLASHCARD_POS_LIST = ["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","particle","classifier","numeral"];
+
+async function aiFlashcardAll(word, existing, categoryList) {
+  const needSpelling    = !existing.spelling?.trim();
+  const needPos         = !existing.pos?.trim();
+  const needCategory    = !existing.category?.trim();
+  const needTranslation = !existing.translation?.trim();
+  const catOptions = categoryList.map(c => `${c.id} (${c.name})`).join(", ");
+  const prompt = `You are an English language teacher helping Thai learners. Given the English word "${word}", return a JSON object with ONLY these keys that are needed:
+${needSpelling    ? `"spelling": how to pronounce the word using Thai phonemes — write each syllable as Thai sounds separated by " - ". Example: water = วา - เทอร์, apple = แอ - เปิ้ล` : ""}
+${needPos         ? `"pos": one of ${FLASHCARD_POS_LIST.join(", ")}` : ""}
+${needCategory    ? `"category": one category id from this list: ${catOptions}` : ""}
+${needTranslation ? `"translations": array of up to 5 Thai translations, best first` : ""}
+Return ONLY valid JSON, no markdown, no explanation.`;
+  const res = await fetch("/api/ai-enrich", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ systemPrompt: prompt, userMessage: word, maxTokens: 300 }),
+  });
+  if (!res.ok) throw new Error("AI request failed");
+  const d = await res.json();
+  const raw = d.text?.trim().replace(/^```json\s*/i, "").replace(/```$/, "") || "{}";
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
 // #898 — AI helper: suggests distractors for an English word, filling only blank slots
 async function suggestListenWordMcqDistractors(word, existing) {
   const blanks = existing.filter(d => !d.trim()).length;
@@ -369,6 +395,136 @@ async function suggestListenWordMcqDistractors(word, existing) {
     if (!result[i].trim() && si < suggestions.length) result[i] = suggestions[si++];
   }
   return result;
+}
+
+function FlashcardStepEditor({ step, onChange, words, allCategories = [] }) {
+  const [busy, setBusy] = useState(false);
+  const [aiTranslations, setAiTranslations] = useState([]);
+  const existingWord = step.wordBankId ? words.find(w => w.id === step.wordBankId) : null;
+
+  async function runAllAI() {
+    if (!step.word?.trim()) return;
+    setBusy(true);
+    try {
+      const result = await aiFlashcardAll(step.word.trim(), step, allCategories);
+      const updates = {};
+      if (result.spelling    && !step.spelling?.trim())    updates.spelling    = result.spelling;
+      if (result.pos         && !step.pos?.trim())         updates.pos         = result.pos;
+      if (result.category    && !step.category?.trim())    updates.category    = result.category;
+      if (result.translations?.length && !step.translation?.trim()) {
+        setAiTranslations(result.translations);
+        updates.translation = result.translations[0] || "";
+      }
+      onChange({ ...step, ...updates });
+    } catch (e) { alert("AI failed: " + e.message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="lp-fc-editor">
+      <div className="lp-fc-grid">
+        {/* Left column: image, English word, translation */}
+        <div className="lp-fc-col-left">
+          <div className="lp-fc-field">
+            <span className="lp-step-char-label">Image</span>
+            {step.imageUrl ? (
+              <div className="lp-tip-img-preview">
+                <img src={step.imageUrl} alt="flashcard" className="lp-tip-thumb" />
+                <button type="button" className="lp-tip-img-remove" onClick={() => onChange({ ...step, imageUrl: "" })}>×</button>
+              </div>
+            ) : (
+              <label className="btn-secondary lp-tip-upload-btn">
+                Upload image
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  try { onChange({ ...step, imageUrl: await storageUpload(file, "lesson-assets", "flashcard/") }); }
+                  catch (err) { alert("Upload failed: " + err.message); }
+                }} />
+              </label>
+            )}
+          </div>
+          <div className="lp-fc-field">
+            <label className="lp-step-char-label">English word *</label>
+            <input
+              className="lp-step-char-input"
+              style={{ width: "100%", fontSize: 16 }}
+              value={step.word || ""}
+              onChange={e => onChange({ ...step, word: e.target.value, speakText: e.target.value })}
+              placeholder="water"
+            />
+          </div>
+          <div className="lp-fc-field">
+            <label className="lp-step-char-label">Thai translation *</label>
+            {aiTranslations.length > 0 && !step.translation?.trim() ? (
+              <select
+                className="lp-step-char-input"
+                style={{ width: "100%" }}
+                value={step.translation || ""}
+                onChange={e => { onChange({ ...step, translation: e.target.value }); if (e.target.value) setAiTranslations([]); }}
+              >
+                <option value="">— choose translation —</option>
+                {aiTranslations.map((t, i) => <option key={i} value={t}>{t}</option>)}
+              </select>
+            ) : (
+              <input
+                className="lp-step-char-input"
+                style={{ width: "100%" }}
+                value={step.translation || ""}
+                onChange={e => { onChange({ ...step, translation: e.target.value }); setAiTranslations([]); }}
+                placeholder="น้ำ"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Right column: spelling, POS, category */}
+        <div className="lp-fc-col-right">
+          <button
+            className="lp-lwmcq-ai-btn lp-fc-ai-all-btn"
+            disabled={!step.word?.trim() || busy}
+            onClick={runAllAI}
+          >
+            {busy ? "…" : "✨ AI Helper"}
+          </button>
+          <div className="lp-fc-field">
+            <label className="lp-step-char-label">Thai phonetic spelling</label>
+            <input
+              className="lp-step-char-input lp-fc-spelling-input"
+              style={{ width: "100%" }}
+              value={step.spelling || ""}
+              onChange={e => onChange({ ...step, spelling: e.target.value })}
+              placeholder="วา - เทอร์"
+            />
+          </div>
+          <div className="lp-fc-field">
+            <label className="lp-step-char-label">POS</label>
+            <select className="lp-step-char-input" style={{ width: "100%" }} value={step.pos || ""} onChange={e => onChange({ ...step, pos: e.target.value })}>
+              <option value="">— select —</option>
+              {FLASHCARD_POS_LIST.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="lp-fc-field">
+            <label className="lp-step-char-label">Category</label>
+            <select className="lp-step-char-input" style={{ width: "100%" }} value={step.category || ""} onChange={e => onChange({ ...step, category: e.target.value })}>
+              <option value="">— select —</option>
+              {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="lp-fc-wordbank-row">
+        {existingWord ? (
+          <span className="lp-fc-wordbank-done">✅ Already in Word Bank — <em>{existingWord.english}</em></span>
+        ) : (
+          <label className="lp-fc-wordbank-check">
+            <input type="checkbox" checked={!!step.addToWordBank} onChange={e => onChange({ ...step, addToWordBank: e.target.checked })} />
+            Add to Word Bank when lesson is saved
+          </label>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ListenWordMcqStepEditor({ step, onChange }) {
@@ -437,7 +593,7 @@ function ListenWordMcqStepEditor({ step, onChange }) {
   );
 }
 
-function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown, words }) {
+function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown, words, allCategories = [] }) {
   const [query, setQuery] = useState("");
   const filtered = query.trim()
     ? words.filter(w =>
@@ -581,6 +737,10 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
             placeholder="ay"
           />
         </div>
+      )}
+
+      {step.type === "flashcard" && (
+        <FlashcardStepEditor step={step} onChange={onChange} words={words} allCategories={allCategories} />
       )}
 
       {step.type === "listen-word-mcq" && (
@@ -800,7 +960,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
   );
 }
 
-export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord }) {
+export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [] }) {
   const [localCodes,    setLocalCodes]    = useState(classCodes);
   const [selectedCode,  setSelectedCode]  = useState(classCodes[0]?.code || "");
   const [lessons,       setLessons]       = useState([]);
@@ -949,6 +1109,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   function addStep(type) {
     const newStep =
       type === "vocab"       ? { type: "vocab",       wordId: null }
+      : type === "flashcard"   ? { type: "flashcard",   word: "", speakText: "", translation: "", spelling: "", pos: "", category: "", imageUrl: "", wordBankId: null }
       : type === "calligraphy" ? { type: "calligraphy", char: "" }
       : type === "listening"   ? { type: "listening",   char: "", distractors: [] }
       : type === "image-match"   ? { type: "image-match",   char: "", imageUrl: "", distractors: [] }
@@ -986,6 +1147,9 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     if (form.steps.length === 0) return "At least one step is required.";
     for (const s of form.steps) {
       if (s.type === "vocab"       && !s.wordId)      return "All vocab steps need a word selected.";
+      if (s.type === "flashcard"   && !s.word?.trim())       return "Flashcard steps need an English word.";
+      if (s.type === "flashcard"   && !s.imageUrl)           return "Flashcard steps need an image.";
+      if (s.type === "flashcard"   && !s.translation?.trim()) return "Flashcard steps need a Thai translation.";
       if (s.type === "tip"         && !s.text?.trim() && !s.imageUrl) return "All tip steps need text or an image.";
       if (s.type === "calligraphy" && !s.char)        return "Calligraphy steps need an English character.";
       if (s.type === "listening"   && !s.char)        return "Listening steps need an English character.";
@@ -1035,6 +1199,21 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
           if (nodeIndex >= 0) {
             await Promise.all(vocabSteps.map(s => onSaveVocabWord(s.wordId, nodeIndex)));
           }
+        }
+      }
+      // #23 — create Word Bank entries for flashcard steps flagged addToWordBank
+      if (saved && onCreateFlashcardWord) {
+        const flashSteps = (saved.steps || []).filter(s => s.type === "flashcard" && s.addToWordBank && !s.wordBankId);
+        if (flashSteps.length > 0) {
+          const allCodes = classCodes.map(c => c.code);
+          const allLessons = await listAllLessonsOrdered(allCodes);
+          const nodeIndex = allLessons.findIndex(l => l.id === saved.id);
+          const wordIds = await Promise.all(flashSteps.map(s => onCreateFlashcardWord(s, saved.classCode, nodeIndex)));
+          const updatedSteps = (saved.steps || []).map(s => {
+            const idx = flashSteps.indexOf(s);
+            return idx >= 0 && wordIds[idx] ? { ...s, wordBankId: wordIds[idx], addToWordBank: false } : s;
+          });
+          await saveLessonDef({ ...saved, steps: updatedSteps });
         }
       }
       await reload(selectedCode);
@@ -1408,6 +1587,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
                   index={i}
                   total={form.steps.length}
                   words={words}
+                  allCategories={allCategories}
                   onChange={updated => updateStep(i, updated)}
                   onRemove={() => removeStep(i)}
                   onMoveUp={() => moveStep(i, -1)}
@@ -1854,6 +2034,25 @@ function ChoiceStep({ correct, distractors, speakEnglish, speakText, imageUrl, r
 //   onClose    — close without completing
 // ---------------------------------------------------------------------------
 
+// #23 — Flashcard student view
+function FlashcardStep({ step, speakEnglish }) {
+  const POS_BADGE_COLOR = { noun: "#60A5FA", verb: "#34D399", adjective: "#FBBF24", adverb: "#F472B6", pronoun: "#A78BFA", particle: "#94A3B8", classifier: "#FB923C", numeral: "#4ADE80" };
+  const color = POS_BADGE_COLOR[step.pos] || "#A78BFA";
+  return (
+    <div className="lp-flashcard-step">
+      <button className="lp-flashcard-replay" onClick={() => speakEnglish?.(step.speakText || step.word)} aria-label="Replay audio">
+        <Volume2 size={16} />
+      </button>
+      {step.imageUrl && <img src={step.imageUrl} alt={step.word} className="lp-flashcard-img" />}
+      {step.spelling && <div className="lp-flashcard-spelling">{step.spelling}</div>}
+      <div className="lp-flashcard-meta">
+        {step.pos && <span className="lp-flashcard-pos-badge" style={{ background: color + "22", color }}>{step.pos}</span>}
+        {step.translation && <span className="lp-flashcard-translation">{step.translation}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onPracticeNow, onClose, removeWrongOption = false, profile = null, avatarCatalog = [], coinsToAward = 0, energy = null, energyMax = S0_ENERGY_MAX, energyCostPer5 = 2, energyCostEvery = 5, onEnergySpend = null }) {
   const steps   = lesson?.steps || [];
   const [index, setIndex]       = useState(0);
@@ -1901,7 +2100,7 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
     if (ttsScheduledRef.current || ttsPlayed) return;
     const text =
       (step?.type === "vocab" && word?.english) ? word.english :
-      ((step?.type === "tip" || step?.type === "listening" || step?.type === "listen-word-mcq" || step?.type === "image-match" || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && step?.speakText) ? step.speakText :
+      ((step?.type === "tip" || step?.type === "flashcard" || step?.type === "listening" || step?.type === "listen-word-mcq" || step?.type === "image-match" || step?.type === "calligraphy" || step?.type === "listen-write" || step?.type === "memory-check" || step?.type === "write-word" || step?.type === "listen-write-word" || step?.type === "match-write-word") && step?.speakText) ? step.speakText :
       null;
     if (!text) return;
     ttsScheduledRef.current = true;
@@ -2030,6 +2229,10 @@ export function LessonPlayerModal({ lesson, words, speakEnglish, onComplete, onP
               </>
             )}
           </div>
+        )}
+
+        {step?.type === "flashcard" && (
+          <FlashcardStep step={step} speakEnglish={speakEnglish} />
         )}
 
         {step?.type === "calligraphy" && (

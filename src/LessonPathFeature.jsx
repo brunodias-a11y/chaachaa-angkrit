@@ -157,6 +157,8 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     onUnlockClassCode,
     onStageComplete,
     onSaveVocabWord,
+    onCreateFlashcardWord,
+    allCategories = [],
     onNodeIndexUpdate,
     walkEnabled = true,
   },
@@ -559,6 +561,8 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           classCodes={appClassCodes}
           words={words}
           onSaveVocabWord={onSaveVocabWord}
+          onCreateFlashcardWord={onCreateFlashcardWord}
+          allCategories={allCategories}
         />
       )}
 
@@ -569,6 +573,8 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           words={words}
           onClose={() => setShowManageLessonsModal(false)}
           onSaveVocabWord={onSaveVocabWord}
+          onCreateFlashcardWord={onCreateFlashcardWord}
+          allCategories={allCategories}
         />
       )}
 

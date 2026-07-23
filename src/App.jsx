@@ -7495,6 +7495,20 @@ export default function App() {
               goToTab("exam");
             }}
             walkEnabled={!activeCelebration && celebrationQueue.length === 0}
+            allCategories={allCategories}
+            onCreateFlashcardWord={async (step, classCode, lessonNodeIndex) => {
+              const id = `fc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+              const resolvedCat = allCategories.find(c => c.id === step.category)?.id || allCategories[0]?.id || "greetings";
+              const newWord = {
+                id, emoji: "📇", english: step.word, thai: step.translation,
+                romanization: "", pos: step.pos || "noun", category: resolvedCat, classCode,
+                imageUrl: step.imageUrl || null, spellingOverride: step.spelling || null,
+                visibility: "shared", verified: true, owner: profile?.username || "teacher",
+                addedAt: Date.now(), lessonNodeIndex,
+              };
+              await saveWord(newWord);
+              return id;
+            }}
           />
         </React.Suspense>
         {tab === "sunday" && (
@@ -30722,6 +30736,29 @@ select.modal-input { appearance: none; }
 .lp-cefr-add-cancel { background: none; border: none; font-size: 13px; color: rgba(245,239,230,0.35); cursor: pointer; padding: 0 2px; }
 .lp-back-to-cefr { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(139,92,246,0.15); padding: 8px 4px 10px; margin-bottom: 4px; font-size: 11px; font-weight: 700; color: rgba(167,139,250,0.7); cursor: pointer; text-align: left; letter-spacing: 0.04em; transition: color 0.15s; }
 .lp-back-to-cefr:hover { color: #A78BFA; }
+
+/* #23 — Flashcard step editor */
+.lp-fc-editor { display: flex; flex-direction: column; gap: 10px; }
+.lp-fc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.lp-fc-col-left { display: flex; flex-direction: column; gap: 8px; }
+.lp-fc-col-right { display: flex; flex-direction: column; gap: 8px; }
+.lp-fc-field { display: flex; flex-direction: column; gap: 4px; }
+.lp-fc-field .lp-step-char-label { margin-bottom: 0; }
+.lp-fc-ai-all-btn { align-self: stretch; margin-bottom: 4px; }
+.lp-fc-spelling-input { font-size: 13px; }
+.lp-fc-wordbank-row { padding-top: 6px; border-top: 1px solid rgba(139,92,246,0.15); }
+.lp-fc-wordbank-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(245,239,230,0.75); cursor: pointer; }
+.lp-fc-wordbank-done { font-size: 12px; color: #34D399; }
+
+/* #23 — Flashcard player step */
+.lp-flashcard-step { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 360px; margin: 0 auto; }
+.lp-flashcard-replay { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(245,239,230,0.5); align-self: flex-end; transition: background 0.15s, color 0.15s; }
+.lp-flashcard-replay:hover { background: rgba(255,255,255,0.14); color: rgba(245,239,230,0.9); }
+.lp-flashcard-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 16px; }
+.lp-flashcard-spelling { font-size: 13px; color: rgba(245,239,230,0.55); text-align: center; line-height: 1.5; padding: 0 8px; }
+.lp-flashcard-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.lp-flashcard-pos-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; text-transform: capitalize; }
+.lp-flashcard-translation { font-size: 15px; color: rgba(245,239,230,0.8); font-weight: 600; }
 
 /* #898 — Listen Word MCQ step editor */
 .lp-lwmcq-editor { display: flex; flex-direction: column; gap: 8px; }
