@@ -1,19 +1,9 @@
 {
   "ported": [
-    870,
-    871,
-    872,
-    873,
-    874,
-    875,
-    876,
-    877,
-    878,
-    879,
-    880,
-    881,
-    882,
-    883,
-    884
-  ]
+    870, 871, 872, 873, 874, 875, 876, 877, 878,
+    879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889
+  ],
+  "blocked": {
+    "14": "Aguardando issues de design corretivas do ChaaChaaThai para #890 (My Results / Skill Tiles) antes de portar"
+  }
 }
