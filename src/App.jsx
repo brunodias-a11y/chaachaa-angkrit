@@ -6594,7 +6594,7 @@ export default function App() {
     await storageSet(KEYS.profile, updated, false);
     if (!isTeacher(profile)) {
       const rosterEntry = await storageGet(`${ROSTER_PREFIX}${profile.username}`, true) || {};
-      await storageSet(`${ROSTER_PREFIX}${profile.username}`, { ...rosterEntry, avatar: avatarId }, true);
+      await storageSet(`${ROSTER_PREFIX}${profile.username}`, { ...rosterEntry, username: profile.username, avatar: avatarId }, true);
       // #700 — if the newly equipped avatar has overnight_coin_interest, snapshot current coins as baseline
       const [cfg, boosts] = await Promise.all([getAvatarPowersConfig(), getActiveBoosts()]);
       if (getOvernightCoinInterestRate(updated, cfg, boosts) > 0) {
@@ -6613,7 +6613,7 @@ export default function App() {
     if (!isTeacher(profile)) {
       await mirrorUnlockedAvatarsToRoster(profile.username, newUnlocked, profile);
       const rosterEntry = await storageGet(`${ROSTER_PREFIX}${profile.username}`, true) || {};
-      await storageSet(`${ROSTER_PREFIX}${profile.username}`, { ...rosterEntry, avatar: cat.id }, true);
+      await storageSet(`${ROSTER_PREFIX}${profile.username}`, { ...rosterEntry, username: profile.username, avatar: cat.id }, true);
     }
     const flags = (await storageGet(HEARTHBOUND_FLAGS_KEY, false)) || {};
     await storageSet(HEARTHBOUND_FLAGS_KEY, { ...flags, firstCompanionChosen: true }, false);
