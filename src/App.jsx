@@ -19275,13 +19275,13 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
     return `${d}d ago`;
   }
 
-  const [activeSection,   setActiveSection]   = useState("cefr-groups");
+  const [activeSection,   setActiveSection]   = useState(isDean ? "cefr-groups" : "challenges");
   const [expandedPanels, setExpandedPanels] = useState(new Set());
 
   const sidebarNav = [
     { id: "dashboard",    label: "Dashboard",   Icon: LayoutDashboard, locked: true  },
-    { id: "cefr-groups",  label: "CEFR Groups", Icon: Users,           locked: false },
-    { id: "my-classes",   label: "My Classes",   Icon: Users,           locked: true  },
+    ...(isDean ? [{ id: "cefr-groups", label: "CEFR Groups", Icon: Users, locked: false }] : []),
+    { id: "my-classes",   label: "My Classes",  Icon: Users,           locked: true  },
     { id: "reports",      label: "Reports",      Icon: BarChart3,       locked: true  },
     { id: "challenges",   label: "Challenges",   Icon: ClipboardList,   locked: false },
     { id: "messages",     label: "Messages",     Icon: MessageSquare,   locked: true  },
