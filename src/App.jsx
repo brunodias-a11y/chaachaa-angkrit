@@ -31971,8 +31971,9 @@ select.modal-input { appearance: none; }
 /* Issue #521 — tab mode: fills the content area below the nav bar */
 /* #529 — position:fixed gives a bounded height so inner flex scroll works */
 .lp-manage-tab-screen {
-  position: fixed; left: 0; right: 0; top: 72px; bottom: 70px;
-  display: flex; flex-direction: column; overflow: hidden;
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  height: 100%; overflow: hidden;
   background: var(--bg);
 }
 
@@ -32688,7 +32689,7 @@ select.modal-input { appearance: none; }
    LP4 — Lesson Path Screen
 --------------------------------------------------------------------------- */
 .lp-path-screen {
-  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  height: 100%; display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(180deg, #0d1b3e 0%, #1a1040 50%, #0d1b3e 100%);
 }
 .lp-path-scroll {
