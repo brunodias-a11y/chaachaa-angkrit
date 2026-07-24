@@ -18578,7 +18578,7 @@ function weekKeyToMonDate(weekKey) {
 }
 
 // #863 Fix 2 — defined outside to avoid remount-on-render focus loss
-function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
+function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA, readOnly = false }) {
   const EMPTY = { id: "", mode: "pool", criterion: "", threshold: "", title: "", emoji: "🎯", reward: { coins: 0, ticket: "" } };
   const slot = slots[idx] || EMPTY;
   const update = patch => setSlots(prev => prev.map((s, i) => i === idx ? { ...(s || EMPTY), ...patch } : s));
@@ -18591,12 +18591,12 @@ function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
       <div className="chp-slot-num">#{idx + 1}</div>
       <div className="chp-slot-body">
         <div className="chp-mode-toggle">
-          <button className={"chp-mode-btn" + (!isCustom ? " active" : "")} onClick={() => update({ mode: "pool" })}>Pool</button>
-          <button className={"chp-mode-btn" + ( isCustom ? " active" : "")} onClick={() => update({ mode: "custom" })}>Custom</button>
+          <button className={"chp-mode-btn" + (!isCustom ? " active" : "")} onClick={() => update({ mode: "pool" })} disabled={readOnly}>Pool</button>
+          <button className={"chp-mode-btn" + ( isCustom ? " active" : "")} onClick={() => update({ mode: "custom" })} disabled={readOnly}>Custom</button>
         </div>
         {!isCustom ? (
           <>
-            <select className="chp-select" value={slot.id} onChange={e => update({ id: e.target.value })}>
+            <select className="chp-select" value={slot.id} onChange={e => update({ id: e.target.value })} disabled={readOnly}>
               <option value="">— Escolher desafio —</option>
               {ALL_WEEK_CHALLENGES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.title} — {getDesc(c, true)}</option>)}
             </select>
@@ -18605,10 +18605,10 @@ function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
         ) : (
           <div className="chp-custom-form">
             <div className="chp-custom-row">
-              <input className="chp-custom-emoji" maxLength={2} value={slot.emoji} onChange={e => update({ emoji: e.target.value })} placeholder="🎯" />
-              <input className="chp-select chp-custom-title" value={slot.title} onChange={e => update({ title: e.target.value })} placeholder="Title (optional)" />
+              <input className="chp-custom-emoji" maxLength={2} value={slot.emoji} onChange={e => update({ emoji: e.target.value })} placeholder="🎯" disabled={readOnly} />
+              <input className="chp-select chp-custom-title" value={slot.title} onChange={e => update({ title: e.target.value })} placeholder="Title (optional)" disabled={readOnly} />
             </div>
-            <select className="chp-select" value={slot.criterion} onChange={e => update({ criterion: e.target.value, threshold: "" })}>
+            <select className="chp-select" value={slot.criterion} onChange={e => update({ criterion: e.target.value, threshold: "" })} disabled={readOnly}>
               <option value="">— Criterion —</option>
               {WEEKLY_CRITERIA.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
@@ -18616,7 +18616,7 @@ function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
               <div className="chp-custom-row chp-custom-threshold">
                 <span className="chp-threshold-label">Threshold</span>
                 <input type="number" min="1" className="chp-reward-coins" value={slot.threshold}
-                  onChange={e => update({ threshold: e.target.value })} placeholder="0" />
+                  onChange={e => update({ threshold: e.target.value })} placeholder="0" disabled={readOnly} />
                 {criterionMeta && <span className="chp-threshold-unit">{criterionMeta.unit}</span>}
               </div>
             )}
@@ -18626,9 +18626,9 @@ function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
           <label className="chp-reward-label">Reward:</label>
           <img src="/coins/catcoin.png" alt="" className="chp-coin-icon" />
           <input type="number" min="0" className="chp-reward-coins" value={slot.reward?.coins || 0}
-            onChange={e => updateReward({ coins: e.target.value })} />
+            onChange={e => updateReward({ coins: e.target.value })} disabled={readOnly} />
           <select className="chp-select chp-reward-ticket" value={slot.reward?.ticket || ""}
-            onChange={e => updateReward({ ticket: e.target.value })}>
+            onChange={e => updateReward({ ticket: e.target.value })} disabled={readOnly}>
             {TICKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -18637,7 +18637,7 @@ function SlotRow({ idx, slots, setSlots, WEEKLY_CRITERIA }) {
   );
 }
 
-function ChallengesPanel() {
+function ChallengesPanel({ readOnly = false }) {
   const todayWeekKey  = getCurrentWeekKey();
   const todayMonthKey = getMonthKey();
 
@@ -18801,28 +18801,30 @@ function ChallengesPanel() {
             <button className="chp-nav-btn" onClick={() => shiftWeek(1)}>›</button>
           </div>
           <div className="chp-slots">
-            <SlotRow idx={0} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} />
-            <SlotRow idx={1} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} />
-            <SlotRow idx={2} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} />
+            <SlotRow idx={0} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} readOnly={readOnly} />
+            <SlotRow idx={1} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} readOnly={readOnly} />
+            <SlotRow idx={2} slots={slots} setSlots={setSlots} WEEKLY_CRITERIA={WEEKLY_CRITERIA} readOnly={readOnly} />
           </div>
           <div className="chp-week-reward-section">
             <div className="chp-section-title">Reward — Week Complete (all 3)</div>
             <div className="chp-reward-row">
               <img src="/coins/catcoin.png" alt="" className="chp-coin-icon" />
               <input type="number" min="0" className="chp-reward-coins" value={weekReward.coins}
-                onChange={e => setWeekReward(r => ({ ...r, coins: e.target.value }))} />
+                onChange={e => setWeekReward(r => ({ ...r, coins: e.target.value }))} disabled={readOnly} />
               <select className="chp-select chp-reward-ticket" value={weekReward.ticket || ""}
-                onChange={e => setWeekReward(r => ({ ...r, ticket: e.target.value }))}>
+                onChange={e => setWeekReward(r => ({ ...r, ticket: e.target.value }))} disabled={readOnly}>
                 {TICKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
           </div>
-          <div className="chp-actions">
-            <button className="save-btn" onClick={saveWeek} disabled={weekSaving}>
-              {weekSaving ? "Saving…" : "Save Week"}
-            </button>
-            {weekMsg && <span className={"chp-msg" + (weekMsg.startsWith("Saved") ? " ok" : " err")}>{weekMsg}</span>}
-          </div>
+          {!readOnly && (
+            <div className="chp-actions">
+              <button className="save-btn" onClick={saveWeek} disabled={weekSaving}>
+                {weekSaving ? "Saving…" : "Save Week"}
+              </button>
+              {weekMsg && <span className={"chp-msg" + (weekMsg.startsWith("Saved") ? " ok" : " err")}>{weekMsg}</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -18846,26 +18848,26 @@ function ChallengesPanel() {
                     <div className="chp-slot-body">
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <div className="chp-mode-toggle">
-                          <button className={"chp-mode-btn" + (!isCustom ? " active" : "")} onClick={() => updateMs({ mode: "pool" })}>Pool</button>
-                          <button className={"chp-mode-btn" + ( isCustom ? " active" : "")} onClick={() => updateMs({ mode: "custom" })}>Custom</button>
+                          <button className={"chp-mode-btn" + (!isCustom ? " active" : "")} onClick={() => updateMs({ mode: "pool" })} disabled={readOnly}>Pool</button>
+                          <button className={"chp-mode-btn" + ( isCustom ? " active" : "")} onClick={() => updateMs({ mode: "custom" })} disabled={readOnly}>Custom</button>
                         </div>
-                        {monthSlots.length > 1 && (
+                        {!readOnly && monthSlots.length > 1 && (
                           <button className="chp-nav-btn" style={{ fontSize: 14, padding: "2px 8px" }}
                             onClick={() => setMonthSlots(prev => prev.filter((_, i) => i !== mi))}>✕</button>
                         )}
                       </div>
                       {!isCustom ? (
-                        <select className="chp-select" value={ms.id} onChange={e => updateMs({ id: e.target.value })}>
+                        <select className="chp-select" value={ms.id} onChange={e => updateMs({ id: e.target.value })} disabled={readOnly}>
                           <option value="">— Rotação automática —</option>
                           {MONTHLY_CHALLENGE_POOL.map(c => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{getDesc(c, true)}</option>)}
                         </select>
                       ) : (
                         <div className="chp-custom-form">
                           <div className="chp-custom-row">
-                            <input className="chp-custom-emoji" maxLength={2} value={ms.emoji} onChange={e => updateMs({ emoji: e.target.value })} placeholder="🎯" />
-                            <input className="chp-select chp-custom-title" value={ms.title} onChange={e => updateMs({ title: e.target.value })} placeholder="Title (optional)" />
+                            <input className="chp-custom-emoji" maxLength={2} value={ms.emoji} onChange={e => updateMs({ emoji: e.target.value })} placeholder="🎯" disabled={readOnly} />
+                            <input className="chp-select chp-custom-title" value={ms.title} onChange={e => updateMs({ title: e.target.value })} placeholder="Title (optional)" disabled={readOnly} />
                           </div>
-                          <select className="chp-select" value={ms.criterion} onChange={e => updateMs({ criterion: e.target.value, threshold: "" })}>
+                          <select className="chp-select" value={ms.criterion} onChange={e => updateMs({ criterion: e.target.value, threshold: "" })} disabled={readOnly}>
                             <option value="">— Criterion —</option>
                             {MONTHLY_CRITERIA.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                           </select>
@@ -18875,7 +18877,7 @@ function ChallengesPanel() {
                               <div className="chp-custom-row chp-custom-threshold">
                                 <span className="chp-threshold-label">Threshold</span>
                                 <input type="number" min="1" className="chp-reward-coins" value={ms.threshold}
-                                  onChange={e => updateMs({ threshold: e.target.value })} placeholder="0" />
+                                  onChange={e => updateMs({ threshold: e.target.value })} placeholder="0" disabled={readOnly} />
                                 {meta && <span className="chp-threshold-unit">{meta.unit}</span>}
                               </div>
                             );
@@ -18887,7 +18889,7 @@ function ChallengesPanel() {
                 );
               })}
             </div>
-            {monthSlots.length < 3 && (
+            {!readOnly && monthSlots.length < 3 && (
               <button className="chp-nav-btn" style={{ marginTop: 8, padding: "4px 14px", fontSize: 12 }}
                 onClick={() => setMonthSlots(prev => [...prev, { ...EMPTY_MSLOT }])}>+ Add challenge</button>
             )}
@@ -18895,15 +18897,17 @@ function ChallengesPanel() {
           <div className="chp-field">
             <label className="chp-field-label">Streak gate (dias)</label>
             <input type="number" min="1" max="31" className="chp-reward-coins" value={streakGate}
-              onChange={e => setStreakGate(e.target.value)} />
+              onChange={e => setStreakGate(e.target.value)} disabled={readOnly} />
             <span className="chp-field-hint">Mínimo de dias consecutivos para desbloquear o Cat of the Month.</span>
           </div>
-          <div className="chp-actions">
-            <button className="save-btn" onClick={saveMonth} disabled={monthSaving}>
-              {monthSaving ? "Saving…" : "Save Month"}
-            </button>
-            {monthMsg && <span className={"chp-msg" + (monthMsg.startsWith("Saved") ? " ok" : " err")}>{monthMsg}</span>}
-          </div>
+          {!readOnly && (
+            <div className="chp-actions">
+              <button className="save-btn" onClick={saveMonth} disabled={monthSaving}>
+                {monthSaving ? "Saving…" : "Save Month"}
+              </button>
+              {monthMsg && <span className={"chp-msg" + (monthMsg.startsWith("Saved") ? " ok" : " err")}>{monthMsg}</span>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -19383,7 +19387,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
         {activeSection === "dean-invites" ? (
           <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />
         ) : activeSection === "challenges" ? (
-          <ChallengesPanel />
+          <ChallengesPanel readOnly={!isDean} />
         ) : (<>
         {/* Page header */}
         <div className="tp-page-header">
