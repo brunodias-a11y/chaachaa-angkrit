@@ -23641,7 +23641,7 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
   const canAfford = (coins || 0) >= (price || 0);
 
   return createPortal(
-    <div className="ach-moment-overlay" onClick={onClose}>
+    <div className="adm-moment-overlay" onClick={onClose}>
       <div className="adm-root" onClick={e => e.stopPropagation()}>
 
         {/* ── Left: art panel ── */}
@@ -23749,31 +23749,31 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="adm-action-row">
-            {(origin === "collection" || (origin === "gallery" && owned)) ? (
-              <button className="adm-action-btn adm-btn-equip" onClick={handleChangeAvatar} disabled={selected}>
-                {selected ? "✓ Equipped" : "Equip Avatar"}
-              </button>
-            ) : origin === "gallery" ? (
-              <button className="adm-action-btn adm-btn-locked" disabled>🔒 Unlock via Gacha</button>
-            ) : owned ? (
-              <button className="adm-action-btn adm-btn-equip" disabled>✓ Owned</button>
-            ) : (
-              <button className="adm-action-btn adm-btn-buy" onClick={handleBuyClick} disabled={busy || !canAfford}>
-                <img src="/coins/catcoin.png" alt="" className="meowtong-icon-inline" />
-                {busy ? "…" : price}
-              </button>
-            )}
-            <button className="adm-action-btn adm-btn-close" onClick={onClose}>Close</button>
-          </div>
-          {!canAfford && !owned && origin !== "collection" && origin !== "gallery" && (
-            <div className="adm-insufficient">Not enough Meowtongs</div>
-          )}
-          {buyMsg && <div className="adm-insufficient">{buyMsg}</div>}
         </div>
 
       </div>
+      {/* Action buttons — sibling of adm-root outside the scrollable card */}
+      <div className="adm-action-row" onClick={e => e.stopPropagation()}>
+        {(origin === "collection" || (origin === "gallery" && owned)) ? (
+          <button className="adm-action-btn adm-btn-equip" onClick={handleChangeAvatar} disabled={selected}>
+            {selected ? "✓ Equipped" : "Equip Avatar"}
+          </button>
+        ) : origin === "gallery" ? (
+          <button className="adm-action-btn adm-btn-locked" disabled>🔒 Unlock via Gacha</button>
+        ) : owned ? (
+          <button className="adm-action-btn adm-btn-equip" disabled>✓ Owned</button>
+        ) : (
+          <button className="adm-action-btn adm-btn-buy" onClick={handleBuyClick} disabled={busy || !canAfford}>
+            <img src="/coins/catcoin.png" alt="" className="meowtong-icon-inline" />
+            {busy ? "…" : price}
+          </button>
+        )}
+        <button className="adm-action-btn adm-btn-close" onClick={onClose}>Close</button>
+      </div>
+      {!canAfford && !owned && origin !== "collection" && origin !== "gallery" && (
+        <div className="adm-insufficient" onClick={e => e.stopPropagation()}>Not enough Meowtongs</div>
+      )}
+      {buyMsg && <div className="adm-insufficient" onClick={e => e.stopPropagation()}>{buyMsg}</div>}
     </div>,
     document.body
   );
@@ -27991,6 +27991,18 @@ select.modal-input { appearance: none; }
 .gift-item-btn-done { background: rgba(245,239,230,.06); border-color: rgba(245,239,230,.15); }
 
 /* #798 — redesigned AvatarDetailModal */
+/* #916 — dedicated overlay: flex column with adm-root then adm-action-row as siblings */
+.adm-moment-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(10, 12, 28, .88);
+  display: flex; flex-direction: column; align-items: self-start; justify-content: flex-start;
+  padding: 30px 24px; gap: 12px;
+  backdrop-filter: blur(4px);
+  animation: moment-bg-in .3s ease both;
+}
+.adm-moment-overlay > .adm-action-row { margin-top: 0; width: min(96vw, 700px); }
+.adm-moment-overlay > .adm-insufficient { width: min(96vw, 700px); }
+@keyframes moment-bg-in { from { opacity: 0; } to { opacity: 1; } }
 .adm-root {
   display: flex; flex-direction: column;
   width: min(96vw, 700px); height: 82vh;
