@@ -1722,10 +1722,12 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     <div className="lp-manage-body">
           {/* Left: lesson list */}
           <div className="lp-manage-list">
-            {/* #897 — back to CEFR overview */}
-            <button className="lp-back-to-cefr" onClick={() => { setCefrView(true); setEditingClassCode(null); }}>
-              {editingClassCode && activeTurmaCode ? "← Sections" : editingClassCode ? "← My Classes" : "← CEFR Overview"}
-            </button>
+            {/* #897 — back to CEFR overview (Dean only; Teacher stays in My Classes view) */}
+            {(editingClassCode || isDeanRole) && (
+              <button className="lp-back-to-cefr" onClick={() => { setCefrView(true); setEditingClassCode(null); }}>
+                {editingClassCode && activeTurmaCode ? "← Sections" : editingClassCode ? "← My Classes" : "← CEFR Overview"}
+              </button>
+            )}
             <div className="lp-manage-code-row">
               <select
                 className="lp-code-select"
@@ -2032,10 +2034,12 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
         </div>
   );
 
+  const isDeanRole = profile?.role === "dean";
+
   if (asTab) {
     return (
       <div className="lp-manage-tab-screen">
-        {editingClassCode ? manageLessonsBody : cefrView ? cefrOverview : manageLessonsBody}
+        {editingClassCode ? manageLessonsBody : (isDeanRole && cefrView) ? cefrOverview : manageLessonsBody}
       </div>
     );
   }

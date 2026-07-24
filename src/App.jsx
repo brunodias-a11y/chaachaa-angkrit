@@ -19279,11 +19279,11 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
     return `${d}d ago`;
   }
 
-  const [activeSection,   setActiveSection]   = useState(isDean ? "cefr-groups" : "challenges");
+  const [activeSection,   setActiveSection]   = useState(isDean ? "cefr-groups" : "dashboard");
   const [expandedPanels, setExpandedPanels] = useState(new Set());
 
   const sidebarNav = [
-    { id: "dashboard",    label: "Dashboard",   Icon: LayoutDashboard, locked: true  },
+    { id: "dashboard",    label: "Dashboard",   Icon: LayoutDashboard, locked: false },
     ...(isDean ? [{ id: "cefr-groups", label: "CEFR Groups", Icon: Users, locked: false }] : []),
     { id: "my-classes",   label: "My Classes",  Icon: Users,           locked: true  },
     { id: "reports",      label: "Reports",      Icon: BarChart3,       locked: true  },
@@ -19388,6 +19388,108 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
           <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />
         ) : activeSection === "challenges" ? (
           <ChallengesPanel readOnly={!isDean} />
+        ) : activeSection === "dashboard" ? (
+          /* ── Teacher Dashboard ── */
+          <div className="tdb-root">
+            <div className="tp-page-header">
+              <div>
+                <h1 className="tp-page-title">Dashboard</h1>
+                <p className="tp-page-sub">
+                  {profile?.workName
+                    ? `Welcome back, ${[profile.title, profile.workName].filter(Boolean).join(" ")}!`
+                    : "Your teaching hub"}
+                </p>
+              </div>
+              <div className="teacher-code-badge">Code: <span>{teacherCode || (codeError ? "—" : "…")}</span></div>
+            </div>
+
+            {loading ? (
+              <div className="empty-state">Loading…</div>
+            ) : roster.length === 0 && !rosterError ? (
+              <div className="tdb-empty">
+                <EmptyState
+                  image="/mascote-empty-bank.png"
+                  title="No students yet"
+                  subtitle="Once students join your class, their activity will appear here."
+                />
+                <button className="tdb-cta-btn" onClick={() => setActiveSection(isDean ? "cefr-groups" : "challenges")}>
+                  Get started →
+                </button>
+              </div>
+            ) : (<>
+              {/* KPI tiles */}
+              <div className="tp-kpi-row">
+                {kpiTiles.map(({ Icon: KIcon, color, label, value }, i) => (
+                  <div key={i} className="tp-kpi-tile">
+                    <div className="tp-kpi-icon-wrap" style={{ color, background: color + "22" }}>
+                      <KIcon size={17} />
+                    </div>
+                    <div className="tp-kpi-body">
+                      <div className="tp-kpi-value">{value}</div>
+                      <div className="tp-kpi-label">{label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Top Streaks leaderboard */}
+              {(() => {
+                const medals = ["🥇","🥈","🥉","4️⃣","5️⃣"];
+                const top = [...roster]
+                  .map(s => ({ ...s, _streak: stats[s.username]?.streak || 0, _active: stats[s.username]?.lastActive || 0 }))
+                  .sort((a, b) => b._streak - a._streak || b._active - a._active)
+                  .slice(0, 5)
+                  .filter(s => s._streak > 0);
+                if (!top.length) return null;
+                return (
+                  <div className="tdb-section">
+                    <div className="tdb-section-title">🔥 Top Streaks</div>
+                    <div className="tdb-leaderboard">
+                      {top.map((s, i) => (
+                        <div key={s.username} className="tdb-lb-row">
+                          <span className="tdb-lb-medal">{medals[i]}</span>
+                          <span className="tdb-lb-name">{s.nickname || s.username}</span>
+                          <span className="tdb-lb-level" style={{ color: LEVEL_META[s.level || "Pre-A1"]?.color || "var(--text-sub)" }}>{s.level || "Pre-A1"}</span>
+                          <span className="tdb-lb-streak">🔥 {s._streak}d</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Recent level-ups */}
+              {levelUpFeed.length > 0 && (
+                <div className="tdb-section">
+                  <div className="tdb-section-title">🎉 Recent Level-Ups</div>
+                  <div className="tdb-levelup-list">
+                    {levelUpFeed.slice(0, 5).map(e => (
+                      <div key={e.id} className="tp-levelup-feed-row">
+                        <span className="tp-levelup-feed-name">{e.username}</span>
+                        <span className="tp-levelup-feed-arrow">{e.fromLevel} → {e.toLevel}</span>
+                        <span className="tp-levelup-feed-time">{daysAgoLabel(e.at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div className="tdb-section">
+                <div className="tdb-section-title">⚡ Quick Actions</div>
+                <div className="tdb-quick-actions">
+                  {isDean && (
+                    <button className="tdb-quick-btn" onClick={() => setActiveSection("cefr-groups")}>
+                      <Users size={15} /> CEFR Groups
+                    </button>
+                  )}
+                  <button className="tdb-quick-btn" onClick={() => setActiveSection("challenges")}>
+                    <ClipboardList size={15} /> Challenges
+                  </button>
+                </div>
+              </div>
+            </>)}
+          </div>
         ) : (<>
         {/* Page header */}
         <div className="tp-page-header">
@@ -28601,6 +28703,41 @@ select.modal-input { appearance: none; }
 }
 .tp-mini-card:hover .tp-mini-gift-btn { opacity: 1; }
 .tp-mini-gift-btn:hover { background: rgba(232,163,61,.2); border-color: rgba(232,163,61,.4); color: var(--saffron); }
+
+/* ── Teacher Dashboard ── */
+.tdb-root { display: flex; flex-direction: column; gap: 14px; }
+.tdb-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 12px; }
+.tdb-cta-btn {
+  padding: 11px 28px; border-radius: 12px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #b87c1a, var(--saffron, #E8A33D));
+  color: #1a1208; font-family: 'Work Sans', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .02em; box-shadow: 0 4px 16px rgba(232,163,61,.35);
+  transition: transform .12s, box-shadow .12s;
+}
+.tdb-cta-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,163,61,.45); }
+.tdb-cta-btn:active { transform: translateY(0); }
+.tdb-section { display: flex; flex-direction: column; gap: 6px; }
+.tdb-section-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-sub); }
+.tdb-leaderboard { display: flex; flex-direction: column; gap: 4px; }
+.tdb-lb-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px;
+  background: rgba(245,239,230,.04); border: 1px solid rgba(245,239,230,.07);
+}
+.tdb-lb-medal { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+.tdb-lb-name { flex: 1; font-size: 12.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tdb-lb-level { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.05); flex-shrink: 0; }
+.tdb-lb-streak { font-size: 11.5px; font-weight: 600; color: #E8A33D; white-space: nowrap; flex-shrink: 0; }
+.tdb-levelup-list { display: flex; flex-direction: column; gap: 4px; }
+.tdb-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tdb-quick-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 10px; border: 1px solid rgba(245,239,230,.13);
+  background: rgba(245,239,230,.06); color: var(--ivory); cursor: pointer;
+  font-family: 'Work Sans', sans-serif; font-size: 12px; font-weight: 600;
+  transition: all .12s;
+}
+.tdb-quick-btn:hover { background: rgba(232,163,61,.15); border-color: rgba(232,163,61,.35); color: var(--saffron); }
 
 .tp-cefr-view-more {
   display: flex; align-items: center; justify-content: center;
