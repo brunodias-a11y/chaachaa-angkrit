@@ -83,6 +83,21 @@ export async function getSupabaseClient() {
   _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: true }
   });
+  // When autoRefreshToken fires in the background it produces a new session
+  // that is only in memory (persistSession: false). Without this listener the
+  // refreshed tokens are never written back to localStorage, so the next page
+  // load tries the already-consumed refresh token and forces a re-login.
+  _sbClient.auth.onAuthStateChange((event, session) => {
+    if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && session && _currentUsername) {
+      const slug = _currentUsername.trim().toLowerCase().replace(/\s+/g, "-");
+      try {
+        localStorage.setItem(`sb-session:${slug}`, JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        }));
+      } catch (_) {}
+    }
+  });
   return _sbClient;
 }
 
