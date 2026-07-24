@@ -8666,7 +8666,9 @@ const REG_I18N = {
     // errors
     errPin: "PIN must be 4 digits.",
     errNickname: "Nickname is required.",
-    errMatricula: "Student ID is required.",
+    confirmNoMatricula: "You haven't entered a Student ID. You can add it later in your profile. Continue without one for now?",
+    confirmNoMatriculaYes: "Continue without ID",
+    confirmNoMatriculaNo: "Go back and add it",
     errMatriculaTaken: "This student ID is already registered. Please contact your teacher.",
     errRegFail: "Registration failed. This nickname may already be taken.",
     // buttons
@@ -8707,7 +8709,9 @@ const REG_I18N = {
     // errors
     errPin: "PIN ต้องมี 4 หลัก",
     errNickname: "กรุณากรอกชื่อเล่น",
-    errMatricula: "กรุณากรอกรหัสนักเรียน",
+    confirmNoMatricula: "คุณยังไม่ได้ใส่รหัสนักเรียน สามารถเพิ่มในโปรไฟล์ได้ภายหลัง ดำเนินการต่อโดยไม่มีรหัสไหม?",
+    confirmNoMatriculaYes: "ดำเนินการต่อโดยไม่มีรหัส",
+    confirmNoMatriculaNo: "กลับไปเพิ่มรหัส",
     errMatriculaTaken: "รหัสนักเรียนนี้ถูกลงทะเบียนแล้ว กรุณาติดต่อครู",
     errRegFail: "การลงทะเบียนล้มเหลว ชื่อเล่นนี้อาจถูกใช้แล้ว",
     // buttons
@@ -8738,6 +8742,7 @@ function LoginScreen({ onLogin, onRegister }) {
   const [regTurmaError,  setRegTurmaError]  = useState("");
   const [regTurmaLoading, setRegTurmaLoading] = useState(false);
   const [regMatricula,   setRegMatricula]   = useState("");
+  const [regMatriculaConfirm, setRegMatriculaConfirm] = useState(false);
   const [regNickname,    setRegNickname]    = useState("");
   const [regFullName,    setRegFullName]    = useState("");
   const [regEmail,       setRegEmail]       = useState("");
@@ -8961,7 +8966,7 @@ function LoginScreen({ onLogin, onRegister }) {
                     e.preventDefault();
                     if (regPin.length !== 4) { setRegError(t.errPin); return; }
                     if (!regNickname.trim()) { setRegError(t.errNickname); return; }
-                    if (regTurmaIsSchool && !regMatricula.trim()) { setRegError(t.errMatricula); return; }
+                    if (regTurmaIsSchool && !regMatricula.trim() && !regMatriculaConfirm) { setRegMatriculaConfirm(true); return; }
                     if (regTurmaIsSchool && regMatricula.trim()) {
                       try {
                         const turma = await getTurma(regTurmaCode.trim());
@@ -8989,9 +8994,31 @@ function LoginScreen({ onLogin, onRegister }) {
                     </div>
                     {regTurmaIsSchool && (
                       <div className="reg-field-group">
-                        <label className="reg-label">{t.labelMatricula} <span className="reg-required">*</span></label>
+                        <label className="reg-label">{t.labelMatricula}</label>
                         <input className="login-input reg-input" placeholder={t.phMatricula}
-                          value={regMatricula} onChange={e => { setRegMatricula(e.target.value); setRegError(""); }} maxLength={30} />
+                          value={regMatricula} onChange={e => { setRegMatricula(e.target.value); setRegError(""); setRegMatriculaConfirm(false); }} maxLength={30} />
+                        {regMatriculaConfirm && !regMatricula.trim() && (
+                          <div className="reg-matricula-confirm">
+                            <p className="reg-matricula-confirm-msg">{t.confirmNoMatricula}</p>
+                            <div className="reg-matricula-confirm-btns">
+                              <button type="button" className="reg-matricula-btn reg-matricula-btn--skip"
+                                onClick={async () => {
+                                  setRegMatriculaConfirm(false);
+                                  setRegLoading(true); setRegError("");
+                                  try {
+                                    await onRegister({ username: regNickname.trim(), pin: regPin, fullName: regFullName, turmaCode: regTurmaCode.trim(), shareProgress: regShare, matricula: "" });
+                                  } catch (e) { setRegError(e?.message || t.errRegFail); }
+                                  finally { setRegLoading(false); }
+                                }}>
+                                {t.confirmNoMatriculaYes}
+                              </button>
+                              <button type="button" className="reg-matricula-btn reg-matricula-btn--back"
+                                onClick={() => setRegMatriculaConfirm(false)}>
+                                {t.confirmNoMatriculaNo}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="reg-field-group">
@@ -27207,6 +27234,14 @@ html, body {
 .reg-label { font-size: 11px; font-weight: 700; color: rgba(245,239,230,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
 .reg-hint { text-transform: none; font-weight: 400; letter-spacing: 0; color: rgba(245,239,230,0.35); }
 .reg-required { color: #f87171; font-size: 13px; }
+.reg-matricula-confirm { margin-top: 8px; padding: 12px 14px; border-radius: 10px; background: rgba(232,163,61,.1); border: 1px solid rgba(232,163,61,.3); }
+.reg-matricula-confirm-msg { font-size: 13px; color: rgba(245,239,230,.8); margin: 0 0 10px; line-height: 1.45; }
+.reg-matricula-confirm-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.reg-matricula-btn { font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 8px; cursor: pointer; border: none; }
+.reg-matricula-btn--skip { background: rgba(232,163,61,.25); color: var(--saffron); }
+.reg-matricula-btn--skip:hover { background: rgba(232,163,61,.4); }
+.reg-matricula-btn--back { background: rgba(245,239,230,.08); color: rgba(245,239,230,.6); }
+.reg-matricula-btn--back:hover { background: rgba(245,239,230,.14); }
 .reg-title-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .reg-title-btn { padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid rgba(245,239,230,0.15); background: rgba(245,239,230,0.05); color: rgba(245,239,230,0.55); transition: all 0.15s; }
 .reg-title-btn:hover { background: rgba(245,239,230,0.1); color: rgba(245,239,230,0.85); }
