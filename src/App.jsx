@@ -8786,23 +8786,15 @@ function LoginScreen({ onLogin, onRegister }) {
           {!showTeacher && onRegister && (
             <>
               <div className="login-or-row"><span className="login-or-line"/><span className="login-or-text">or</span><span className="login-or-line"/></div>
-              <button type="button" className="login-create-btn" onClick={() => setRegView("register-ask")}>
-                ✦ Create Account
-              </button>
-            </>
-          )}
-
-          {!showTeacher && onRegister && (
-            <>
-              <div className="login-or-row"><span className="login-or-line"/><span className="login-or-text">or</span><span className="login-or-line"/></div>
-              <button
-                type="button"
-                className="login-teacher-btn"
-                onClick={() => setRegView("register-teacher")}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.657 2.686 3 6 3s6-1.343 6-3v-5"/></svg>
-                I am a teacher
-              </button>
+              <div className="login-alt-grid">
+                <button type="button" className="login-create-btn" onClick={() => setRegView("register-ask")}>
+                  ✦ Create Account
+                </button>
+                <button type="button" className="login-teacher-btn" onClick={() => setRegView("register-teacher")}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.657 2.686 3 6 3s6-1.343 6-3v-5"/></svg>
+                  I'm a teacher
+                </button>
+              </div>
             </>
           )}
 
@@ -27077,6 +27069,10 @@ html, body {
   cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
 .login-create-btn:hover { border-color: #7c3aed; background: rgba(124,58,237,0.28); }
+
+.login-alt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.login-alt-grid .login-create-btn,
+.login-alt-grid .login-teacher-btn { width: 100%; font-size: 13px; padding: 11px 8px; }
 
 /* Registration overlay */
 .reg-overlay {
