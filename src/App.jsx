@@ -5183,7 +5183,7 @@ export default function App() {
         const p = await storageGet(KEYS.profile, false);
         setProfile(withAvatarDefaults(p));
         setLoaded(true);
-      } catch {
+      } catch (err) {
         // #511 — network/Supabase failure: exit splash and show error screen with retry
         setLoadError(true);
         setLoaded(true);

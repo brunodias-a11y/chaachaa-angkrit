@@ -83,6 +83,13 @@ export async function getSupabaseClient() {
   _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: true }
   });
+  // Wait for the GoTrueClient async initialization to complete so that the
+  // INITIAL_SESSION event (null, because persistSession:false) fires BEFORE
+  // any caller uses this client. Without this, a setSession() call in
+  // restoreSession() races with the initialization and the subsequent
+  // INITIAL_SESSION null-event clears the session we just set — causing
+  // every personal_kv query to fail RLS silently and return null.
+  await _sbClient.auth.getSession().catch(() => {});
   // When autoRefreshToken fires in the background it produces a new session
   // that is only in memory (persistSession: false). Without this listener the
   // refreshed tokens are never written back to localStorage, so the next page
