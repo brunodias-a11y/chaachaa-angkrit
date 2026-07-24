@@ -6742,7 +6742,7 @@ export default function App() {
   }
 
   // Account registration — called from the "Create Account" flow in LoginScreen
-  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false, matricula = "", role: requestedRole = "student", teacherInviteCode = "" }) {
+  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false, matricula = "", role: requestedRole = "student", teacherInviteCode = "", workName = "", title = "Teacher" }) {
     // Teacher registration via Dean-generated invite code
     if (requestedRole === "teacher") {
       const invite = await getTeacherInvite(teacherInviteCode).catch(() => null);
@@ -6753,7 +6753,7 @@ export default function App() {
       await saveTeacherInvite({ ...invite, usedAt: Date.now(), usedBy: username });
       // Best-effort Supabase role claim
       await claimTeacherRole(teacherInviteCode).catch(() => {});
-      const p = { username, role: "teacher", createdAt: Date.now(), avatar: DEFAULT_AVATAR_ID, unlockedAvatars: [] };
+      const p = { username, role: "teacher", workName: workName.trim() || username, title, createdAt: Date.now(), avatar: DEFAULT_AVATAR_ID, unlockedAvatars: [] };
       await storageSet(KEYS.profile, p, false);
       setProfile(p);
       goToTab("teacher");
@@ -8623,6 +8623,8 @@ function LoginScreen({ onLogin, onRegister }) {
   const [regLoading,     setRegLoading]     = useState(false);
   const [regError,       setRegError]       = useState("");
   const [regTchNickname, setRegTchNickname] = useState("");
+  const [regTchWorkName, setRegTchWorkName] = useState("");
+  const [regTchTitle,    setRegTchTitle]    = useState("Teacher");
   const [regTchPin,      setRegTchPin]      = useState("");
   const [regTchShowPin,  setRegTchShowPin]  = useState(false);
   const [regTchCode,     setRegTchCode]     = useState("");
@@ -8964,18 +8966,36 @@ function LoginScreen({ onLogin, onRegister }) {
                 <form className="reg-form" onSubmit={async e => {
                   e.preventDefault();
                   if (!regTchNickname.trim()) { setRegTchError("Nickname is required."); return; }
+                  if (!regTchWorkName.trim()) { setRegTchError("Work name is required."); return; }
                   if (regTchPin.length !== 4)  { setRegTchError("PIN must be 4 digits."); return; }
                   if (!regTchCode.trim().startsWith("TCH-")) { setRegTchError("Invalid invite code. Must start with TCH-"); return; }
                   setRegTchLoading(true); setRegTchError("");
                   try {
-                    await onRegister({ username: regTchNickname.trim(), pin: regTchPin, role: "teacher", teacherInviteCode: regTchCode.trim() });
+                    await onRegister({ username: regTchNickname.trim(), pin: regTchPin, role: "teacher", teacherInviteCode: regTchCode.trim(), workName: regTchWorkName.trim(), title: regTchTitle });
                   } catch (err) { setRegTchError(err?.message || "Registration failed. Nickname may already be taken."); }
                   finally { setRegTchLoading(false); }
                 }}>
                   <div className="reg-field-group">
-                    <label className="reg-label">Nickname</label>
-                    <input className="login-input reg-input" placeholder="Your name in the app"
+                    <label className="reg-label">Nickname <span className="reg-hint">— used to log in</span></label>
+                    <input className="login-input reg-input" placeholder="Unique login name"
                       value={regTchNickname} onChange={e => { setRegTchNickname(e.target.value); setRegTchError(""); }} autoFocus maxLength={32} />
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Work Name <span className="reg-hint">— how students know you</span></label>
+                    <input className="login-input reg-input" placeholder="e.g. Smith, Malee, Johnson"
+                      value={regTchWorkName} onChange={e => { setRegTchWorkName(e.target.value); setRegTchError(""); }} maxLength={48} />
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Title</label>
+                    <div className="reg-title-options">
+                      {["Teacher", "Miss", "Mr.", "Mrs.", "Kru", "Ajarn"].map(t => (
+                        <button key={t} type="button"
+                          className={`reg-title-btn${regTchTitle === t ? " reg-title-btn--active" : ""}`}
+                          onClick={() => setRegTchTitle(t)}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="reg-field-group">
                     <label className="reg-label">Choose a PIN</label>
@@ -8993,12 +9013,12 @@ function LoginScreen({ onLogin, onRegister }) {
                     </div>
                   </div>
                   <div className="reg-field-group">
-                    <label className="reg-label">Invite Code <span className="reg-required">*</span></label>
+                    <label className="reg-label">Invite Code</label>
                     <input className="login-input reg-input" placeholder="TCH-XXXXXX"
                       value={regTchCode} onChange={e => { setRegTchCode(e.target.value.toUpperCase()); setRegTchError(""); }} maxLength={10} />
                   </div>
                   {regTchError && <p className="login-error">{regTchError}</p>}
-                  <button type="submit" className="login-btn" disabled={regTchLoading || !regTchNickname.trim() || regTchPin.length !== 4 || !regTchCode.trim()}>
+                  <button type="submit" className="login-btn" disabled={regTchLoading || !regTchNickname.trim() || !regTchWorkName.trim() || regTchPin.length !== 4 || !regTchCode.trim()}>
                     {regTchLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Create Teacher Account <span className="login-btn-star">✦</span></>}
                   </button>
                 </form>
@@ -26601,7 +26621,12 @@ html, body {
 .reg-form { display: flex; flex-direction: column; gap: 14px; }
 .reg-field-group { display: flex; flex-direction: column; gap: 6px; }
 .reg-label { font-size: 11px; font-weight: 700; color: rgba(245,239,230,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
+.reg-hint { text-transform: none; font-weight: 400; letter-spacing: 0; color: rgba(245,239,230,0.35); }
 .reg-required { color: #f87171; font-size: 13px; }
+.reg-title-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.reg-title-btn { padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid rgba(245,239,230,0.15); background: rgba(245,239,230,0.05); color: rgba(245,239,230,0.55); transition: all 0.15s; }
+.reg-title-btn:hover { background: rgba(245,239,230,0.1); color: rgba(245,239,230,0.85); }
+.reg-title-btn--active { background: rgba(124,58,237,0.3); border-color: rgba(167,139,250,0.6); color: #ede9fe; }
 .reg-input { width: 100%; }
 .reg-school-badge { background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.4); border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 600; color: #c4b5fd; margin-bottom: 4px; }
 .reg-share-row { background: rgba(245,239,230,0.04); border-radius: 10px; padding: 12px 14px; }
