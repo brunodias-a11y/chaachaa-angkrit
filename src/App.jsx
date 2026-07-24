@@ -5211,7 +5211,9 @@ export default function App() {
           }
         }
         const p = await storageGet(KEYS.profile, false);
-        setProfile(withAvatarDefaults(p));
+        const profileData = withAvatarDefaults(p);
+        setProfile(profileData);
+        if (isTeacher(profileData)) goToTab("teacher");
         setLoaded(true);
       } catch (err) {
         // #511 — network/Supabase failure: exit splash and show error screen with retry
@@ -7842,11 +7844,11 @@ export default function App() {
       </ErrorBoundary>
 
       <nav className={"tabbar-main" + (sessionActive ? " collapsed" : "")}>
-        {/* Home — students and deans (plain teachers start on Teacher tab) */}
+        {/* Home — students and deans see the student Home; teachers use Teacher tab as Home */}
         {(!teacher || dean) && <TabButton icon={Home} label="Home" active={tab === "home"} onClick={() => goToTab("home")} />}
+        {teacher && <TabButton icon={Home} label="Home" active={tab === "teacher"} onClick={() => goToTab("teacher")} badge={teacherLevelUpUnseen} />}
         {(dean || words.length >= 1) && <TabButton icon={Eye} label="My Vocab" active={tab === "study"} onClick={() => goToTab("study")} />}
         {!teacher && words.length >= 30 && <TabButton icon={GraduationCap} label="Practice" active={tab === "practice"} onClick={() => goToTab("practice")} data-tour="nav-practice" />}
-        {teacher && <TabButton icon={Shield}   label="Teacher" active={tab === "teacher"} onClick={() => goToTab("teacher")} badge={teacherLevelUpUnseen} />}
         {teacher && <TabButton icon={BookOpen} label="Lessons" active={tab === "lessons"} onClick={() => goToTab("lessons")} />}
         {/* Path — students and deans; plain teachers don't have Path tab */}
         {(!teacher || dean || hasPathLessons !== 0) && (
