@@ -19249,13 +19249,14 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
   const [expandedPanels, setExpandedPanels] = useState(new Set());
 
   const sidebarNav = [
-    { id: "dashboard",   label: "Dashboard",   Icon: LayoutDashboard, locked: true  },
-    { id: "cefr-groups", label: "CEFR Groups", Icon: Users,           locked: false },
-    { id: "students",    label: "Students",     Icon: User,            locked: true  },
-    { id: "reports",     label: "Reports",      Icon: BarChart3,       locked: true  },
-    { id: "challenges",  label: "Challenges",   Icon: ClipboardList,   locked: false },
-    { id: "messages",    label: "Messages",     Icon: MessageSquare,   locked: true  },
-    { id: "settings",    label: "Settings",     Icon: Settings,        locked: true  },
+    { id: "dashboard",    label: "Dashboard",   Icon: LayoutDashboard, locked: true  },
+    { id: "cefr-groups",  label: "CEFR Groups", Icon: Users,           locked: false },
+    { id: "students",     label: "Students",     Icon: User,            locked: true  },
+    { id: "reports",      label: "Reports",      Icon: BarChart3,       locked: true  },
+    { id: "challenges",   label: "Challenges",   Icon: ClipboardList,   locked: false },
+    { id: "messages",     label: "Messages",     Icon: MessageSquare,   locked: true  },
+    { id: "settings",     label: "Settings",     Icon: Settings,        locked: true  },
+    ...(isDean ? [{ id: "dean-invites", label: "Dean", Icon: Shield, locked: false }] : []),
   ];
 
   const kpiTiles = [
@@ -19283,7 +19284,6 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
 
   return (
     <div className="tp-layout">
-      {isDean && <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />}
       {/* ── Sidebar ── */}
       <aside className="tp-sidebar">
         <div className="tp-sidebar-logo">
@@ -19349,8 +19349,10 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
             onGift={() => setGiftStudent(detailStudent.student)}
           />
         ) : (<>
-        {/* #854 — Challenges panel */}
-        {activeSection === "challenges" ? (
+        {/* Dean invite codes panel */}
+        {activeSection === "dean-invites" ? (
+          <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />
+        ) : activeSection === "challenges" ? (
           <ChallengesPanel />
         ) : (<>
         {/* Page header */}
@@ -28386,7 +28388,7 @@ select.modal-input { appearance: none; }
 /* ---- Sprint 6.4 — Full teacher panel ---- */
 /* ─── Teacher Dashboard Redesign (#724) ─────────────────────────── */
 /* Dean Invite Panel ────────────────────────────────────────────────────── */
-.dean-invite-panel { background: rgba(124,58,237,0.1); border-bottom: 1px solid rgba(124,58,237,0.25); padding: 10px 18px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.dean-invite-panel { padding: 24px 28px; display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
 .dean-invite-header { display: flex; align-items: center; gap: 10px; }
 .dean-invite-title { font-size: 13px; font-weight: 700; color: #c4b5fd; flex: 1; }
 .dean-invite-toggle { font-size: 11px; background: none; border: 1px solid rgba(196,181,253,0.3); border-radius: 6px; color: rgba(196,181,253,0.7); padding: 3px 8px; cursor: pointer; }
