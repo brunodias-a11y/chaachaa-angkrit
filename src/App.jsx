@@ -7787,6 +7787,7 @@ export default function App() {
           <SettingsScreen
             profile={profile}
             teacher={teacher}
+            isDean={dean}
             allCategories={allCategories}
             notifPrefs={notifPrefs}
             gachaSoundEnabled={gachaSoundEnabled}
@@ -7811,6 +7812,11 @@ export default function App() {
             onLogout={handleLogout}
             onGoToStore={() => goToTab("store")}
             onGoToBank={() => goToTab("bank") /* Issue #371 — teacher-only Settings shortcut, no auto-open Import modal (that stays exclusive to the Home #51 shortcut) */}
+            onSaveTeacherProfile={async ({ title, workName }) => {
+              const updated = { ...profile, title, workName };
+              await storageSet(KEYS.profile, updated, false);
+              setProfile(updated);
+            }}
           />
         )}
         {/* Issue #205 — Store: entry point is tapping your own avatar in the topbar */}
@@ -24855,10 +24861,14 @@ function StgToast({ msg, error }) {
   return <div className={"stg-msg stg-toast" + (error ? " stg-msg-error" : "")}>{msg}</div>;
 }
 
-function SettingsScreen({ profile, teacher, allCategories, notifPrefs, gachaSoundEnabled, micDevice, geminiKey, groqKey, cfToken, cfAccountId,
+function SettingsScreen({ profile, teacher, isDean = false, allCategories, notifPrefs, gachaSoundEnabled, micDevice, geminiKey, groqKey, cfToken, cfAccountId,
   installPrompt, isInstalled, driveBackupFlag, onSaveName, onSaveCode, onAddCategory,
-  onSaveNotifPrefs, onSaveGachaSound, onSaveMicDevice, onSaveGeminiKey, onSaveGroqKey, onSaveCfKeys, onInstall, onLogout, onGoToStore, onGoToBank }) {
+  onSaveNotifPrefs, onSaveGachaSound, onSaveMicDevice, onSaveGeminiKey, onSaveGroqKey, onSaveCfKeys, onInstall, onLogout, onGoToStore, onGoToBank,
+  onSaveTeacherProfile }) {
   const [name,          setName]          = useState(profile.username);
+  const [editTitle,     setEditTitle]     = useState(profile.title    || "Teacher");
+  const [editWorkName,  setEditWorkName]  = useState(profile.workName || "");
+  const [profileMsg,    setProfileMsg]    = useState("");
   const [newCode,       setNewCode]       = useState("");
   const [newGeminiKey,  setNewGeminiKey]  = useState("");
   const [newGroqKey,   setNewGroqKey]   = useState("");
@@ -24953,6 +24963,14 @@ function SettingsScreen({ profile, teacher, allCategories, notifPrefs, gachaSoun
     setSaving("");
   }
 
+  async function saveTeacherProfile() {
+    setSaving("profile"); setProfileMsg("");
+    await onSaveTeacherProfile?.({ title: editTitle, workName: editWorkName.trim() });
+    setProfileMsg("✓ Profile saved");
+    setSaving("");
+    setTimeout(() => setProfileMsg(""), 2500);
+  }
+
   async function saveCode() {
     const c = newCode.trim();
     if (!c) return;
@@ -25025,6 +25043,301 @@ function SettingsScreen({ profile, teacher, allCategories, notifPrefs, gachaSoun
   }
 
   const customCats = allCategories.filter(c => !CATEGORIES.find(f => f.id === c.id));
+
+  // ── Teacher / Dean settings — game-style layout ──────────────────────────
+  if (teacher) {
+    const TITLE_OPTIONS = ["Teacher","Miss","Mr.","Mrs.","Kru","Ajarn"];
+    return (
+      <div className="tch-stg-root">
+
+        {/* ── Profile card ── */}
+        <div className="tch-stg-profile-card">
+          <img src="/mascots/teacher-cat.png" alt="" className="tch-stg-avatar" />
+          <div className="tch-stg-profile-body">
+            {/* Nickname */}
+            <div className="tch-stg-field-label">Nickname</div>
+            <div className="tch-stg-inline-row">
+              <input
+                className="tch-stg-input"
+                value={name}
+                onChange={e => { setName(e.target.value); setNameMsg(""); }}
+                onKeyDown={e => e.key === "Enter" && saveName()}
+                placeholder="Login name"
+              />
+              <button className="tch-stg-save-btn" onClick={saveName}
+                disabled={saving === "name" || name.trim() === profile.username}>
+                {saving === "name" ? "…" : "Save"}
+              </button>
+            </div>
+            {nameMsg && <div className="stg-msg">{nameMsg}</div>}
+
+            {/* Title */}
+            <div className="tch-stg-field-label" style={{ marginTop: 10 }}>Title</div>
+            <div className="tch-stg-title-pills">
+              {TITLE_OPTIONS.map(t => (
+                <button key={t}
+                  className={"tch-stg-title-btn" + (editTitle === t ? " active" : "")}
+                  onClick={() => setEditTitle(t)}>{t}</button>
+              ))}
+            </div>
+
+            {/* Work Name */}
+            <div className="tch-stg-field-label" style={{ marginTop: 10 }}>Work Name</div>
+            <div className="tch-stg-inline-row">
+              <input
+                className="tch-stg-input"
+                value={editWorkName}
+                onChange={e => { setEditWorkName(e.target.value); setProfileMsg(""); }}
+                onKeyDown={e => e.key === "Enter" && saveTeacherProfile()}
+                placeholder="Name your students see"
+              />
+              <button className="tch-stg-save-btn" onClick={saveTeacherProfile}
+                disabled={saving === "profile"}>
+                {saving === "profile" ? "…" : "Save"}
+              </button>
+            </div>
+            {profileMsg && <div className="stg-msg">{profileMsg}</div>}
+
+            {/* Role badge + log out */}
+            <div className="tch-stg-bottom-row">
+              <span className="tch-stg-role-pill">
+                {isDean ? "🎓 Dean" : "🛡 Teacher"}
+              </span>
+              {!confirmLogout ? (
+                <button className="tch-stg-logout-btn" onClick={() => setConfirmLogout(true)}>
+                  Log out
+                </button>
+              ) : (
+                <div className="tch-stg-confirm-row">
+                  <button className="tch-stg-logout-btn confirm" onClick={onLogout}>Confirm</button>
+                  <button className="tch-stg-save-btn" onClick={() => setConfirmLogout(false)}>Cancel</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Install app ── */}
+        <div className="tch-stg-card">
+          <div className="tch-stg-card-title">Install app</div>
+          {isInstalled ? (
+            <span className="sb-status-badge sb-live">✓ Installed on this device</span>
+          ) : installPrompt ? (
+            <button className="tdb-cta-btn" style={{ fontSize: 12, padding: "9px 20px" }} onClick={onInstall}>
+              📱 Add to Home Screen
+            </button>
+          ) : (
+            <div className="tch-stg-hint">
+              iOS: Share → Add to Home Screen. Android: ⋮ → Add to Home Screen.
+            </div>
+          )}
+        </div>
+
+        {/* ── Microphone ── */}
+        <div className="tch-stg-card">
+          <div className="tch-stg-card-title">Microphone</div>
+          <div className="tch-stg-card-row">
+            <span className="tch-stg-card-sub">{micDevice?.label || "System default"}</span>
+            <button className="tch-stg-save-btn" onClick={() => setShowMicModal(true)}>Choose &amp; test</button>
+          </div>
+        </div>
+
+        {showMicModal && (
+          <MicCalibrationModal
+            initialDevice={micDevice}
+            onClose={() => setShowMicModal(false)}
+            onSave={device => { onSaveMicDevice(device); setShowMicModal(false); }}
+          />
+        )}
+
+        {/* ── Dean-only admin sections ── */}
+        {isDean && (<>
+
+          {/* Database connection */}
+          <div className="tch-stg-admin-block">
+            <div className="tch-stg-admin-title">Database</div>
+            <div className="stg-group">
+              <div className="stg-row">
+                <div className="stg-label">Status</div>
+                <div className="stg-value">
+                  <span className={"sb-status-badge " + (USE_SUPABASE ? "sb-live" : "sb-demo")}>
+                    {USE_SUPABASE ? "🟢 Supabase live" : "🟡 Demo mode"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Providers */}
+          <div className="tch-stg-admin-block">
+            <div className="tch-stg-admin-title">AI Providers</div>
+            <div className="stg-group">
+              <div className="stg-hint" style={{ padding: "10px 14px", borderBottom: "1px solid rgba(245,239,230,.06)" }}>
+                Server keys are used by default. Add personal keys below to override.
+              </div>
+              {/* Gemini */}
+              <div className="stg-row">
+                <div className="stg-label">1. Google Gemini 2.5 Flash
+                  <span className={"sb-status-badge " + (geminiKey ? "sb-live" : "sb-server")} style={{ marginLeft: 8 }}>
+                    {geminiKey ? "Personal" : "Server"}
+                  </span>
+                </div>
+                <div className="stg-field-row">
+                  <input className="modal-input stg-input" type="password" value={newGeminiKey}
+                    onChange={e => { setNewGeminiKey(e.target.value); setGeminiMsg(""); }}
+                    placeholder="AIza…" onKeyDown={e => e.key === "Enter" && saveGeminiKey()} />
+                  <button className="stg-save-btn" onClick={saveGeminiKey}
+                    disabled={saving === "gemini" || !newGeminiKey.trim()}>
+                    {saving === "gemini" ? "…" : "Save"}
+                  </button>
+                </div>
+                {geminiMsg && <div className="stg-msg">{geminiMsg}</div>}
+              </div>
+              {/* Groq */}
+              <div className="stg-row">
+                <div className="stg-label">2. Groq — Llama 3.3 70B
+                  <span className={"sb-status-badge " + (groqKey ? "sb-live" : "sb-server")} style={{ marginLeft: 8 }}>
+                    {groqKey ? "Personal" : "Server"}
+                  </span>
+                </div>
+                <div className="stg-field-row">
+                  <input className="modal-input stg-input" type="password" value={newGroqKey}
+                    onChange={e => { setNewGroqKey(e.target.value); setGroqMsg(""); }}
+                    placeholder="gsk_…" onKeyDown={e => e.key === "Enter" && saveGroqKey()} />
+                  <button className="stg-save-btn" onClick={saveGroqKey}
+                    disabled={saving === "groq" || !newGroqKey.trim()}>
+                    {saving === "groq" ? "…" : "Save"}
+                  </button>
+                </div>
+                {groqMsg && <div className="stg-msg">{groqMsg}</div>}
+              </div>
+              {/* Cloudflare */}
+              <div className="stg-row">
+                <div className="stg-label">3. Cloudflare Workers AI
+                  <span className={"sb-status-badge " + ((cfToken && cfAccountId) ? "sb-live" : "sb-server")} style={{ marginLeft: 8 }}>
+                    {(cfToken && cfAccountId) ? "Personal" : "Server"}
+                  </span>
+                </div>
+                <div className="stg-field-row">
+                  <input className="modal-input stg-input" value={newCfAccountId}
+                    onChange={e => { setNewCfAccountId(e.target.value); setCfMsg(""); }}
+                    placeholder="Account ID" />
+                </div>
+                <div className="stg-field-row">
+                  <input className="modal-input stg-input" type="password" value={newCfToken}
+                    onChange={e => { setNewCfToken(e.target.value); setCfMsg(""); }}
+                    placeholder="cf-…" onKeyDown={e => e.key === "Enter" && saveCfKeys()} />
+                  <button className="stg-save-btn" onClick={saveCfKeys}
+                    disabled={saving === "cf" || !newCfToken.trim() || !newCfAccountId.trim()}>
+                    {saving === "cf" ? "…" : "Save"}
+                  </button>
+                </div>
+                {cfMsg && <div className="stg-msg">{cfMsg}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Google Drive Backup */}
+          <div className="tch-stg-admin-block">
+            <div className="tch-stg-admin-title">☁️ Google Drive Backup</div>
+            <div className="stg-group">
+              <div className="stg-row">
+                <div className="stg-label">Status</div>
+                <div className="stg-value">
+                  <span className={"sb-status-badge " + (driveAuth ? "sb-live" : "sb-server")}>
+                    {driveAuth ? "🟢 Connected" : "⚪ Not connected"}
+                  </span>
+                </div>
+              </div>
+              {driveMsg && <div className="stg-msg" style={{ padding: "6px 14px" }}>{driveMsg}</div>}
+              {driveAuth ? (
+                <div className="stg-row">
+                  <button className="stg-save-btn" onClick={disconnectDrive} disabled={saving === "drive"}>
+                    {saving === "drive" ? "…" : "Disconnect"}
+                  </button>
+                </div>
+              ) : (
+                <div className="stg-row">
+                  <a className="stg-save-btn" style={{ display: "inline-block", textDecoration: "none", textAlign: "center" }}
+                    href={`/api/drive-oauth-start?uid=${encodeURIComponent(getStorageUser()?.id || "")}&username=${encodeURIComponent(profile.username)}`}>
+                    Connect Google Drive
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Access code */}
+          <div className="tch-stg-admin-block">
+            <div className="tch-stg-admin-title">Teacher access code</div>
+            <div className="stg-group">
+              <div className="stg-row">
+                <div className="stg-field-row">
+                  <input className="modal-input stg-input" value={newCode}
+                    onChange={e => { setNewCode(e.target.value); setCodeMsg(""); }}
+                    placeholder="New code" onKeyDown={e => e.key === "Enter" && saveCode()} />
+                  <button className="stg-save-btn" onClick={saveCode}
+                    disabled={saving === "code" || !newCode.trim()}>
+                    {saving === "code" ? "…" : "Save"}
+                  </button>
+                </div>
+                {codeMsg && <div className="stg-msg">{codeMsg}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Word Bank shortcut */}
+          <div className="tch-stg-admin-block">
+            <button className="tdb-quick-btn" style={{ width: "100%" }} onClick={onGoToBank}>
+              <BookOpen size={15} /> Word Bank
+            </button>
+          </div>
+
+          {/* Categories */}
+          <div className="tch-stg-admin-block">
+            <div className="tch-stg-admin-title">Categories</div>
+            <div className="stg-cats-label">Built-in (12)</div>
+            <div className="stg-cats-grid">
+              {CATEGORIES.map(c => (
+                <div key={c.id} className="stg-cat-chip" style={{ "--cc": c.color }}>{c.name}</div>
+              ))}
+            </div>
+            {customCats.length > 0 && (<>
+              <div className="stg-cats-label" style={{ marginTop: 10 }}>Custom</div>
+              <div className="stg-cats-grid">
+                {customCats.map(c => (
+                  <div key={c.id} className="stg-cat-chip" style={{ "--cc": c.color }}>{c.name}</div>
+                ))}
+              </div>
+            </>)}
+            <div className="stg-group" style={{ marginTop: 12 }}>
+              <div className="stg-row">
+                <input className="modal-input" value={catName}
+                  onChange={e => { setCatName(e.target.value); setCatMsg(""); }}
+                  placeholder="New category name"
+                  onKeyDown={e => e.key === "Enter" && addCategory()} />
+                <div className="stg-color-row" style={{ marginTop: 8 }}>
+                  {CAT_COLORS.map(col => (
+                    <button key={col} className={"stg-color-swatch" + (catColor === col ? " selected" : "")}
+                      style={{ "--col": col }} onClick={() => setCatColor(col)} />
+                  ))}
+                </div>
+                <button className="save-btn" style={{ marginTop: 10 }}
+                  disabled={!catName.trim() || saving === "cat"} onClick={addCategory}>
+                  {saving === "cat" ? "Adding…" : `Add "${catName || "category"}"`}
+                </button>
+                {catMsg && <div className="stg-msg">{catMsg}</div>}
+              </div>
+            </div>
+          </div>
+
+        </>)}
+
+        <div className="settings-version-footer">v{APP_VERSION}</div>
+      </div>
+    );
+  }
+  // ── End teacher settings ──────────────────────────────────────────────────
 
   return (
     <div className="screen-pad">
@@ -28740,6 +29053,67 @@ select.modal-input { appearance: none; }
   transition: all .12s;
 }
 .tdb-quick-btn:hover { background: rgba(232,163,61,.15); border-color: rgba(232,163,61,.35); color: var(--saffron); }
+
+/* ── Teacher Settings ── */
+.tch-stg-root { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 32px; max-width: 560px; }
+.tch-stg-profile-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 16px; border-radius: 16px;
+  background: rgba(245,239,230,.05); border: 1px solid rgba(245,239,230,.11);
+}
+.tch-stg-avatar { width: 52px; height: 52px; object-fit: contain; flex-shrink: 0; margin-top: 2px; }
+.tch-stg-profile-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.tch-stg-field-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-sub); margin-bottom: 3px; }
+.tch-stg-inline-row { display: flex; gap: 6px; align-items: center; }
+.tch-stg-input {
+  flex: 1; padding: 7px 11px; border-radius: 9px; border: 1px solid rgba(245,239,230,.15);
+  background: rgba(245,239,230,.06); color: var(--ivory);
+  font-family: 'Work Sans', sans-serif; font-size: 12.5px;
+}
+.tch-stg-input:focus { outline: none; border-color: rgba(232,163,61,.45); }
+.tch-stg-save-btn {
+  padding: 7px 13px; border-radius: 9px; border: 1px solid rgba(232,163,61,.4);
+  background: rgba(232,163,61,.12); color: var(--saffron);
+  font-family: 'Work Sans', sans-serif; font-size: 11.5px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0; transition: all .12s;
+}
+.tch-stg-save-btn:hover:not(:disabled) { background: rgba(232,163,61,.22); }
+.tch-stg-save-btn:disabled { opacity: .35; cursor: not-allowed; }
+.tch-stg-title-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+.tch-stg-title-btn {
+  padding: 4px 10px; border-radius: 7px; border: 1px solid rgba(245,239,230,.13);
+  background: rgba(245,239,230,.05); color: var(--text-sub);
+  font-family: 'Work Sans', sans-serif; font-size: 11px; cursor: pointer; transition: all .1s;
+}
+.tch-stg-title-btn:hover { border-color: rgba(232,163,61,.3); color: var(--ivory); }
+.tch-stg-title-btn.active { background: rgba(232,163,61,.18); border-color: rgba(232,163,61,.5); color: var(--saffron); font-weight: 700; }
+.tch-stg-bottom-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.tch-stg-role-pill {
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 7px;
+  background: rgba(232,163,61,.15); border: 1px solid rgba(232,163,61,.3); color: var(--saffron);
+}
+.tch-stg-logout-btn {
+  margin-left: auto; padding: 6px 14px; border-radius: 9px; border: 1px solid rgba(239,68,68,.4);
+  background: rgba(239,68,68,.1); color: #f87171;
+  font-family: 'Work Sans', sans-serif; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all .12s;
+}
+.tch-stg-logout-btn:hover { background: rgba(239,68,68,.2); }
+.tch-stg-logout-btn.confirm { background: rgba(239,68,68,.8); color: #fff; border-color: transparent; }
+.tch-stg-confirm-row { display: flex; gap: 6px; margin-left: auto; }
+.tch-stg-card {
+  padding: 13px 15px; border-radius: 13px;
+  background: rgba(245,239,230,.04); border: 1px solid rgba(245,239,230,.09);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tch-stg-card-title { font-size: 11px; font-weight: 700; color: var(--ivory); text-transform: uppercase; letter-spacing: .06em; }
+.tch-stg-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tch-stg-card-sub { font-size: 12px; color: var(--text-sub); }
+.tch-stg-hint { font-size: 11.5px; color: var(--text-sub); opacity: .65; line-height: 1.4; }
+.tch-stg-admin-block { display: flex; flex-direction: column; gap: 8px; }
+.tch-stg-admin-title {
+  font-family: 'Fraunces', serif; font-size: 13px; font-weight: 700; color: var(--ivory);
+  padding-bottom: 4px; border-bottom: 1px solid rgba(245,239,230,.08);
+}
 
 .tp-cefr-view-more {
   display: flex; align-items: center; justify-content: center;
