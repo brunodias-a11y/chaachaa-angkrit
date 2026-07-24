@@ -5050,6 +5050,7 @@ export default function App() {
   const [tourStep,          setTourStep]          = useState(null);
   const [tourTargetRect,    setTourTargetRect]    = useState(null);
   const [tourResumed,       setTourResumed]       = useState(false); // #728 — true on first step of a resumed tour
+  const [tourLang,          setTourLang]          = useState("th");  // "th" | "en" — set at step 0
   const [onboardingMeta,    setOnboardingMeta]    = useState(null);
   const [visitedEventsTab,     setVisitedEventsTab]     = useState(false);
   const [visitedProgressTab,   setVisitedProgressTab]   = useState(false);
@@ -5319,7 +5320,7 @@ export default function App() {
       setOnboardingMeta(meta);
       // #728 — resume tour from where student skipped, until they complete it
       if (meta.skipped && !meta.resumeDone && typeof meta.skippedAt === "number") {
-        setTourStep(meta.skippedAt);
+        setTourStep(Math.max(1, meta.skippedAt)); // skip lang picker (step 0) on resume
         setTourResumed(true);
       }
     });
@@ -7883,6 +7884,8 @@ export default function App() {
           onSkip={handleTourSkip}
           targetRect={tourTargetRect}
           resumed={tourResumed}
+          tourLang={tourLang}
+          onSetLang={setTourLang}
         />
       )}
 
@@ -9190,33 +9193,82 @@ function LoginScreen({ onLogin, onRegister }) {
 // ---------------------------------------------------------------------------
 // #508 — Onboarding Tour
 // ---------------------------------------------------------------------------
-// #695 — redesigned tour: 21 steps in narrative order
+// #695 — redesigned tour: step 0 = lang picker, steps 1–21 = content
 const TOUR_STEPS = [
-  { tab: "home",     selector: null,                              title: "Welcome to Chá Chá Angkrit! 👋",  desc: "Let me give you a quick tour of the app. It'll only take a few seconds!" },
-  { tab: "home",     selector: "[data-tour='hero-banner']",       title: "Your Dashboard 🌟",          desc: "This banner greets you every day with an encouraging message. Tap the button here to go straight to your Lesson Path — the fastest way to start learning." },
-  { tab: "home",     selector: ".stat-grid",                      title: "Your Vocabulary 📚",         desc: "Words practiced, new ones available, and words you've mastered. These numbers grow every time you study." },
-  { tab: "home",     selector: ".level-progress-card",            title: "Level Progress 📊",          desc: "Your mastery of the current level. Study consistently and this bar will fill up!" },
-  { tab: "home",     selector: null,                              title: "Proficiency Exam 🎓",        desc: "Once your mastery reaches 100%, a proficiency exam unlocks. Pass it and you advance to the next level — with a new set of vocabulary and harder challenges." },
-  { tab: "home",     selector: ".hqc-mission",                    title: "Daily Mission 🎁",           desc: "Practice once today to complete your daily mission. Once done, a reward appears here — tap it to collect! Rewards include Meowtongs or Gacha tickets. Miss it and it auto-converts at midnight." },
-  { tab: "practice", selector: "[data-tour='nav-practice']",      title: "Practice Tab 🎯",            desc: "Smart flashcards with spaced repetition (SRS) — the app automatically picks the right words for you to review today." },
-  { tab: "path",     selector: "[data-tour='nav-path']",          title: "Lesson Path Tab 🗺️",        desc: "Structured lessons created by your teacher. Follow the trail to learn English step by step." },
-  { tab: "path",     selector: ".lp-energy-bar",                  title: "Energy ⚡",                  desc: "Each lesson costs 2 energy. You start with 20 and it refills automatically — 1 point every 15 minutes. Run out? Just come back later and it'll be ready." },
-  { tab: "progress", selector: "[data-tour='nav-progress']",      title: "Progress Tab 📈",            desc: "Track your unlocked achievements, weekly activity, and overall progress over time." },
-  { tab: "progress", selector: "[data-tour='weekly-card']",       title: "This Week 📅",               desc: "Your practice activity for the current week — days you studied, vocabulary reviewed, and lessons completed. Keep the habit going!",
+  { tab: "home", selector: null, langPicker: true,
+    title: "Welcome! / ยินดีต้อนรับ! 👋",
+    desc:   "Choose your language to continue. / เลือกภาษาของคุณเพื่อดำเนินการต่อ",
+    titleTh: "ยินดีต้อนรับ! 👋",
+    descTh:  "เลือกภาษาสำหรับทัวร์นี้" },
+  { tab: "home",     selector: null,
+    title: "Welcome to Chá Chá Angkrit! 👋",  desc: "Let me give you a quick tour of the app. It'll only take a few seconds!",
+    titleTh: "ยินดีต้อนรับสู่ Chá Chá Angkrit! 👋", descTh: "ขอแนะนำแอปให้คุณรู้จักอย่างรวดเร็ว ใช้เวลาเพียงไม่กี่วินาที!" },
+  { tab: "home",     selector: "[data-tour='hero-banner']",
+    title: "Your Dashboard 🌟",          desc: "This banner greets you every day with an encouraging message. Tap the button here to go straight to your Lesson Path — the fastest way to start learning.",
+    titleTh: "แดชบอร์ดของคุณ 🌟",        descTh: "แบนเนอร์นี้จะทักทายคุณทุกวันพร้อมข้อความให้กำลังใจ แตะปุ่มที่นี่เพื่อไปที่ Lesson Path ได้เลย" },
+  { tab: "home",     selector: ".stat-grid",
+    title: "Your Vocabulary 📚",         desc: "Words practiced, new ones available, and words you've mastered. These numbers grow every time you study.",
+    titleTh: "คำศัพท์ของคุณ 📚",          descTh: "คำที่ฝึกแล้ว คำใหม่ที่รอ และคำที่เชี่ยวชาญแล้ว ตัวเลขเหล่านี้จะเพิ่มขึ้นทุกครั้งที่คุณเรียน" },
+  { tab: "home",     selector: ".level-progress-card",
+    title: "Level Progress 📊",          desc: "Your mastery of the current level. Study consistently and this bar will fill up!",
+    titleTh: "ความก้าวหน้าระดับ 📊",       descTh: "ความเชี่ยวชาญของระดับปัจจุบัน เรียนสม่ำเสมอแล้วแถบนี้จะเต็ม!" },
+  { tab: "home",     selector: null,
+    title: "Proficiency Exam 🎓",        desc: "Once your mastery reaches 100%, a proficiency exam unlocks. Pass it and you advance to the next level — with a new set of vocabulary and harder challenges.",
+    titleTh: "การสอบวัดระดับ 🎓",         descTh: "เมื่อความเชี่ยวชาญถึง 100% การสอบจะปลดล็อก ผ่านแล้วจะขึ้นระดับพร้อมคำศัพท์ใหม่และความท้าทายที่ยากขึ้น" },
+  { tab: "home",     selector: ".hqc-mission",
+    title: "Daily Mission 🎁",           desc: "Practice once today to complete your daily mission. Once done, a reward appears here — tap it to collect! Rewards include Meowtongs or Gacha tickets. Miss it and it auto-converts at midnight.",
+    titleTh: "ภารกิจประจำวัน 🎁",         descTh: "ฝึกหนึ่งครั้งวันนี้เพื่อทำภารกิจสำเร็จ เมื่อทำเสร็จ รางวัลจะปรากฏที่นี่ แตะเพื่อรับ! รางวัลได้แก่ แมวทอง หรือตั๋ว Gacha หากพลาดจะถูกแปลงให้อัตโนมัติตีสิบสองคืน" },
+  { tab: "practice", selector: "[data-tour='nav-practice']",
+    title: "Practice Tab 🎯",            desc: "Smart flashcards with spaced repetition (SRS) — the app automatically picks the right words for you to review today.",
+    titleTh: "แท็บฝึกหัด 🎯",             descTh: "แฟลชการ์ดอัจฉริยะด้วยการทบทวนแบบ SRS — แอปจะเลือกคำที่เหมาะสมให้คุณทบทวนวันนี้โดยอัตโนมัติ" },
+  { tab: "path",     selector: "[data-tour='nav-path']",
+    title: "Lesson Path Tab 🗺️",        desc: "Structured lessons created by your teacher. Follow the trail to learn English step by step.",
+    titleTh: "แท็บ Lesson Path 🗺️",     descTh: "บทเรียนที่ครูสร้างสำหรับคุณ ตามเส้นทางเพื่อเรียนรู้ภาษาอังกฤษทีละขั้น" },
+  { tab: "path",     selector: ".lp-energy-bar",
+    title: "Energy ⚡",                  desc: "Each lesson costs 2 energy. You start with 20 and it refills automatically — 1 point every 15 minutes. Run out? Just come back later and it'll be ready.",
+    titleTh: "พลังงาน ⚡",               descTh: "แต่ละบทเรียนใช้พลังงาน 2 หน่วย เริ่มต้นด้วย 20 หน่วย และเติมเองอัตโนมัติ 1 หน่วยทุก 15 นาที หมดแล้ว? กลับมาอีกครั้งก็จะพร้อมแล้ว" },
+  { tab: "progress", selector: "[data-tour='nav-progress']",
+    title: "Progress Tab 📈",            desc: "Track your unlocked achievements, weekly activity, and overall progress over time.",
+    titleTh: "แท็บความก้าวหน้า 📈",      descTh: "ติดตามความสำเร็จที่ปลดล็อก กิจกรรมประจำสัปดาห์ และความก้าวหน้าโดยรวมตลอดเวลา" },
+  { tab: "progress", selector: "[data-tour='weekly-card']",
+    title: "This Week 📅",               desc: "Your practice activity for the current week — days you studied, vocabulary reviewed, and lessons completed. Keep the habit going!",
+    titleTh: "สัปดาห์นี้ 📅",             descTh: "กิจกรรมฝึกหัดของสัปดาห์นี้ วันที่เรียน คำศัพท์ที่ทบทวน และบทเรียนที่ทำเสร็จ รักษานิสัยนี้ไว้!",
     sideEffect: () => document.dispatchEvent(new CustomEvent("tour-wc-tab", { detail: "activities" })) },
-  { tab: "progress", selector: "[data-tour='streak-pill']",       title: "Your Streak 🔥",             desc: "Every consecutive day you practice adds to your streak. The longer it runs, the bigger the bonuses — and some monthly cats require a streak milestone to unlock!" },
-  { tab: "progress", selector: "[data-tour='weekly-card']",       title: "Weekly Challenges 🏆",       desc: "Three challenges set by your teacher each week. Complete all three and earn a bonus reward!",
+  { tab: "progress", selector: "[data-tour='streak-pill']",
+    title: "Your Streak 🔥",             desc: "Every consecutive day you practice adds to your streak. The longer it runs, the bigger the bonuses — and some monthly cats require a streak milestone to unlock!",
+    titleTh: "สตรีคของคุณ 🔥",           descTh: "ทุกวันที่ฝึกต่อเนื่องจะเพิ่มสตรีค ยิ่งนานยิ่งได้โบนัสมากขึ้น และแมวบางตัวต้องการสตรีคระดับหนึ่งเพื่อปลดล็อก!" },
+  { tab: "progress", selector: "[data-tour='weekly-card']",
+    title: "Weekly Challenges 🏆",       desc: "Three challenges set by your teacher each week. Complete all three and earn a bonus reward!",
+    titleTh: "ความท้าทายประจำสัปดาห์ 🏆", descTh: "ความท้าทายสามข้อที่ครูตั้งทุกสัปดาห์ ทำครบทั้งสามแล้วรับรางวัลพิเศษ!",
     sideEffect: () => document.dispatchEvent(new CustomEvent("tour-wc-tab", { detail: "challenges" })) },
-  { tab: "progress", selector: ".mr-root",                        title: "My Results 📋",              desc: "A deeper look at your personal performance — skill tiles for Listening, Vocabulary, Writing, and Speaking, a vocabulary summary, your weekly study time, and a full activity feed.",
+  { tab: "progress", selector: ".mr-root",
+    title: "My Results 📋",              desc: "A deeper look at your personal performance — skill tiles for Listening, Vocabulary, Writing, and Speaking, a vocabulary summary, your weekly study time, and a full activity feed.",
+    titleTh: "ผลลัพธ์ของฉัน 📋",          descTh: "ดูผลการเรียนส่วนตัวแบบละเอียด ทักษะฟัง คำศัพท์ เขียน และพูด สรุปคำศัพท์ เวลาเรียนรายสัปดาห์ และฟีดกิจกรรมทั้งหมด",
     sideEffect: () => document.dispatchEvent(new CustomEvent("tour-progress-tab", { detail: "myresults" })) },
-  { tab: "store",    selector: ".sch-cotm-card",                  title: "Cat of the Month 🗓️",       desc: "Every month a Legendary cat is up for grabs. Hit the streak goal and complete the weekly challenge to unlock it. The clock resets on the 1st!" },
-  { tab: "store",    selector: ".sanctuary-col-left",             title: "Your Collection 🐱",         desc: "All the cats you've unlocked so far. Tap any cat to see its skills and set it as your avatar — each one has a unique power!" },
-  { tab: "store",    selector: ".sanctuary-feed-group",           title: "Activity Feed 💰",            desc: "Every Meowtong earned or spent appears here — practice sessions, missions, achievements. Your personal transaction log." },
-  { tab: "store",    selector: ".topbar-pill-coins",              title: "Meowtongs 🪙",               desc: "Your currency balance — แมวทอง. Earn them by studying and completing missions. Tap here anytime to see your full transaction history." },
-  { tab: "store",    selector: ".wish-carousel",                  title: "Make a Wish 🎴",              desc: "Use tickets to pull for new cats! Choose Moonrise for Rare, Starlight for Epic, or a Solstice Ticket when a special banner is active." },
-  { tab: "store",    selector: ".sch-col-pills",                  title: "Your Tickets 🎫",             desc: "See how many tickets of each type you have. Buy more with Meowtongs below — or earn them through missions and events!" },
-  { tab: "events",   selector: "[data-tour='nav-events']",        title: "Events Tab 🎪",              desc: "Special events bring extra challenges and unique rewards. Some are the only way to unlock Legendary cats — check back often!" },
-  { tab: "home",     selector: null,                              title: "You're all set! 🎉",         desc: "Start with the Lesson Path or jump into Practice — every session brings you closer to fluency. Good luck! 🐱" },
+  { tab: "store",    selector: ".sch-cotm-card",
+    title: "Cat of the Month 🗓️",       desc: "Every month a Legendary cat is up for grabs. Hit the streak goal and complete the weekly challenge to unlock it. The clock resets on the 1st!",
+    titleTh: "แมวแห่งเดือน 🗓️",         descTh: "ทุกเดือนจะมีแมวระดับ Legendary ให้คว้า ทำสตรีคและความท้าทายรายสัปดาห์ให้สำเร็จเพื่อปลดล็อก นาฬิกาจะรีเซ็ตในวันที่ 1!" },
+  { tab: "store",    selector: ".sanctuary-col-left",
+    title: "Your Collection 🐱",         desc: "All the cats you've unlocked so far. Tap any cat to see its skills and set it as your avatar — each one has a unique power!",
+    titleTh: "คอลเล็กชันของคุณ 🐱",       descTh: "แมวทั้งหมดที่คุณปลดล็อกแล้ว แตะแมวตัวไหนก็ได้เพื่อดูทักษะและตั้งเป็นอวาตาร์ แต่ละตัวมีพลังพิเศษเฉพาะตัว!" },
+  { tab: "store",    selector: ".sanctuary-feed-group",
+    title: "Activity Feed 💰",            desc: "Every Meowtong earned or spent appears here — practice sessions, missions, achievements. Your personal transaction log.",
+    titleTh: "ฟีดกิจกรรม 💰",            descTh: "ทุกแมวทองที่ได้รับหรือใช้จะแสดงที่นี่ เซสชันฝึกหัด ภารกิจ ความสำเร็จ บันทึกธุรกรรมส่วนตัวของคุณ" },
+  { tab: "store",    selector: ".topbar-pill-coins",
+    title: "Meowtongs 🪙",               desc: "Your currency balance — แมวทอง. Earn them by studying and completing missions. Tap here anytime to see your full transaction history.",
+    titleTh: "แมวทอง 🪙",               descTh: "ยอดเงินของคุณ รับโดยการเรียนและทำภารกิจ แตะที่นี่เมื่อใดก็ได้เพื่อดูประวัติธุรกรรมทั้งหมด" },
+  { tab: "store",    selector: ".wish-carousel",
+    title: "Make a Wish 🎴",              desc: "Use tickets to pull for new cats! Choose Moonrise for Rare, Starlight for Epic, or a Solstice Ticket when a special banner is active.",
+    titleTh: "ขอพร 🎴",                  descTh: "ใช้ตั๋วเพื่อดึงแมวใหม่! เลือก Moonrise สำหรับ Rare, Starlight สำหรับ Epic หรือ Solstice Ticket เมื่อมีแบนเนอร์พิเศษ" },
+  { tab: "store",    selector: ".sch-col-pills",
+    title: "Your Tickets 🎫",             desc: "See how many tickets of each type you have. Buy more with Meowtongs below — or earn them through missions and events!",
+    titleTh: "ตั๋วของคุณ 🎫",             descTh: "ดูว่ามีตั๋วแต่ละประเภทกี่ใบ ซื้อเพิ่มด้วยแมวทองด้านล่าง หรือรับผ่านภารกิจและอีเวนต์!" },
+  { tab: "events",   selector: "[data-tour='nav-events']",
+    title: "Events Tab 🎪",              desc: "Special events bring extra challenges and unique rewards. Some are the only way to unlock Legendary cats — check back often!",
+    titleTh: "แท็บอีเวนต์ 🎪",           descTh: "อีเวนต์พิเศษนำความท้าทายเพิ่มเติมและรางวัลเฉพาะมาให้ บางอีเวนต์เป็นทางเดียวที่จะปลดล็อกแมว Legendary กลับมาเช็คบ่อย ๆ!" },
+  { tab: "home",     selector: null,
+    title: "You're all set! 🎉",         desc: "Start with the Lesson Path or jump into Practice — every session brings you closer to fluency. Good luck! 🐱",
+    titleTh: "พร้อมแล้ว! 🎉",            descTh: "เริ่มด้วย Lesson Path หรือไปฝึกหัดได้เลย ทุกเซสชันพาคุณใกล้ความคล่องแคล่วมากขึ้น โชคดี! 🐱" },
 ];
 
 // #882 — First Companion Picker: student chooses their first Common cat
@@ -9279,15 +9331,17 @@ function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) 
   );
 }
 
-function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false }) {
+function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tourLang = "th", onSetLang }) {
   const s = TOUR_STEPS[step];
   const isLast = step === TOUR_STEPS.length - 1;
-  const desc = resumed ? `หวังว่าคราวนี้จะไม่ skip นะ! ${s.desc}` : s.desc;
+  const th = tourLang === "th";
+
+  const rawTitle = th ? (s.titleTh || s.title) : s.title;
+  const rawDesc  = th ? (s.descTh  || s.desc)  : s.desc;
+  const desc = resumed ? `หวังว่าคราวนี้จะไม่ skip นะ! ${rawDesc}` : rawDesc;
   const hasSpot = !!(targetRect && s.selector);
   const pad = 10;
 
-  // #567 — position balloon above the spotlight when the element is in the bottom half
-  // of the viewport, so the balloon never covers what's being explained
   const spotCenter = hasSpot ? targetRect.top + targetRect.height / 2 : 0;
   const balloonAtTop = hasSpot && spotCenter > window.innerHeight / 2;
   const balloonPos = balloonAtTop ? { top: 12 } : { bottom: 76 };
@@ -9316,44 +9370,68 @@ function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false }) {
         boxShadow: "0 12px 40px rgba(0,0,0,0.55)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-          <span style={{ fontSize: 17, fontWeight: 700, color: "#ffd080", lineHeight: 1.25 }}>{s.title}</span>
-          <button onClick={onSkip} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.38)", fontSize: 13, cursor: "pointer", paddingLeft: 10, flexShrink: 0 }}>
-            Skip
-          </button>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "#ffd080", lineHeight: 1.25 }}>{rawTitle}</span>
+          {!s.langPicker && (
+            <button onClick={onSkip} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.38)", fontSize: 13, cursor: "pointer", paddingLeft: 10, flexShrink: 0 }}>
+              {th ? "ข้าม" : "Skip"}
+            </button>
+          )}
         </div>
-        <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.6, color: "rgba(255,255,255,0.78)" }}>{desc}</p>
-        {s.cats && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            {s.cats.map(cat => {
-              const rarityColor = cat.rarity === "legendary" ? "#e8557a" : cat.rarity === "epic" ? "#b060e8" : "#4a90d9";
-              const rarityLabel = cat.rarity === "legendary" ? "Legendary" : cat.rarity === "epic" ? "Epic" : "Rare";
-              return (
-                <div key={cat.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                  <div style={{
-                    width: 64, height: 64, borderRadius: 12,
-                    border: `2px solid ${rarityColor}`,
-                    boxShadow: `0 0 10px ${rarityColor}55`,
-                    overflow: "hidden", background: "rgba(255,255,255,0.05)",
-                  }}>
-                    <img src={cat.image} alt={cat.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: rarityColor, letterSpacing: "0.04em", textTransform: "uppercase" }}>{rarityLabel}</span>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.2 }}>{cat.name}</span>
-                </div>
-              );
-            })}
+        <p style={{ margin: "0 0 14px", fontSize: 14, lineHeight: 1.6, color: "rgba(255,255,255,0.78)" }}>{desc}</p>
+
+        {/* Step 0 — language picker */}
+        {s.langPicker ? (
+          <div style={{ display: "flex", gap: 10 }}>
+            {[{ lang: "th", flag: "🇹🇭", label: "ภาษาไทย" }, { lang: "en", flag: "🇬🇧", label: "English" }].map(({ lang, flag, label }) => (
+              <button key={lang} onClick={() => { onSetLang?.(lang); onNext(); }} style={{
+                flex: 1, padding: "12px 8px", borderRadius: 12, cursor: "pointer",
+                border: `2px solid ${tourLang === lang ? "rgba(255,200,80,0.7)" : "rgba(255,255,255,0.12)"}`,
+                background: tourLang === lang ? "rgba(255,200,80,0.12)" : "rgba(255,255,255,0.04)",
+                color: tourLang === lang ? "#ffd080" : "rgba(255,255,255,0.7)",
+                fontSize: 15, fontWeight: 700, display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 4, transition: "all 0.15s",
+              }}>
+                <span style={{ fontSize: 28 }}>{flag}</span>
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
+        ) : (
+          <>
+            {s.cats && (
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                {s.cats.map(cat => {
+                  const rarityColor = cat.rarity === "legendary" ? "#e8557a" : cat.rarity === "epic" ? "#b060e8" : "#4a90d9";
+                  const rarityLabel = cat.rarity === "legendary" ? "Legendary" : cat.rarity === "epic" ? "Epic" : "Rare";
+                  return (
+                    <div key={cat.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                      <div style={{
+                        width: 64, height: 64, borderRadius: 12,
+                        border: `2px solid ${rarityColor}`,
+                        boxShadow: `0 0 10px ${rarityColor}55`,
+                        overflow: "hidden", background: "rgba(255,255,255,0.05)",
+                      }}>
+                        <img src={cat.image} alt={cat.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: rarityColor, letterSpacing: "0.04em", textTransform: "uppercase" }}>{rarityLabel}</span>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.2 }}>{cat.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", letterSpacing: "0.03em" }}>{step} / {TOUR_STEPS.length - 1}</span>
+              <button onClick={onNext} style={{
+                background: "linear-gradient(135deg,#f5a623,#e08800)", border: "none",
+                borderRadius: 999, padding: "9px 26px", fontSize: 14, fontWeight: 700,
+                color: "#1a1040", cursor: "pointer", letterSpacing: "0.01em",
+              }}>
+                {isLast ? (th ? "ไปเลย! 🐱" : "Let's go! 🐱") : (th ? "ถัดไป →" : "Next →")}
+              </button>
+            </div>
+          </>
         )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", letterSpacing: "0.03em" }}>{step + 1} / {TOUR_STEPS.length}</span>
-          <button onClick={onNext} style={{
-            background: "linear-gradient(135deg,#f5a623,#e08800)", border: "none",
-            borderRadius: 999, padding: "9px 26px", fontSize: 14, fontWeight: 700,
-            color: "#1a1040", cursor: "pointer", letterSpacing: "0.01em",
-          }}>
-            {isLast ? "Let's go! 🐱" : "Next →"}
-          </button>
-        </div>
       </div>
     </>,
     document.body
