@@ -19,6 +19,25 @@ let _sbClient      = null;
 let _catalogClient = null;
 let _sbUser   = null;
 let _currentUsername = null;
+// Holds a session that arrived via onAuthStateChange before _currentUsername was set,
+// so we can persist it as soon as setStorageAuthState is called.
+let _pendingSession = null;
+
+// Must match slugifyUsername() in App.jsx exactly.
+function _slugifyUsername(username) {
+  return (username || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "user";
+}
+function _saveSessionForUser(username, session) {
+  if (!username || !session) return;
+  try {
+    localStorage.setItem(`sb-session:${_slugifyUsername(username)}`, JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    }));
+  } catch (_) {}
+}
 
 // Issue #251 — lightweight last-error tracker for shared_kv reads.
 let _lastSharedKvError = null;
@@ -63,6 +82,11 @@ export function getStorageUser() { return _sbUser; }
 export function setStorageAuthState(user, username) {
   _sbUser          = user;
   _currentUsername = username;
+  // Flush any session that arrived via onAuthStateChange before we knew the username.
+  if (username && _pendingSession) {
+    _saveSessionForUser(username, _pendingSession);
+    _pendingSession = null;
+  }
 }
 
 export async function getSupabaseClient() {
@@ -95,14 +119,20 @@ export async function getSupabaseClient() {
   // refreshed tokens are never written back to localStorage, so the next page
   // load tries the already-consumed refresh token and forces a re-login.
   _sbClient.auth.onAuthStateChange((event, session) => {
-    if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && session && _currentUsername) {
-      const slug = _currentUsername.trim().toLowerCase().replace(/\s+/g, "-");
-      try {
-        localStorage.setItem(`sb-session:${slug}`, JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        }));
-      } catch (_) {}
+    if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+      if (!session) return;
+      if (_currentUsername) {
+        _saveSessionForUser(_currentUsername, session);
+      } else {
+        // _currentUsername not set yet (event fired before setStorageAuthState was called).
+        // Park the session; setStorageAuthState will persist it when it runs.
+        _pendingSession = session;
+      }
+    } else if (event === "SIGNED_OUT") {
+      _pendingSession = null;
+      // Supabase internally signed the user out (e.g. refresh token expired/revoked).
+      // Notify the app so it can redirect to the login screen.
+      window.dispatchEvent(new CustomEvent("sb:session-expired"));
     }
   });
   return _sbClient;
@@ -318,8 +348,7 @@ export async function storageUpload(file, bucket, pathPrefix = "") {
   // persistSession:false loses the in-memory session after autoRefreshToken runs.
   // Re-apply from localStorage before any storage op (same fix as #444 for banner art).
   if (_currentUsername) {
-    const slug = _currentUsername.trim().toLowerCase().replace(/\s+/g, "-");
-    const raw = localStorage.getItem(`sb-session:${slug}`);
+    const raw = localStorage.getItem(`sb-session:${_slugifyUsername(_currentUsername)}`);
     if (raw) {
       try {
         const { access_token, refresh_token } = JSON.parse(raw);
