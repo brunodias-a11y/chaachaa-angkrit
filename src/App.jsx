@@ -4689,6 +4689,58 @@ async function fetchWordImage(englishWord, wordId, pos) {
 }
 
 // ---------------------------------------------------------------------------
+// Classroom Sections — teacher-created ad-hoc lesson sections shared via code
+// ---------------------------------------------------------------------------
+
+function classroomSectionKey(code)        { return `classroom-section-${code}`; }
+function classroomTeacherIndexKey(user)   { return `classroom-index-${user}`; }
+function classroomStudentCodesKey(user)   { return `classroom-codes-${user}`; }
+
+// Generate a classroom code: {INITIALS}{YY}-{6 hex}  e.g. BD26-4FA39C
+function generateClassroomCode(profile) {
+  const name = profile?.name || profile?.username || "T";
+  const initials = name
+    .split(/[\s_\-]+/)
+    .map(w => w[0] || "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 3);
+  const yy = String(new Date().getFullYear()).slice(-2);
+  const hex = Array.from({ length: 6 }, () =>
+    Math.floor(Math.random() * 16).toString(16).toUpperCase()
+  ).join("");
+  return `${initials}${yy}-${hex}`;
+}
+
+async function getClassroomSection(code) {
+  return (await storageGet(classroomSectionKey(code), true)) || null;
+}
+
+async function saveClassroomSection(section) {
+  await storageSet(classroomSectionKey(section.code), section, true);
+}
+
+async function deleteClassroomSection(code) {
+  await storageDelete(classroomSectionKey(code), true);
+}
+
+async function getTeacherClassroomIndex(username) {
+  return (await storageGet(classroomTeacherIndexKey(username), true)) || [];
+}
+
+async function saveTeacherClassroomIndex(username, codes) {
+  await storageSet(classroomTeacherIndexKey(username), codes, true);
+}
+
+async function getStudentClassroomCodes(username) {
+  return (await storageGet(classroomStudentCodesKey(username), true)) || [];
+}
+
+async function saveStudentClassroomCodes(username, codes) {
+  await storageSet(classroomStudentCodesKey(username), codes, true);
+}
+
+// ---------------------------------------------------------------------------
 // Root app
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -7470,6 +7522,14 @@ export default function App() {
               await saveWord(newWord);
               return id;
             }}
+            onGenerateClassroomCode={() => generateClassroomCode(profile)}
+            onGetClassroomSection={getClassroomSection}
+            onSaveClassroomSection={saveClassroomSection}
+            onDeleteClassroomSection={deleteClassroomSection}
+            onGetTeacherIndex={getTeacherClassroomIndex}
+            onSaveTeacherIndex={saveTeacherClassroomIndex}
+            onGetStudentCodes={getStudentClassroomCodes}
+            onSaveStudentCodes={saveStudentClassroomCodes}
           />
         </React.Suspense>
         {tab === "sunday" && (
@@ -30722,6 +30782,67 @@ select.modal-input { appearance: none; }
 .lp-back-to-cefr { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(139,92,246,0.15); padding: 8px 4px 10px; margin-bottom: 4px; font-size: 11px; font-weight: 700; color: rgba(167,139,250,0.7); cursor: pointer; text-align: left; letter-spacing: 0.04em; transition: color 0.15s; }
 .lp-back-to-cefr:hover { color: #A78BFA; }
 
+/* My Classes (classroom sections) */
+.lp-myclasses { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; border-top: 1px solid rgba(139,92,246,0.2); margin-top: 4px; }
+.lp-myclasses-header { display: flex; align-items: center; justify-content: space-between; }
+.lp-myclasses-title { font-size: 13px; font-weight: 800; color: rgba(245,239,230,0.85); letter-spacing: 0.04em; text-transform: uppercase; }
+.lp-myclasses-new-btn { background: rgba(139,92,246,0.18); border: 1px solid rgba(139,92,246,0.35); border-radius: 8px; color: #A78BFA; font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer; transition: background 0.15s; }
+.lp-myclasses-new-btn:hover { background: rgba(139,92,246,0.3); }
+.lp-mc-new-form { display: flex; flex-direction: column; gap: 8px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px; padding: 12px; }
+.lp-mc-name-input { width: 100%; }
+.lp-mc-expire-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(245,239,230,0.6); cursor: pointer; }
+.lp-mc-expire-row input[type="checkbox"] { cursor: pointer; }
+.lp-mc-date-input { flex: 1; font-size: 12px; padding: 4px 8px; }
+.lp-mc-form-actions { display: flex; gap: 8px; }
+.lp-mc-loading { font-size: 12px; color: rgba(245,239,230,0.4); text-align: center; padding: 12px 0; }
+.lp-mc-empty { font-size: 12px; color: rgba(245,239,230,0.35); text-align: center; padding: 12px 0; }
+.lp-mc-card-list { display: flex; flex-direction: column; gap: 10px; }
+.lp-mc-card { background: rgba(139,92,246,0.07); border: 1px solid rgba(139,92,246,0.2); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s; }
+.lp-mc-card:hover { border-color: rgba(139,92,246,0.4); }
+.lp-mc-card--expired { opacity: 0.55; }
+.lp-mc-card--inactive { opacity: 0.65; }
+.lp-mc-card-top { display: flex; flex-direction: column; gap: 4px; }
+.lp-mc-card-name { font-size: 13px; font-weight: 700; color: rgba(245,239,230,0.9); }
+.lp-mc-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lp-mc-code-badge { font-size: 11px; font-weight: 800; font-family: monospace; background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.3); border-radius: 6px; padding: 2px 8px; color: #C4B5FD; cursor: pointer; letter-spacing: 0.06em; transition: background 0.15s; }
+.lp-mc-code-badge:hover { background: rgba(139,92,246,0.35); }
+.lp-mc-status-badge { font-size: 10px; font-weight: 700; border-radius: 20px; padding: 2px 8px; letter-spacing: 0.04em; }
+.lp-mc-status--active   { background: rgba(16,185,129,0.18); color: #6EE7B7; }
+.lp-mc-status--inactive { background: rgba(245,239,230,0.08); color: rgba(245,239,230,0.4); }
+.lp-mc-status--expired  { background: rgba(239,68,68,0.15);  color: #FCA5A5; }
+.lp-mc-card-info { display: flex; gap: 14px; font-size: 11px; color: rgba(245,239,230,0.5); flex-wrap: wrap; align-items: center; }
+.lp-mc-completions-toggle { }
+.lp-mc-completions-toggle--clickable { cursor: pointer; text-decoration: underline dotted; }
+.lp-mc-completions-list { margin-top: 6px; border-top: 1px solid rgba(245,239,230,0.08); padding-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.lp-mc-completion-row { display: flex; justify-content: space-between; font-size: 11px; color: rgba(245,239,230,0.6); }
+.lp-mc-completion-user { font-weight: 600; }
+.lp-mc-completion-date { color: rgba(245,239,230,0.4); }
+.lp-mc-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.lp-mc-btn { font-size: 11px; font-weight: 700; border-radius: 8px; padding: 5px 10px; cursor: pointer; border: none; transition: background 0.15s; }
+.lp-mc-btn-edit   { background: rgba(139,92,246,0.25); color: #C4B5FD; }
+.lp-mc-btn-edit:hover { background: rgba(139,92,246,0.4); }
+.lp-mc-btn-toggle { background: rgba(245,239,230,0.08); color: rgba(245,239,230,0.6); }
+.lp-mc-btn-toggle:hover { background: rgba(245,239,230,0.14); }
+.lp-mc-btn-delete { background: rgba(239,68,68,0.12); color: #FCA5A5; }
+.lp-mc-btn-delete:hover { background: rgba(239,68,68,0.22); }
+.lp-mc-btn-delete-confirm { background: rgba(239,68,68,0.35); color: #fff; }
+.lp-mc-btn-delete-confirm:hover { background: rgba(239,68,68,0.5); }
+.lp-mc-btn-cancel { background: rgba(245,239,230,0.08); color: rgba(245,239,230,0.5); }
+
+/* Classroom code redemption (student) */
+.lp-redeem-row { padding: 6px 16px 0; }
+.lp-redeem-open-btn { background: none; border: 1px dashed rgba(167,139,250,0.3); border-radius: 8px; color: rgba(167,139,250,0.6); font-size: 11px; font-weight: 600; padding: 5px 14px; cursor: pointer; width: 100%; transition: border-color 0.15s, color 0.15s; }
+.lp-redeem-open-btn:hover { border-color: rgba(167,139,250,0.6); color: #A78BFA; }
+.lp-redeem-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lp-redeem-input { flex: 1; min-width: 160px; background: rgba(255,255,255,0.06); border: 1px solid rgba(139,92,246,0.35); border-radius: 8px; color: rgba(245,239,230,0.9); font-size: 12px; font-family: monospace; font-weight: 700; letter-spacing: 0.06em; padding: 6px 10px; outline: none; text-transform: uppercase; }
+.lp-redeem-input:focus { border-color: rgba(139,92,246,0.7); }
+.lp-redeem-submit { background: rgba(139,92,246,0.3); border: none; border-radius: 8px; color: #C4B5FD; font-size: 12px; font-weight: 700; padding: 6px 14px; cursor: pointer; }
+.lp-redeem-submit:disabled { opacity: 0.45; cursor: default; }
+.lp-redeem-cancel { background: none; border: none; color: rgba(245,239,230,0.35); font-size: 14px; cursor: pointer; padding: 4px 6px; }
+.lp-redeem-msg { font-size: 11px; font-weight: 600; }
+.lp-redeem-msg--ok  { color: #6EE7B7; }
+.lp-redeem-msg--err { color: #FCA5A5; }
+
 /* #23 — Flashcard step editor */
 .lp-fc-editor { display: flex; flex-direction: column; gap: 10px; }
 .lp-fc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
@@ -31041,6 +31162,23 @@ select.modal-input { appearance: none; }
 .lp-code-sep-label {
   font-family: 'Fraunces', serif; font-size: 13px; font-weight: 700;
   letter-spacing: 0.06em;
+}
+.lp-classroom-sep {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 0 10px;
+}
+.lp-classroom-sep-line { width: 80%; height: 1.5px; border-radius: 999px; background: linear-gradient(90deg, transparent, #7c3aed80, transparent); }
+.lp-classroom-sep-badge {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 16px; border-radius: 999px;
+  border: 1.5px solid #7c3aed;
+  background: rgba(124,58,237,0.18);
+  backdrop-filter: blur(4px);
+}
+.lp-classroom-sep-icon { font-size: 14px; line-height: 1; }
+.lp-classroom-sep-label {
+  font-size: 13px; font-weight: 700; color: #c4b5fd;
+  letter-spacing: 0.04em;
 }
 .lp-path-rows  { display: flex; flex-direction: column; gap: 0; position: relative; z-index: 1; }
 

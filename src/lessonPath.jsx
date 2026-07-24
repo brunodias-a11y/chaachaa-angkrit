@@ -960,7 +960,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
   );
 }
 
-export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [] }) {
+export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [], profile = null, onGenerateClassroomCode, onGetClassroomSection, onSaveClassroomSection, onDeleteClassroomSection, onGetTeacherIndex, onSaveTeacherIndex }) {
   const [localCodes,    setLocalCodes]    = useState(classCodes);
   const [selectedCode,  setSelectedCode]  = useState(classCodes[0]?.code || "");
   const [lessons,       setLessons]       = useState([]);
@@ -981,6 +981,14 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   const [cefrStats,     setCefrStats]     = useState({});    // #897 — { [level]: { count, secIdxs, codes } }
   const [addingToLevel, setAddingToLevel] = useState(null);  // #897 — CEFR level card with open "add code" input
   const [newCodeForLvl, setNewCodeForLvl] = useState("");    // #897 — code value being typed in card
+
+  // My Classes (classroom sections)
+  const [classroomSections,  setClassroomSections]  = useState([]);  // [{ code, name, expiresAt, active, lessons, completions }]
+  const [classroomLoading,   setClassroomLoading]   = useState(false);
+  const [newClassForm,       setNewClassForm]        = useState(null); // null = closed, {} = open
+  const [editingClassCode,   setEditingClassCode]    = useState(null); // code being edited (lessons view) — task #3
+  const [confirmDeleteCode,  setConfirmDeleteCode]   = useState(null); // code pending deletion confirm
+  const [expandedCompletions, setExpandedCompletions] = useState(null); // code whose completions list is open
 
   // Issue #426 — classCodes may arrive after mount (async fetch in App.jsx).
   // When the prop updates from [] to a real list, set the first code automatically.
@@ -1047,9 +1055,15 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   const reload = useCallback(async (code) => {
     if (!code) return;
     setLoading(true);
-    try { setLessons(await listLessonsByClassCode(code)); }
-    finally { setLoading(false); }
-  }, []);
+    try {
+      if (editingClassCode) {
+        const section = await onGetClassroomSection?.(editingClassCode);
+        setLessons(section?.lessons || []);
+      } else {
+        setLessons(await listLessonsByClassCode(code));
+      }
+    } finally { setLoading(false); }
+  }, [editingClassCode, onGetClassroomSection]);
 
   useEffect(() => { reload(selectedCode); }, [selectedCode, reload]);
   useEffect(() => {
@@ -1085,6 +1099,64 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     });
     Promise.all(fetches).then(entries => setCefrStats(Object.fromEntries(entries)));
   }, [codeMetas, localCodes]);
+
+  // When entering classroom section editor, load its lessons
+  useEffect(() => {
+    if (!editingClassCode) return;
+    setLoading(true);
+    onGetClassroomSection?.(editingClassCode).then(section => {
+      setLessons(section?.lessons || []);
+      setForm(f => ({ ...f, classCode: editingClassCode }));
+      setEditingId(null);
+      setCefrView(false);
+    }).finally(() => setLoading(false));
+  }, [editingClassCode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load classroom sections for this teacher
+  useEffect(() => {
+    if (!onGetTeacherIndex || !onGetClassroomSection || !profile?.username) return;
+    setClassroomLoading(true);
+    onGetTeacherIndex(profile.username).then(async codes => {
+      const sections = await Promise.all(codes.map(c => onGetClassroomSection(c)));
+      setClassroomSections(sections.filter(Boolean));
+    }).finally(() => setClassroomLoading(false));
+  }, [profile?.username]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCreateClass() {
+    if (!newClassForm?.name?.trim()) return;
+    const code = onGenerateClassroomCode?.() || `CL-${Date.now().toString(16).slice(-6).toUpperCase()}`;
+    const section = {
+      code,
+      name: newClassForm.name.trim(),
+      teacherUsername: profile.username,
+      createdAt: Date.now(),
+      expiresAt: newClassForm.expires ? new Date(newClassForm.expiresAt).getTime() : null,
+      active: true,
+      lessons: [],
+      completions: {},
+    };
+    await onSaveClassroomSection(section);
+    const currentCodes = await onGetTeacherIndex(profile.username);
+    await onSaveTeacherIndex(profile.username, [...currentCodes, code]);
+    setClassroomSections(s => [...s, section]);
+    setNewClassForm(null);
+  }
+
+  async function handleToggleClassActive(code) {
+    const section = classroomSections.find(s => s.code === code);
+    if (!section) return;
+    const updated = { ...section, active: !section.active };
+    await onSaveClassroomSection(updated);
+    setClassroomSections(s => s.map(x => x.code === code ? updated : x));
+  }
+
+  async function handleDeleteClass(code) {
+    await onDeleteClassroomSection(code);
+    const currentCodes = await onGetTeacherIndex(profile.username);
+    await onSaveTeacherIndex(profile.username, currentCodes.filter(c => c !== code));
+    setClassroomSections(s => s.filter(x => x.code !== code));
+    setConfirmDeleteCode(null);
+  }
 
   function startCreate() {
     setEditingId(null);
@@ -1178,6 +1250,33 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     setBusy(true);
     setError("");
     try {
+      // Classroom section: lessons live inside the section object, not in LESSON_INDEX_PREFIX
+      if (editingClassCode) {
+        const section = await onGetClassroomSection?.(editingClassCode);
+        if (!section) { setError("Classroom section not found."); return; }
+        const lesson = {
+          id: editingId || `cl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          title:          form.title.trim(),
+          classCode:      editingClassCode,
+          sectionIndex:   0,
+          orderInSection: editingId
+            ? (section.lessons.find(l => l.id === editingId)?.orderInSection ?? section.lessons.length)
+            : section.lessons.length,
+          steps:          form.steps,
+          rewardCoins:    Number(form.rewardCoins) || 0,
+          rewardTicket:   form.rewardTicket || "",
+        };
+        const updatedLessons = editingId
+          ? section.lessons.map(l => l.id === editingId ? lesson : l)
+          : [...section.lessons, lesson];
+        await onSaveClassroomSection?.({ ...section, lessons: updatedLessons });
+        setLessons(updatedLessons);
+        setClassroomSections(s => s.map(x => x.code === editingClassCode ? { ...x, lessons: updatedLessons } : x));
+        startCreate();
+        setBusy(false);
+        return;
+      }
+
       const payload = {
         ...(editingId ? { id: editingId } : {}),
         title:          form.title.trim(),
@@ -1229,8 +1328,18 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     if (!window.confirm(`Delete "${lesson.title}"? This cannot be undone.`)) return;
     setBusy(true);
     try {
-      await deleteLessonDef(lesson.id, lesson.classCode);
-      await reload(selectedCode);
+      if (editingClassCode) {
+        const section = await onGetClassroomSection?.(editingClassCode);
+        if (section) {
+          const updatedLessons = section.lessons.filter(l => l.id !== lesson.id);
+          await onSaveClassroomSection?.({ ...section, lessons: updatedLessons });
+          setLessons(updatedLessons);
+          setClassroomSections(s => s.map(x => x.code === editingClassCode ? { ...x, lessons: updatedLessons } : x));
+        }
+      } else {
+        await deleteLessonDef(lesson.id, lesson.classCode);
+        await reload(selectedCode);
+      }
       if (editingId === lesson.id) startCreate();
     } finally {
       setBusy(false);
@@ -1328,6 +1437,120 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
           );
         })}
       </div>
+
+      {/* ── My Classes ── */}
+      {onGetTeacherIndex && (
+        <div className="lp-myclasses">
+          <div className="lp-myclasses-header">
+            <span className="lp-myclasses-title">My Classes</span>
+            <button className="lp-myclasses-new-btn" onClick={() => setNewClassForm({ name: "", expires: false, expiresAt: "" })}>
+              + New Class
+            </button>
+          </div>
+
+          {/* New class form */}
+          {newClassForm && (
+            <div className="lp-mc-new-form">
+              <input
+                className="lp-input lp-mc-name-input"
+                placeholder="Class name (e.g. Unit 3 — Present Perfect)"
+                value={newClassForm.name}
+                onChange={e => setNewClassForm(f => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+              <label className="lp-mc-expire-row">
+                <input
+                  type="checkbox"
+                  checked={newClassForm.expires}
+                  onChange={e => setNewClassForm(f => ({ ...f, expires: e.target.checked }))}
+                />
+                <span>Expires on</span>
+                {newClassForm.expires && (
+                  <input
+                    type="date"
+                    className="lp-input lp-mc-date-input"
+                    value={newClassForm.expiresAt}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={e => setNewClassForm(f => ({ ...f, expiresAt: e.target.value }))}
+                  />
+                )}
+              </label>
+              <div className="lp-mc-form-actions">
+                <button className="lp-cefr-add-confirm" onClick={handleCreateClass}>Create</button>
+                <button className="lp-cefr-add-cancel" onClick={() => setNewClassForm(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {classroomLoading && <div className="lp-mc-loading">Loading…</div>}
+
+          {!classroomLoading && classroomSections.length === 0 && !newClassForm && (
+            <div className="lp-mc-empty">No classes yet. Create one to share with your students.</div>
+          )}
+
+          <div className="lp-mc-card-list">
+            {classroomSections.map(section => {
+              const isExpired = section.expiresAt && Date.now() > section.expiresAt;
+              const completedCount = Object.keys(section.completions || {}).length;
+              const expiryLabel = section.expiresAt
+                ? new Date(section.expiresAt).toLocaleDateString()
+                : "No expiry";
+
+              return (
+                <div key={section.code} className={`lp-mc-card${isExpired ? " lp-mc-card--expired" : ""}${!section.active ? " lp-mc-card--inactive" : ""}`}>
+                  <div className="lp-mc-card-top">
+                    <div className="lp-mc-card-name">{section.name}</div>
+                    <div className="lp-mc-card-meta">
+                      <span className="lp-mc-code-badge" title="Share this code with students" onClick={() => navigator.clipboard?.writeText(section.code)}>
+                        {section.code} 📋
+                      </span>
+                      <span className={`lp-mc-status-badge${isExpired ? " lp-mc-status--expired" : section.active ? " lp-mc-status--active" : " lp-mc-status--inactive"}`}>
+                        {isExpired ? "Expired" : section.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="lp-mc-card-info">
+                    <span>📚 {section.lessons?.length || 0} lesson{section.lessons?.length !== 1 ? "s" : ""}</span>
+                    <span
+                      className={`lp-mc-completions-toggle${completedCount > 0 ? " lp-mc-completions-toggle--clickable" : ""}`}
+                      onClick={() => completedCount > 0 && setExpandedCompletions(expandedCompletions === section.code ? null : section.code)}
+                    >
+                      ✅ {completedCount} completed{completedCount > 0 ? (expandedCompletions === section.code ? " ▲" : " ▼") : ""}
+                    </span>
+                    <span>📅 {expiryLabel}</span>
+                  </div>
+                  {expandedCompletions === section.code && completedCount > 0 && (
+                    <div className="lp-mc-completions-list">
+                      {Object.entries(section.completions || {}).sort((a,b) => (a[1].completedAt||"").localeCompare(b[1].completedAt||"")).map(([username, data]) => (
+                        <div key={username} className="lp-mc-completion-row">
+                          <span className="lp-mc-completion-user">{username}</span>
+                          <span className="lp-mc-completion-date">{data.completedAt ? new Date(data.completedAt).toLocaleDateString() : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="lp-mc-card-actions">
+                    <button className="lp-mc-btn lp-mc-btn-edit" onClick={() => setEditingClassCode(section.code)}>
+                      Edit Lessons
+                    </button>
+                    <button className="lp-mc-btn lp-mc-btn-toggle" onClick={() => handleToggleClassActive(section.code)}>
+                      {section.active ? "Deactivate" : "Activate"}
+                    </button>
+                    {confirmDeleteCode === section.code ? (
+                      <>
+                        <button className="lp-mc-btn lp-mc-btn-delete-confirm" onClick={() => handleDeleteClass(section.code)}>Confirm Delete</button>
+                        <button className="lp-mc-btn lp-mc-btn-cancel" onClick={() => setConfirmDeleteCode(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <button className="lp-mc-btn lp-mc-btn-delete" onClick={() => setConfirmDeleteCode(section.code)}>Delete</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1337,8 +1560,8 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
           {/* Left: lesson list */}
           <div className="lp-manage-list">
             {/* #897 — back to CEFR overview */}
-            <button className="lp-back-to-cefr" onClick={() => setCefrView(true)}>
-              ← CEFR Overview
+            <button className="lp-back-to-cefr" onClick={() => { setCefrView(true); setEditingClassCode(null); }}>
+              {editingClassCode ? "← My Classes" : "← CEFR Overview"}
             </button>
             <div className="lp-manage-code-row">
               <select
@@ -1649,7 +1872,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   if (asTab) {
     return (
       <div className="lp-manage-tab-screen">
-        {cefrView ? cefrOverview : manageLessonsBody}
+        {editingClassCode ? manageLessonsBody : cefrView ? cefrOverview : manageLessonsBody}
       </div>
     );
   }
@@ -2536,6 +2759,7 @@ const ZIGZAG_X = [20, 50, 80]; // percent of container width
 function nodeStatus(lesson, progress, energy, teacherView = false, prevCompleted = true, currentCode = null, allCodes = []) {
   if (teacherView) return progress[lesson.id]?.completedAt ? "completed" : "available";
   if (progress[lesson.id]?.completedAt) return "completed";
+  if (lesson._classroomSection) return prevCompleted ? "available" : "locked";
   // #725 — classCode-gate: lessons from codes higher than current are always locked
   if (currentCode && allCodes.length > 0) {
     const ci = allCodes.indexOf(currentCode);
@@ -2581,6 +2805,19 @@ function CodeSeparator({ classCode, colorIdx = 0 }) {
         <span className="lp-code-sep-label" style={{ color: c.light }}>{classCode}</span>
       </div>
       <div className="lp-code-sep-line" style={{ background: `linear-gradient(90deg, transparent, ${c.light}60, transparent)` }} />
+    </div>
+  );
+}
+
+function ClassroomSeparator({ name }) {
+  return (
+    <div className="lp-classroom-sep">
+      <div className="lp-classroom-sep-line" />
+      <div className="lp-classroom-sep-badge">
+        <span className="lp-classroom-sep-icon">🎓</span>
+        <span className="lp-classroom-sep-label">{name || "Class Section"}</span>
+      </div>
+      <div className="lp-classroom-sep-line" />
     </div>
   );
 }
@@ -2650,9 +2887,15 @@ function LessonNode({ lesson, status, xPct, onOpen, peers = [], avatarCatalog = 
   );
 }
 
-export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta = {}, onOpenLesson, decorativeAvatars = [], classCode, selfUsername, avatarCatalog = [], playerAvatarId = null, teacherView = false, energyVersion = 0, energyMax = S0_ENERGY_MAX, currentCode = null, allCodes = [], walkEnabled = true }) {
+export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta = {}, onOpenLesson, decorativeAvatars = [], classCode, selfUsername, avatarCatalog = [], playerAvatarId = null, teacherView = false, energyVersion = 0, energyMax = S0_ENERGY_MAX, currentCode = null, allCodes = [], walkEnabled = true, onRedeemClassroomCode = null }) {
   const [peers, setPeers] = useState([]);
   const isS0 = (currentCode || classCode)?.startsWith("S0");
+
+  // Classroom code redemption
+  const [redeemOpen,  setRedeemOpen]  = useState(false);
+  const [redeemVal,   setRedeemVal]   = useState("");
+  const [redeemBusy,  setRedeemBusy]  = useState(false);
+  const [redeemMsg,   setRedeemMsg]   = useState(null); // { ok: bool, text: string }
 
   // issue #430 — energy state (S0 only); #562 — energyVersion bumped by parent after spend to refresh immediately
   // #572 — pass energyMax so passive refill respects cat power bonus cap
@@ -2715,17 +2958,14 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
   // lower code index (S0C1 before S0C2) → top; within same code, lower sectionIndex → top
   const sectionGroups = React.useMemo(() => {
     const map = new Map();
+    // Preserve lesson list order (classroom sections are already injected at correct positions)
     lessons.forEach(l => {
       const key = `${l.classCode}::${l.sectionIndex}`;
-      if (!map.has(key)) map.set(key, { classCode: l.classCode, sectionIndex: l.sectionIndex, lessons: [] });
+      if (!map.has(key)) map.set(key, { classCode: l.classCode, sectionIndex: l.sectionIndex, lessons: [], isClassroom: !!l._classroomSection, classroomName: l._classroomName });
       map.get(key).lessons.push(l);
     });
-    return Array.from(map.values()).sort((a, b) => {
-      const ai = allCodes.length > 0 ? allCodes.indexOf(a.classCode) : 0;
-      const bi = allCodes.length > 0 ? allCodes.indexOf(b.classCode) : 0;
-      if (ai !== bi) return ai - bi;
-      return a.sectionIndex - b.sectionIndex;
-    });
+    // Keep insertion order (Map preserves it) — no re-sort needed since injection already placed them correctly
+    return Array.from(map.values());
   }, [lessons, allCodes]);
 
   // Refs for measuring real node button positions for SVG connector lines.
@@ -2748,15 +2988,15 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
     let ni = 0;
     let prevDone = true;
     let prevCode = null;
-    sectionGroups.forEach(({ classCode: cc, sectionIndex: secIdx, lessons: secLessons }) => {
-      const colorIdx = getCodeColorIndex(cc, allCodes);
+    sectionGroups.forEach(({ classCode: cc, sectionIndex: secIdx, lessons: secLessons, isClassroom, classroomName }) => {
+      const colorIdx = isClassroom ? -1 : getCodeColorIndex(cc, allCodes);
       if (prevCode !== null && prevCode !== cc) {
-        result.push({ type: "code-separator", classCode: cc, colorIdx });
-        prevDone = true; // each code starts its own sequential progression
+        result.push({ type: "code-separator", classCode: cc, colorIdx, isClassroom, classroomName });
+        prevDone = true;
       }
       const statsKey = allCodes.length > 0 ? `${cc}::${secIdx}` : secIdx;
       const stats = sectionStats?.get(statsKey) || { total: 0, completed: 0, midClaimed: false, fullClaimed: false };
-      result.push({ type: "separator", secIdx, stats, classCode: cc, colorIdx });
+      result.push({ type: "separator", secIdx, stats, classCode: cc, colorIdx, isClassroom, classroomName });
       secLessons.forEach(lesson => {
         const status = nodeStatus(lesson, progress, energy, teacherView, prevDone, currentCode, allCodes);
         result.push({ type: "node", lesson, xPct: ZIGZAG_X[ni % ZIGZAG_X.length], status, nodeIndex: ni, colorIdx });
@@ -2875,6 +3115,48 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
           </div>
         </div>
       )}
+      {/* Classroom code redemption — visible to students only */}
+      {onRedeemClassroomCode && !teacherView && (
+        <div className="lp-redeem-row">
+          {redeemOpen ? (
+            <div className="lp-redeem-form">
+              <input
+                className="lp-redeem-input"
+                placeholder="Class code (e.g. BD26-4FA39C)"
+                value={redeemVal}
+                onChange={e => { setRedeemVal(e.target.value.toUpperCase()); setRedeemMsg(null); }}
+                autoFocus
+                maxLength={12}
+              />
+              <button
+                className="lp-redeem-submit"
+                disabled={redeemBusy || !redeemVal.trim()}
+                onClick={async () => {
+                  setRedeemBusy(true);
+                  setRedeemMsg(null);
+                  const result = await onRedeemClassroomCode(redeemVal.trim());
+                  setRedeemMsg(result);
+                  setRedeemBusy(false);
+                  if (result.ok) { setRedeemVal(""); setTimeout(() => { setRedeemOpen(false); setRedeemMsg(null); }, 1800); }
+                }}
+              >
+                {redeemBusy ? "…" : "Redeem"}
+              </button>
+              <button className="lp-redeem-cancel" onClick={() => { setRedeemOpen(false); setRedeemVal(""); setRedeemMsg(null); }}>✕</button>
+              {redeemMsg && (
+                <span className={`lp-redeem-msg${redeemMsg.ok ? " lp-redeem-msg--ok" : " lp-redeem-msg--err"}`}>
+                  {redeemMsg.text}
+                </span>
+              )}
+            </div>
+          ) : (
+            <button className="lp-redeem-open-btn" onClick={() => setRedeemOpen(true)}>
+              🎓 Enter class code
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="lp-path-scroll" ref={scrollRef}>
         <DecorativeBackground avatars={decorativeAvatars} />
         {/* SVG connector lines — pixel positions measured via refs after mount */}
@@ -2929,9 +3211,11 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
               : null;
             return rows.map((row, ri) => {
               if (row.type === "code-separator") {
+                if (row.isClassroom) return <ClassroomSeparator key={`clsep-${row.classCode}-${ri}`} name={row.classroomName} />;
                 return <CodeSeparator key={`csep-${row.classCode}-${ri}`} classCode={row.classCode} colorIdx={row.colorIdx} />;
               }
               if (row.type === "separator") {
+                if (row.isClassroom) return null; // classroom only has one "section", label shown in code-separator
                 const metaKey = allCodes.length > 0 ? `${row.classCode}::${row.secIdx}` : row.secIdx;
                 return <SectionSeparator key={`sep-${row.classCode}-${row.secIdx}`} sectionIndex={row.secIdx} stats={row.stats} name={sectionMeta[metaKey]?.name} nameFont={sectionMeta[metaKey]?.font} colorIdx={row.colorIdx} />;
               }

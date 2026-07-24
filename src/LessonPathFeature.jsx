@@ -130,6 +130,78 @@ function EnergyInsufficientModal({ energy, energyMax, needed, waitStr, powers = 
 }
 
 // ---------------------------------------------------------------------------
+// Classroom section injection
+// ---------------------------------------------------------------------------
+
+// Inserts classroom sections into the flat lesson list at the correct position.
+// Rules:
+//   • No CEFR lessons: classroom sections go first.
+//   • Current node is penultimate or last in its section: insert after last node of that section.
+//   • Otherwise: insert immediately after the current node.
+// Multiple classroom codes are ordered by createdAt; each is placed after the previous one.
+async function injectClassroomSections(allLessons, progress, username, onGetStudentCodes, onGetClassroomSection) {
+  if (!username || !onGetStudentCodes || !onGetClassroomSection) return allLessons;
+  const codes = await onGetStudentCodes(username).catch(() => []);
+  if (!codes.length) return allLessons;
+
+  const sections = (await Promise.all(codes.map(c => onGetClassroomSection(c).catch(() => null))))
+    .filter(Boolean)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  if (!sections.length) return allLessons;
+
+  // Convert classroom lessons to the same shape as normal path lessons
+  // classCode prefix "CL:" marks them as classroom for downstream logic
+  function sectionToLessons(section) {
+    return (section.lessons || []).map((l, i) => ({
+      ...l,
+      classCode: section.code,
+      sectionIndex: 0,
+      orderInSection: i,
+      _classroomSection: true,
+      _classroomName: section.name,
+    }));
+  }
+
+  let result = [...allLessons];
+
+  for (const section of sections) {
+    const clLessons = sectionToLessons(section);
+    if (!clLessons.length) continue;
+
+    if (result.length === 0) {
+      result = [...clLessons];
+      continue;
+    }
+
+    // Find current node: first lesson not yet completed
+    const currentIdx = result.findIndex(l => !progress[l.id]?.completedAt);
+    if (currentIdx === -1) {
+      // All done — append after everything
+      result = [...result, ...clLessons];
+      continue;
+    }
+
+    const currentLesson = result[currentIdx];
+    // Find all lessons in the same section
+    const sameSection = result.filter(
+      l => l.classCode === currentLesson.classCode && l.sectionIndex === currentLesson.sectionIndex
+    );
+    const lastInSection = result.lastIndexOf(sameSection[sameSection.length - 1]);
+    const posInSection = sameSection.indexOf(currentLesson); // 0-based within section
+    const isPenultimateOrLast = posInSection >= sameSection.length - 2;
+
+    const insertAfter = isPenultimateOrLast ? lastInSection : currentIdx;
+    result = [
+      ...result.slice(0, insertAfter + 1),
+      ...clLessons,
+      ...result.slice(insertAfter + 1),
+    ];
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // LessonPathFeature
 //
 // Props (all required unless noted):
@@ -181,6 +253,14 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     allCategories = [],
     onNodeIndexUpdate,
     walkEnabled = true,
+    onGenerateClassroomCode,
+    onGetClassroomSection,
+    onSaveClassroomSection,
+    onDeleteClassroomSection,
+    onGetTeacherIndex,
+    onSaveTeacherIndex,
+    onGetStudentCodes,
+    onSaveStudentCodes,
   },
   ref
 ) {
@@ -244,7 +324,13 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     if (s0Lessons.length) await ensureS0FirstLessonAvailable(s0Lessons);
 
     const freshProg = await getLessonProgress();
-    setPathLessons(allLessons);
+
+    // Inject classroom sections at the right position in the lesson list
+    const lessonsWithClassroom = await injectClassroomSections(
+      allLessons, freshProg, profile?.username, onGetStudentCodes, onGetClassroomSection
+    );
+
+    setPathLessons(lessonsWithClassroom);
     setPathProgress(freshProg);
 
     // Section stats: keyed by classCode::sectionIndex
@@ -418,6 +504,31 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
       console.error("[handleLessonComplete] code advance failed:", e);
     }
 
+    // classroom section completion tracking
+    try {
+      const completedLesson = pathLessons.find(l => l.id === lessonId);
+      if (completedLesson?._classroomSection && isFirstTime) {
+        const sectionCode = completedLesson.classCode; // classroom section code
+        const sectionLessons = pathLessons.filter(l => l._classroomSection && l.classCode === sectionCode);
+        const allDone = sectionLessons.every(l => l.id === lessonId || pathProgress[l.id]?.completedAt);
+        if (allDone && profile?.username) {
+          const section = await onGetClassroomSection?.(sectionCode);
+          if (section) {
+            const updated = {
+              ...section,
+              completions: {
+                ...(section.completions || {}),
+                [profile.username]: { completedAt: new Date().toISOString() },
+              },
+            };
+            await onSaveClassroomSection?.(updated);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[handleLessonComplete] classroom completion tracking failed:", e);
+    }
+
     // #564 — wrap all post-award operations so an exception in any of them
     // does NOT propagate up to LessonPlayerModal (which would leave the modal
     // open and block the coin/ticket celebrations already queued above).
@@ -471,7 +582,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     } catch (e) {
       console.error("[handleLessonComplete] streak update failed:", e);
     }
-  }, [loadPathData, pathLessons, profile, catSkillEffects, onCoinsAwarded, onCoinsFly, onTicketAwarded, onStreakUpdate, onPathStatsUpdate]);
+  }, [loadPathData, pathLessons, pathProgress, profile, catSkillEffects, onCoinsAwarded, onCoinsFly, onTicketAwarded, onStreakUpdate, onPathStatsUpdate, onGetClassroomSection, onSaveClassroomSection]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -530,6 +641,18 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
 
             setActiveLessonPlayer({ lesson, coinsToAward, energy, energyMax, energyCostAmount, energyCostEvery });
           }}
+          onRedeemClassroomCode={teacher ? null : async (code) => {
+            if (!onGetClassroomSection || !onSaveStudentCodes || !profile?.username) return { ok: false, text: "Not available." };
+            const section = await onGetClassroomSection(code).catch(() => null);
+            if (!section) return { ok: false, text: "Code not found." };
+            if (section.expiresAt && Date.now() > section.expiresAt) return { ok: false, text: "This code has expired." };
+            if (!section.active) return { ok: false, text: "This class is no longer active." };
+            const current = await onGetStudentCodes(profile.username).catch(() => []);
+            if (current.includes(code)) return { ok: false, text: "Already redeemed." };
+            await onSaveStudentCodes(profile.username, [...current, code]);
+            await loadPathData();
+            return { ok: true, text: `"${section.name}" added to your path!` };
+          }}
         />
       )}
 
@@ -583,6 +706,13 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onSaveVocabWord={onSaveVocabWord}
           onCreateFlashcardWord={onCreateFlashcardWord}
           allCategories={allCategories}
+          profile={profile}
+          onGenerateClassroomCode={onGenerateClassroomCode}
+          onGetClassroomSection={onGetClassroomSection}
+          onSaveClassroomSection={onSaveClassroomSection}
+          onDeleteClassroomSection={onDeleteClassroomSection}
+          onGetTeacherIndex={onGetTeacherIndex}
+          onSaveTeacherIndex={onSaveTeacherIndex}
         />
       )}
 
@@ -595,6 +725,13 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onSaveVocabWord={onSaveVocabWord}
           onCreateFlashcardWord={onCreateFlashcardWord}
           allCategories={allCategories}
+          profile={profile}
+          onGenerateClassroomCode={onGenerateClassroomCode}
+          onGetClassroomSection={onGetClassroomSection}
+          onSaveClassroomSection={onSaveClassroomSection}
+          onDeleteClassroomSection={onDeleteClassroomSection}
+          onGetTeacherIndex={onGetTeacherIndex}
+          onSaveTeacherIndex={onSaveTeacherIndex}
         />
       )}
 
