@@ -4737,6 +4737,36 @@ async function getClassroomSection(code) {
   return (await storageGet(classroomSectionKey(code), true)) || null;
 }
 
+// ---------------------------------------------------------------------------
+// Teacher gift limits (plain "teacher" role, not dean).
+// Tracked per teacher × student × calendar month so a teacher can't exceed
+// 2500 coins total or 1 ticket of each type per student per month.
+// Keys live in shared_kv (teacher writes, student never reads these).
+// ---------------------------------------------------------------------------
+function _giftLimitMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function teacherCoinLimitKey(teacherSlug, studentSlug)   { return `tchgift-coins:${teacherSlug}:${studentSlug}:${_giftLimitMonthKey()}`; }
+function teacherTicketLimitKey(teacherSlug, studentSlug) { return `tchgift-ticket:${teacherSlug}:${studentSlug}:${_giftLimitMonthKey()}`; }
+
+const TEACHER_COIN_LIMIT_PER_MONTH   = 2500;
+
+async function getTeacherCoinLimitData(teacherSlug, studentSlug) {
+  return (await storageGet(teacherCoinLimitKey(teacherSlug, studentSlug), true)) || { total: 0 };
+}
+async function recordTeacherCoinGift(teacherSlug, studentSlug, amount) {
+  const data = await getTeacherCoinLimitData(teacherSlug, studentSlug);
+  await storageSet(teacherCoinLimitKey(teacherSlug, studentSlug), { total: (data.total || 0) + amount }, true);
+}
+async function getTeacherTicketLimitData(teacherSlug, studentSlug) {
+  return (await storageGet(teacherTicketLimitKey(teacherSlug, studentSlug), true)) || {};
+}
+async function recordTeacherTicketGift(teacherSlug, studentSlug, kind) {
+  const data = await getTeacherTicketLimitData(teacherSlug, studentSlug);
+  await storageSet(teacherTicketLimitKey(teacherSlug, studentSlug), { ...data, [kind]: true }, true);
+}
+
 async function saveClassroomSection(section) {
   await storageSet(classroomSectionKey(section.code), section, true);
 }
@@ -19341,12 +19371,12 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
             toggling={toggling}
             resetting={resetting}
             wiping={wiping}
-            onForceExam={() => handleForceExam(detailStudent.student)}
+            onForceExam={isDean ? () => handleForceExam(detailStudent.student) : undefined}
             onReset={() => handleResetAccess(detailStudent.student)}
             onCoinGift={() => setCoinGiftStudent(detailStudent.student)}
-            onWipe={() => handleWipeProgress(detailStudent.student)}
+            onWipe={isDean ? () => handleWipeProgress(detailStudent.student) : undefined}
             onToggleCode={code => handleToggleCode(detailStudent.student, code)}
-            onGift={() => setGiftStudent(detailStudent.student)}
+            onGift={isDean ? () => setGiftStudent(detailStudent.student) : undefined}
           />
         ) : (<>
         {/* Dean invite codes panel */}
@@ -19528,13 +19558,15 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
                                   ) : <span className="tp-mini-nodata">No data yet</span>}
                                 </div>
                               </div>
-                              <button
-                                className="tp-mini-gift-btn"
-                                onClick={e => { e.stopPropagation(); setGiftStudent(student); }}
-                                title="Gift avatar"
-                              >
-                                <Gift size={11} />
-                              </button>
+                              {isDean && (
+                                <button
+                                  className="tp-mini-gift-btn"
+                                  onClick={e => { e.stopPropagation(); setGiftStudent(student); }}
+                                  title="Gift avatar"
+                                >
+                                  <Gift size={11} />
+                                </button>
+                              )}
                             </button>
                           );
                         })}
@@ -19575,6 +19607,8 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
         <CoinGiftModal
           student={coinGiftStudent}
           teacherDisplay={[profile.title, profile.workName].filter(Boolean).join(" ") || profile.username}
+          teacherUsername={profile.username}
+          isTeacherRole={!isDean}
           onClose={() => setCoinGiftStudent(null)}
           onSent={() => { setCoinGiftStudent(null); setDetailRefreshKey(k => k + 1); }}
         />
@@ -20261,7 +20295,7 @@ const TICKET_GIFT_KINDS = [
   { key: "dawn",   label: "Dawn",      img: "/tickets/dawn-ticket.png" },
 ];
 
-function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
+function CoinGiftModal({ student, teacherDisplay = "", teacherUsername = "", isTeacherRole = false, onClose, onSent }) {
   const [tab, setTab] = useState("coins"); // "coins" | "tickets"
 
   // — Coins tab state —
@@ -20272,16 +20306,39 @@ function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
 
   // — Tickets tab state —
   const [ticketKind, setTicketKind] = useState("rare");
-  const [ticketQty,  setTicketQty]  = useState(1);
   const [tSending,   setTSending]   = useState(false);
   const [tSent,      setTSent]      = useState(false);
 
-  const effectiveAmount = custom !== "" ? Math.max(0, parseInt(custom, 10) || 0) : amount;
+  // — Teacher-role monthly limits —
+  const [coinsSentThisMonth,   setCoinsSentThisMonth]   = useState(0);
+  const [ticketsSentThisMonth, setTicketsSentThisMonth] = useState({}); // { rare: true, ... }
+  const [limitsLoaded,         setLimitsLoaded]         = useState(!isTeacherRole);
+
+  const teacherSlug  = slugifyUsername(teacherUsername);
+  const studentSlug  = slugifyUsername(student.username);
+
+  useEffect(() => {
+    if (!isTeacherRole) return;
+    Promise.all([
+      getTeacherCoinLimitData(teacherSlug, studentSlug),
+      getTeacherTicketLimitData(teacherSlug, studentSlug),
+    ]).then(([coinData, ticketData]) => {
+      setCoinsSentThisMonth(coinData.total || 0);
+      setTicketsSentThisMonth(ticketData || {});
+      setLimitsLoaded(true);
+    }).catch(() => setLimitsLoaded(true));
+  }, [isTeacherRole, teacherSlug, studentSlug]);
+
+  const effectiveAmount   = custom !== "" ? Math.max(0, parseInt(custom, 10) || 0) : amount;
+  const coinBudgetLeft    = isTeacherRole ? Math.max(0, TEACHER_COIN_LIMIT_PER_MONTH - coinsSentThisMonth) : Infinity;
+  const coinOverLimit     = isTeacherRole && effectiveAmount > coinBudgetLeft;
+  const ticketAlreadySent = isTeacherRole && !!ticketsSentThisMonth[ticketKind];
 
   async function handleSendCoins() {
-    if (sending || sent || effectiveAmount <= 0) return;
+    if (sending || sent || effectiveAmount <= 0 || coinOverLimit) return;
     setSending(true);
     await sendCoinGift(student, effectiveAmount, teacherDisplay);
+    if (isTeacherRole) await recordTeacherCoinGift(teacherSlug, studentSlug, effectiveAmount).catch(() => {});
     triggerPushGift(student.username, "coins", `${effectiveAmount} Meowtongs`);
     appendStudentEvent(student.username, { type: "gift", desc: `Received ${effectiveAmount} Meowtongs from teacher`, icon: "🪙" }).catch(() => {});
     setSending(false);
@@ -20290,12 +20347,13 @@ function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
   }
 
   async function handleSendTickets() {
-    if (tSending || tSent || ticketQty <= 0) return;
+    if (tSending || tSent || ticketAlreadySent) return;
     setTSending(true);
-    await sendTicketGift(student, ticketKind, ticketQty, teacherDisplay);
+    await sendTicketGift(student, ticketKind, 1, teacherDisplay);
+    if (isTeacherRole) await recordTeacherTicketGift(teacherSlug, studentSlug, ticketKind).catch(() => {});
     const kindLabel = TICKET_GIFT_KINDS.find(k => k.key === ticketKind)?.label || ticketKind;
-    triggerPushGift(student.username, "tickets", `${ticketQty}× ${kindLabel} Ticket`);
-    appendStudentEvent(student.username, { type: "gift", desc: `Received ${ticketQty}× ${kindLabel} Ticket from teacher`, icon: "🎫" }).catch(() => {});
+    triggerPushGift(student.username, "tickets", `1× ${kindLabel} Ticket`);
+    appendStudentEvent(student.username, { type: "gift", desc: `Received 1× ${kindLabel} Ticket from teacher`, icon: "🎫" }).catch(() => {});
     setTSending(false);
     setTSent(true);
     setTimeout(() => onSent?.(), 900);
@@ -20321,14 +20379,20 @@ function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
 
         {tab === "coins" && (
           <div className="modal-body">
-            <p className="gift-modal-hint">Pick an amount, or type a custom one.</p>
+            {isTeacherRole && (
+              <p className="gift-modal-hint">
+                Monthly budget: <strong>{coinsSentThisMonth} / {TEACHER_COIN_LIMIT_PER_MONTH}</strong> Meowtongs sent
+                {coinBudgetLeft === 0 ? " — limit reached." : ` — ${coinBudgetLeft} remaining.`}
+              </p>
+            )}
+            {!isTeacherRole && <p className="gift-modal-hint">Pick an amount, or type a custom one.</p>}
             <div className="coin-gift-quick-row">
               {COIN_GIFT_QUICK_AMOUNTS.map((n) => (
                 <button
                   key={n}
                   className={"coin-gift-quick-btn" + (custom === "" && amount === n ? " selected" : "")}
                   onClick={() => { setAmount(n); setCustom(""); }}
-                  disabled={sent}
+                  disabled={sent || (isTeacherRole && n > coinBudgetLeft)}
                 >
                   <img src="/coins/catcoin.png" alt="" className="meowtong-icon-inline" />
                   {n}
@@ -20336,12 +20400,15 @@ function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
               ))}
             </div>
             <input
-              type="number" min="1" className="coin-gift-custom-input"
-              placeholder="Custom amount" value={custom}
-              onChange={(e) => setCustom(e.target.value)} disabled={sent}
+              type="number" min="1" max={isTeacherRole ? coinBudgetLeft : undefined}
+              className="coin-gift-custom-input"
+              placeholder={isTeacherRole ? `Custom (max ${coinBudgetLeft})` : "Custom amount"}
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)} disabled={sent || coinBudgetLeft === 0}
             />
+            {coinOverLimit && <p className="gift-modal-hint" style={{ color: "#f87171" }}>Exceeds monthly budget ({coinBudgetLeft} left).</p>}
             <button className="save-btn" style={{ marginTop: 14 }} onClick={handleSendCoins}
-              disabled={sending || sent || effectiveAmount <= 0}>
+              disabled={!limitsLoaded || sending || sent || effectiveAmount <= 0 || coinOverLimit || coinBudgetLeft === 0}>
               {sent ? "Sent 🎁" : sending ? "Sending…" : `🎁 Send ${effectiveAmount} Meowtongs`}
             </button>
           </div>
@@ -20349,44 +20416,35 @@ function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
 
         {tab === "tickets" && (
           <div className="modal-body">
-            <p className="gift-modal-hint">Choose a ticket type and quantity.</p>
+            {isTeacherRole
+              ? <p className="gift-modal-hint">1 ticket of each type per student per month.</p>
+              : <p className="gift-modal-hint">Choose a ticket type to send 1 ticket.</p>
+            }
 
             {/* Ticket kind selector */}
             <div className="coin-gift-quick-row">
-              {TICKET_GIFT_KINDS.map(({ key, label, img }) => (
-                <button
-                  key={key}
-                  className={"coin-gift-quick-btn" + (ticketKind === key ? " selected" : "")}
-                  onClick={() => setTicketKind(key)}
-                  disabled={tSent}
-                >
-                  <img src={img} alt={label} style={{ width: 24, height: 24, objectFit: "contain" }} />
-                  <span style={{ fontSize: 11 }}>{label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Quantity stepper */}
-            <div className="mr-qty-row" style={{ marginTop: 10 }}>
-              <label className="mr-qty-label">Quantity</label>
-              <button className="mr-qty-step"
-                onClick={() => setTicketQty(q => Math.max(1, q - 1))}
-                disabled={tSent || ticketQty <= 1} aria-label="Decrease">▼</button>
-              <input
-                type="number" inputMode="numeric" className="mr-qty-input"
-                min={1} value={ticketQty}
-                onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v) && v >= 1) setTicketQty(v); }}
-                disabled={tSent}
-              />
-              <button className="mr-qty-step"
-                onClick={() => setTicketQty(q => q + 1)}
-                disabled={tSent} aria-label="Increase">▲</button>
+              {TICKET_GIFT_KINDS.map(({ key, label, img }) => {
+                const alreadySent = isTeacherRole && !!ticketsSentThisMonth[key];
+                return (
+                  <button
+                    key={key}
+                    className={"coin-gift-quick-btn" + (ticketKind === key ? " selected" : "") + (alreadySent ? " gift-ticket-used" : "")}
+                    onClick={() => !alreadySent && setTicketKind(key)}
+                    disabled={tSent || alreadySent}
+                    title={alreadySent ? "Already sent this month" : label}
+                  >
+                    <img src={img} alt={label} style={{ width: 24, height: 24, objectFit: "contain" }} />
+                    <span style={{ fontSize: 11 }}>{alreadySent ? "✓ Sent" : label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <button className="save-btn" style={{ marginTop: 14 }} onClick={handleSendTickets}
-              disabled={tSending || tSent || ticketQty <= 0}>
+              disabled={!limitsLoaded || tSending || tSent || ticketAlreadySent}>
               {tSent ? "Sent 🎁" : tSending ? "Sending…"
-                : `🎁 Send ${ticketQty}× ${TICKET_GIFT_KINDS.find(k => k.key === ticketKind)?.label} Ticket`}
+                : ticketAlreadySent ? "Already sent this month"
+                : `🎁 Send 1× ${TICKET_GIFT_KINDS.find(k => k.key === ticketKind)?.label} Ticket`}
             </button>
           </div>
         )}
@@ -28991,6 +29049,7 @@ select.modal-input { appearance: none; }
 .coin-gift-quick-btn:hover:not(:disabled) { border-color: rgba(232,163,61,.4); }
 .coin-gift-quick-btn.selected { background: rgba(232,163,61,.16); border-color: var(--saffron); color: var(--saffron); }
 .coin-gift-quick-btn:disabled { opacity: .5; cursor: not-allowed; }
+.coin-gift-quick-btn.gift-ticket-used { opacity: .45; cursor: not-allowed; background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.3); color: rgba(34,197,94,.7); }
 .coin-gift-custom-input {
   width: 100%; padding: 10px 12px; border-radius: 10px; border: 1.5px solid rgba(245,239,230,.12);
   background: rgba(245,239,230,.03); color: var(--ivory); font-size: 13px; font-family: 'Work Sans', sans-serif;
