@@ -348,7 +348,20 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
   }, [onHasLessons]);
 
   // Expose loadPathData so App can trigger it (e.g. from the nav tab click)
-  useImperativeHandle(ref, () => ({ loadPathData, openManageLessons: () => setShowManageLessonsModal(true) }), [loadPathData]);
+  const redeemCode = useCallback(async (code) => {
+    if (!onGetClassroomSection || !onSaveStudentCodes || !profile?.username) return { ok: false, text: "Not available." };
+    const section = await onGetClassroomSection(code).catch(() => null);
+    if (!section) return { ok: false, text: "Code not found." };
+    if (section.expiresAt && Date.now() > section.expiresAt) return { ok: false, text: "This code has expired." };
+    if (!section.active) return { ok: false, text: "This class is no longer active." };
+    const current = await onGetStudentCodes(profile.username).catch(() => []);
+    if (current.includes(code)) return { ok: false, text: "Already redeemed." };
+    await onSaveStudentCodes(profile.username, [...current, code]);
+    await loadPathData();
+    return { ok: true, text: `"${section.name}" added to your path!` };
+  }, [onGetClassroomSection, onGetStudentCodes, onSaveStudentCodes, profile, loadPathData]);
+
+  useImperativeHandle(ref, () => ({ loadPathData, openManageLessons: () => setShowManageLessonsModal(true), redeemCode }), [loadPathData, redeemCode]);
 
   // Load on mount / classCode change; teacher uses appClassCodes[0] as the view target
   useEffect(() => {
@@ -641,18 +654,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
 
             setActiveLessonPlayer({ lesson, coinsToAward, energy, energyMax, energyCostAmount, energyCostEvery });
           }}
-          onRedeemClassroomCode={teacher ? null : async (code) => {
-            if (!onGetClassroomSection || !onSaveStudentCodes || !profile?.username) return { ok: false, text: "Not available." };
-            const section = await onGetClassroomSection(code).catch(() => null);
-            if (!section) return { ok: false, text: "Code not found." };
-            if (section.expiresAt && Date.now() > section.expiresAt) return { ok: false, text: "This code has expired." };
-            if (!section.active) return { ok: false, text: "This class is no longer active." };
-            const current = await onGetStudentCodes(profile.username).catch(() => []);
-            if (current.includes(code)) return { ok: false, text: "Already redeemed." };
-            await onSaveStudentCodes(profile.username, [...current, code]);
-            await loadPathData();
-            return { ok: true, text: `"${section.name}" added to your path!` };
-          }}
+          onRedeemClassroomCode={teacher ? null : redeemCode}
         />
       )}
 

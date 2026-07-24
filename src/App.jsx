@@ -7209,6 +7209,7 @@ export default function App() {
             pushCelebrations={pushCelebrations}
             dawnTickets={dawnTickets}
             onGoToStore={() => goToTab("store")}
+            onRedeemClassroomCode={async (code) => { const r = await lpRef.current?.redeemCode(code); return r ?? { ok: false, text: "Not available." }; }}
           />
         )}
         {tab === "exam" && (
@@ -9117,7 +9118,7 @@ function AdmTunerModal({ onClose }) {
 // ---------------------------------------------------------------------------
 // Home
 // ---------------------------------------------------------------------------
-function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClassCodes, onGoToBank, onGoToStudy, onGoToPractice, onGoToPath, onGoToSunday, onGoToExam, examForced, pendingStageAdvance, studentPowersConfig, onUseExamRetryPower, onPreviewGacha, onRevealRarity, onTryYourLuck, examHistory, stHistory, allCategories, onManageLessons, hasPathLessons, pathStats = {}, onSwitchAndPractice, onGoToProgress, unlockedTotal, unlockedAchIds = [], pendingReward, setPendingReward, setGachaTickets, setDailyRewardTickets, setUsedDailyDouble, pushCelebrations, dawnTickets = 0, onGoToStore }) {
+function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClassCodes, onGoToBank, onGoToStudy, onGoToPractice, onGoToPath, onGoToSunday, onGoToExam, examForced, pendingStageAdvance, studentPowersConfig, onUseExamRetryPower, onPreviewGacha, onRevealRarity, onTryYourLuck, examHistory, stHistory, allCategories, onManageLessons, hasPathLessons, pathStats = {}, onSwitchAndPractice, onGoToProgress, unlockedTotal, unlockedAchIds = [], pendingReward, setPendingReward, setGachaTickets, setDailyRewardTickets, setUsedDailyDouble, pushCelebrations, dawnTickets = 0, onGoToStore, onRedeemClassroomCode = null }) {
   const teacher = isTeacher(profile);
   const greeting = useMemo(() => getHomeGreeting(profile?.username, streak, profile), [profile?.username, streak?.lastDate]); // eslint-disable-line
   const practicedCount = words.filter(w => (progMap[w.id]?.count || 0) > 0).length;
@@ -9149,6 +9150,10 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
   const [showAdmTunerModal, setShowAdmTunerModal] = useState(false);
   const [activeEventBanner, setActiveEventBanner] = useState(null);
 
+  const [classCodeOpen,  setClassCodeOpen]  = useState(false);
+  const [classCodeVal,   setClassCodeVal]   = useState("");
+  const [classCodeBusy,  setClassCodeBusy]  = useState(false);
+  const [classCodeMsg,   setClassCodeMsg]   = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [teacherData, setTeacherData] = useState({ roster: null, codes: null, studentsRegistered: null, studentsActiveStreak: null });
   const [examRetryReady, setExamRetryReady] = useState(false);
@@ -9502,6 +9507,46 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
               Start Today's Practice
               <span className="hero-cta-arrow">→</span>
             </button>
+            {onRedeemClassroomCode && !classCodeOpen && (
+              <button className="hero-banner-cta hero-classcode-btn" onClick={() => setClassCodeOpen(true)}>
+                🎓 I have a class code
+              </button>
+            )}
+            {classCodeOpen && (
+              <div className="hero-classcode-form">
+                <input
+                  className="hero-classcode-input"
+                  placeholder="e.g. BD26-4FA39C"
+                  value={classCodeVal}
+                  onChange={e => { setClassCodeVal(e.target.value.toUpperCase()); setClassCodeMsg(null); }}
+                  autoFocus
+                  maxLength={12}
+                />
+                <button
+                  className="hero-classcode-submit"
+                  disabled={classCodeBusy || !classCodeVal.trim()}
+                  onClick={async () => {
+                    setClassCodeBusy(true);
+                    setClassCodeMsg(null);
+                    const result = await onRedeemClassroomCode(classCodeVal.trim());
+                    setClassCodeMsg(result);
+                    setClassCodeBusy(false);
+                    if (result.ok) {
+                      setClassCodeVal("");
+                      setTimeout(() => { setClassCodeOpen(false); setClassCodeMsg(null); onGoToPath(); }, 1600);
+                    }
+                  }}
+                >
+                  {classCodeBusy ? "…" : "Redeem"}
+                </button>
+                <button className="hero-classcode-cancel" onClick={() => { setClassCodeOpen(false); setClassCodeVal(""); setClassCodeMsg(null); }}>✕</button>
+                {classCodeMsg && (
+                  <span className={`hero-classcode-msg${classCodeMsg.ok ? " hero-classcode-msg--ok" : " hero-classcode-msg--err"}`}>
+                    {classCodeMsg.text}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -26781,6 +26826,37 @@ select.modal-input { appearance: none; }
 }
 .hero-banner-cta:hover { opacity: 0.88; }
 .hero-cta-arrow { font-size: 16px; }
+.hero-classcode-btn {
+  margin-top: 6px; background: none; border: 1px solid rgba(196,181,253,0.4);
+  color: #c4b5fd; border-radius: 20px; padding: 5px 14px;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.hero-classcode-btn:hover { border-color: #c4b5fd; color: #ede9fe; }
+.hero-classcode-form {
+  margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.hero-classcode-input {
+  background: rgba(0,0,0,0.45); border: 1px solid rgba(196,181,253,0.35);
+  color: #ede9fe; border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  font-weight: 600; letter-spacing: 0.05em; width: 160px; outline: none;
+}
+.hero-classcode-input::placeholder { color: rgba(196,181,253,0.4); font-weight: 400; }
+.hero-classcode-input:focus { border-color: #7c3aed; }
+.hero-classcode-submit {
+  background: #7c3aed; color: #fff; border: none; border-radius: 8px;
+  padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s;
+}
+.hero-classcode-submit:hover:not(:disabled) { background: #6d28d9; }
+.hero-classcode-submit:disabled { opacity: 0.5; cursor: default; }
+.hero-classcode-cancel {
+  background: none; border: none; color: rgba(196,181,253,0.5);
+  font-size: 16px; cursor: pointer; padding: 4px 6px; line-height: 1;
+}
+.hero-classcode-cancel:hover { color: #c4b5fd; }
+.hero-classcode-msg { font-size: 11px; width: 100%; }
+.hero-classcode-msg--ok  { color: #6ee7b7; }
+.hero-classcode-msg--err { color: #fca5a5; }
 
 @media (max-width: 600px) {
   .hero-banner {
