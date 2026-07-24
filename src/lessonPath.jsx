@@ -1183,6 +1183,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     const turma = {
       code,
       name: newTurmaForm.name.trim(),
+      isSchool: !!newTurmaForm.isSchool,
       teacherUsername: profile.username,
       createdAt: Date.now(),
       students: [],
@@ -1488,7 +1489,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
         <div className="lp-myclasses">
           <div className="lp-myclasses-header">
             <span className="lp-myclasses-title">My Classes</span>
-            <button className="lp-myclasses-new-btn" onClick={() => setNewTurmaForm({ name: "" })}>
+            <button className="lp-myclasses-new-btn" onClick={() => setNewTurmaForm({ name: "", isSchool: false })}>
               + New Class
             </button>
           </div>
@@ -1502,8 +1503,16 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
                 onChange={e => setNewTurmaForm(f => ({ ...f, name: e.target.value }))}
                 autoFocus
               />
+              <label className="lp-mc-expire-row">
+                <input
+                  type="checkbox"
+                  checked={!!newTurmaForm.isSchool}
+                  onChange={e => setNewTurmaForm(f => ({ ...f, isSchool: e.target.checked }))}
+                />
+                <span>This is a school</span>
+              </label>
               <div className="lp-mc-form-actions">
-                <button className="lp-cefr-add-confirm" onClick={handleCreateTurma}>Create</button>
+                <button className="lp-cefr-add-confirm" disabled={!newTurmaForm.name?.trim()} onClick={handleCreateTurma}>Create</button>
                 <button className="lp-cefr-add-cancel" onClick={() => setNewTurmaForm(null)}>Cancel</button>
               </div>
             </div>
