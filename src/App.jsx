@@ -4740,6 +4740,34 @@ async function saveStudentClassroomCodes(username, codes) {
   await storageSet(classroomStudentCodesKey(username), codes, true);
 }
 
+// Turma (class group) helpers — INITIALS+YYYY-4HEX code, separate from section codes
+function classroomTurmaKey(code)      { return `classroom-turma-${code}`; }
+function classroomTurmaIndexKey(user) { return `classroom-turma-index-${user}`; }
+
+function generateTurmaCode(profile) {
+  const name = profile?.name || profile?.username || "T";
+  const initials = name.split(/[\s_\-]+/).map(w => w[0] || "").join("").toUpperCase().slice(0, 3);
+  const yyyy = String(new Date().getFullYear());
+  const hex = Array.from({ length: 4 }, () => Math.floor(Math.random() * 16).toString(16).toUpperCase()).join("");
+  return `${initials}${yyyy}-${hex}`;
+}
+
+async function getTurma(code) {
+  return (await storageGet(classroomTurmaKey(code), true)) || null;
+}
+
+async function saveTurma(turma) {
+  await storageSet(classroomTurmaKey(turma.code), turma, true);
+}
+
+async function getTeacherTurmaIndex(username) {
+  return (await storageGet(classroomTurmaIndexKey(username), true)) || [];
+}
+
+async function saveTeacherTurmaIndex(username, codes) {
+  await storageSet(classroomTurmaIndexKey(username), codes, true);
+}
+
 // ---------------------------------------------------------------------------
 // Root app
 // ---------------------------------------------------------------------------
@@ -6658,7 +6686,7 @@ export default function App() {
   if (!profile) return (
     <div className="app-root">
       <style>{styles}</style>
-      <LoginScreen onLogin={handleLogin} />
+      <LoginScreen onLogin={handleLogin} onRegister={handleRegister} />
     </div>
   );
 
@@ -6671,6 +6699,48 @@ export default function App() {
       await storageSet(`${ROSTER_PREFIX}${newName}`, { ...rosterEntry, username: newName }, true);
     }
     setProfile(updated);
+  }
+
+  // Student account registration — called from the "Create Account" flow in LoginScreen
+  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false }) {
+    if (USE_SUPABASE) await authenticateAccount(username, pin);
+    if (USE_SUPABASE) {
+      localStorage.setItem("sb-last-user", username);
+      await ensureStudentProfile(username);
+    }
+    const role = "student";
+    const p = {
+      username, role,
+      level: "Pre-A1",
+      createdAt: Date.now(),
+      avatar: DEFAULT_AVATAR_ID,
+      unlockedAvatars: [],
+      fullName: fullName.trim(),
+      email: email.trim(),
+      shareProgress,
+      turmaCode: turmaCode || null,
+    };
+    await storageSet(KEYS.profile, p, false);
+    setProfile(p);
+    await registerStudent(p);
+    mirrorStudentWallet(p.username).catch(() => {});
+
+    // Link student to turma
+    if (turmaCode) {
+      try {
+        const turma = await getTurma(turmaCode);
+        if (turma) {
+          const alreadyIn = (turma.students || []).some(s => s.username === username);
+          if (!alreadyIn) {
+            const updated = { ...turma, students: [...(turma.students || []), { username, fullName: fullName.trim(), joinedAt: Date.now(), shareProgress }] };
+            await saveTurma(updated);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Dawn tickets for new account
+    try { const next = await grantDawnTickets(5); setDawnTickets(next); } catch (_) {}
   }
 
   // Issue #163 — Avatar selector in Settings. Only lets the student pick an
@@ -7531,6 +7601,11 @@ export default function App() {
             onSaveTeacherIndex={saveTeacherClassroomIndex}
             onGetStudentCodes={getStudentClassroomCodes}
             onSaveStudentCodes={saveStudentClassroomCodes}
+            onGenerateTurmaCode={() => generateTurmaCode(profile)}
+            onGetTurma={getTurma}
+            onSaveTurma={saveTurma}
+            onGetTeacherTurmaIndex={getTeacherTurmaIndex}
+            onSaveTeacherTurmaIndex={saveTeacherTurmaIndex}
           />
         </React.Suspense>
         {tab === "sunday" && (
@@ -8473,7 +8548,7 @@ function buildLoginGreeting(snap) {
   return generals[new Date().getDay() % generals.length];
 }
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, onRegister }) {
   const [name,           setName]           = useState("");
   const [pin,            setPin]            = useState("");
   const [showTeacher,    setShowTeacher]    = useState(false);
@@ -8482,6 +8557,21 @@ function LoginScreen({ onLogin }) {
   const [error,          setError]          = useState("");
   const [showForgotPin,  setShowForgotPin]  = useState(false); // #518
   const [lastSnap,       setLastSnap]       = useState(null);
+
+  // Registration flow state
+  const [regView,        setRegView]        = useState("login"); // "login" | "register-ask" | "register-with-code" | "register-no-code"
+  const [regTurmaCode,   setRegTurmaCode]   = useState("");
+  const [regTurmaName,   setRegTurmaName]   = useState("");       // resolved from code
+  const [regTurmaError,  setRegTurmaError]  = useState("");
+  const [regTurmaLoading, setRegTurmaLoading] = useState(false);
+  const [regNickname,    setRegNickname]    = useState("");
+  const [regFullName,    setRegFullName]    = useState("");
+  const [regEmail,       setRegEmail]       = useState("");
+  const [regPin,         setRegPin]         = useState("");
+  const [regShowPin,     setRegShowPin]     = useState(false);
+  const [regShare,       setRegShare]       = useState(false);
+  const [regLoading,     setRegLoading]     = useState(false);
+  const [regError,       setRegError]       = useState("");
 
   // #583 — ler snapshot local para saudação contextual e pré-preenchimento
   useEffect(() => {
@@ -8597,6 +8687,15 @@ function LoginScreen({ onLogin }) {
             {loading ? "กำลังเข้าสู่ระบบ…" : <><span className="login-btn-star">✦</span> Continue <span className="login-btn-star">✦</span></>}
           </button>
 
+          {!showTeacher && onRegister && (
+            <>
+              <div className="login-or-row"><span className="login-or-line"/><span className="login-or-text">or</span><span className="login-or-line"/></div>
+              <button type="button" className="login-create-btn" onClick={() => setRegView("register-ask")}>
+                ✦ Create Account
+              </button>
+            </>
+          )}
+
           {!showTeacher && (
             <>
               <div className="login-or-row"><span className="login-or-line"/><span className="login-or-text">or</span><span className="login-or-line"/></div>
@@ -8626,6 +8725,171 @@ function LoginScreen({ onLogin }) {
         </form>
 
       </div>
+
+      {/* ── Registration flow ── */}
+      {regView !== "login" && (
+        <div className="reg-overlay">
+          <div className="reg-card">
+            <button className="reg-back-btn" onClick={() => { setRegView("login"); setRegTurmaCode(""); setRegTurmaName(""); setRegTurmaError(""); setRegError(""); }}>
+              ← Back to Login
+            </button>
+
+            {/* Step 1 — ask if they have a class code */}
+            {regView === "register-ask" && (
+              <div className="reg-step">
+                <div className="reg-step-title">Create your account</div>
+                <div className="reg-step-sub">Do you have a class code from your teacher?</div>
+                <div className="reg-ask-btns">
+                  <button className="reg-ask-btn reg-ask-btn--yes" onClick={() => setRegView("register-with-code")}>
+                    🎓 Yes, I have a code
+                  </button>
+                  <button className="reg-ask-btn reg-ask-btn--no" onClick={() => setRegView("register-no-code")}>
+                    Continue without a code
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2a — with class code */}
+            {regView === "register-with-code" && (
+              <div className="reg-step">
+                <div className="reg-step-title">Join your class</div>
+                {!regTurmaName ? (
+                  <>
+                    <div className="reg-step-sub">Enter the class code your teacher gave you</div>
+                    <div className="reg-field-group">
+                      <input className="login-input reg-input" placeholder="Class code (e.g. BD2026-4FA3)"
+                        value={regTurmaCode}
+                        onChange={e => { setRegTurmaCode(e.target.value.toUpperCase()); setRegTurmaError(""); }}
+                        maxLength={11} autoFocus />
+                      {regTurmaError && <p className="login-error">{regTurmaError}</p>}
+                    </div>
+                    <button className="login-btn" disabled={!regTurmaCode.trim() || regTurmaLoading}
+                      onClick={async () => {
+                        setRegTurmaLoading(true);
+                        try {
+                          const turma = await getTurma(regTurmaCode.trim());
+                          if (!turma) { setRegTurmaError("Class code not found. Please check and try again."); return; }
+                          setRegTurmaName(turma.name);
+                        } catch (_) { setRegTurmaError("Could not verify code. Please try again."); }
+                        finally { setRegTurmaLoading(false); }
+                      }}>
+                      {regTurmaLoading ? "Checking…" : "Verify Code →"}
+                    </button>
+                  </>
+                ) : (
+                  <form className="reg-form" onSubmit={async e => {
+                    e.preventDefault();
+                    if (regPin.length !== 4) { setRegError("PIN must be 4 digits."); return; }
+                    if (!regNickname.trim()) { setRegError("Nickname is required."); return; }
+                    setRegLoading(true); setRegError("");
+                    try {
+                      await onRegister({ username: regNickname.trim(), pin: regPin, fullName: regFullName, turmaCode: regTurmaCode.trim(), shareProgress: regShare });
+                    } catch (e) { setRegError(e?.message || "Registration failed. This nickname may already be taken."); }
+                    finally { setRegLoading(false); }
+                  }}>
+                    <div className="reg-school-badge">🏫 {regTurmaName}</div>
+                    <div className="reg-field-group">
+                      <label className="reg-label">Nickname</label>
+                      <input className="login-input reg-input" placeholder="Your nickname in the app"
+                        value={regNickname} onChange={e => { setRegNickname(e.target.value); setRegError(""); }} autoFocus maxLength={32} />
+                    </div>
+                    <div className="reg-field-group">
+                      <label className="reg-label">Full Name</label>
+                      <input className="login-input reg-input" placeholder="Your real name (visible to teacher)"
+                        value={regFullName} onChange={e => setRegFullName(e.target.value)} maxLength={80} />
+                    </div>
+                    <div className="reg-field-group">
+                      <label className="reg-label">School / Group</label>
+                      <input className="login-input reg-input" value={regTurmaName} disabled />
+                    </div>
+                    <div className="reg-share-row">
+                      <label className="reg-share-label">
+                        <span>Share my progress with classmates?</span>
+                        <div className="reg-share-options">
+                          <label className="reg-radio-label">
+                            <input type="radio" name="share" checked={regShare} onChange={() => setRegShare(true)} /> Yes
+                          </label>
+                          <label className="reg-radio-label">
+                            <input type="radio" name="share" checked={!regShare} onChange={() => setRegShare(false)} /> No
+                          </label>
+                        </div>
+                      </label>
+                    </div>
+                    <div className="reg-field-group">
+                      <label className="reg-label">Choose a PIN</label>
+                      <div className="login-input-wrap" style={{ margin: 0 }}>
+                        <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                        <input className="login-input" placeholder="4-digit PIN" type={regShowPin ? "text" : "password"}
+                          inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                          value={regPin} onChange={e => { setRegPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setRegError(""); }}
+                          autoComplete="new-password" name="reg-pin" />
+                        <button type="button" className="login-pin-eye" onClick={() => setRegShowPin(v => !v)} tabIndex={-1}>
+                          {regShowPin
+                            ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                        </button>
+                      </div>
+                    </div>
+                    {regError && <p className="login-error">{regError}</p>}
+                    <button type="submit" className="login-btn" disabled={regLoading || !regNickname.trim() || regPin.length !== 4}>
+                      {regLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Join Class <span className="login-btn-star">✦</span></>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Step 2b — without class code */}
+            {regView === "register-no-code" && (
+              <div className="reg-step">
+                <div className="reg-step-title">Create your account</div>
+                <form className="reg-form" onSubmit={async e => {
+                  e.preventDefault();
+                  if (regPin.length !== 4) { setRegError("PIN must be 4 digits."); return; }
+                  if (!regNickname.trim()) { setRegError("Nickname is required."); return; }
+                  setRegLoading(true); setRegError("");
+                  try {
+                    await onRegister({ username: regNickname.trim(), pin: regPin, email: regEmail });
+                  } catch (e) { setRegError(e?.message || "Registration failed. This nickname may already be taken."); }
+                  finally { setRegLoading(false); }
+                }}>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Nickname</label>
+                    <input className="login-input reg-input" placeholder="Your nickname in the app"
+                      value={regNickname} onChange={e => { setRegNickname(e.target.value); setRegError(""); }} autoFocus maxLength={32} />
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">E-mail</label>
+                    <input className="login-input reg-input" placeholder="your@email.com" type="email"
+                      value={regEmail} onChange={e => setRegEmail(e.target.value)} autoComplete="email" />
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Choose a PIN</label>
+                    <div className="login-input-wrap" style={{ margin: 0 }}>
+                      <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                      <input className="login-input" placeholder="4-digit PIN" type={regShowPin ? "text" : "password"}
+                        inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                        value={regPin} onChange={e => { setRegPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setRegError(""); }}
+                        autoComplete="new-password" name="reg-pin-solo" />
+                      <button type="button" className="login-pin-eye" onClick={() => setRegShowPin(v => !v)} tabIndex={-1}>
+                        {regShowPin
+                          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                      </button>
+                    </div>
+                  </div>
+                  {regError && <p className="login-error">{regError}</p>}
+                  <button type="submit" className="login-btn" disabled={regLoading || !regNickname.trim() || regPin.length !== 4}>
+                    {regLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Create Account <span className="login-btn-star">✦</span></>}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showForgotPin && <ForgotPinModal onClose={() => setShowForgotPin(false)} />}
     </div>
   );
@@ -26131,6 +26395,48 @@ html, body {
 }
 .login-teacher-btn:hover { border-color: var(--saffron); }
 
+/* Create Account button on login */
+.login-create-btn {
+  width: 100%; padding: 12px; border-radius: 12px;
+  background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.5);
+  color: #c4b5fd; font-family: 'Work Sans', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.login-create-btn:hover { border-color: #7c3aed; background: rgba(124,58,237,0.28); }
+
+/* Registration overlay */
+.reg-overlay {
+  position: fixed; inset: 0; z-index: 9200;
+  background: rgba(6,4,24,0.92); display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.reg-card {
+  background: #1a1035; border: 1.5px solid rgba(124,58,237,0.35); border-radius: 20px;
+  padding: 28px 28px 24px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto;
+}
+.reg-back-btn {
+  background: none; border: none; color: rgba(245,239,230,0.5); font-size: 13px;
+  cursor: pointer; padding: 0; margin-bottom: 18px; display: block;
+}
+.reg-back-btn:hover { color: rgba(245,239,230,0.85); }
+.reg-step-title { font-size: 20px; font-weight: 800; color: #ede9fe; margin-bottom: 6px; }
+.reg-step-sub { font-size: 14px; color: rgba(245,239,230,0.55); margin-bottom: 20px; }
+.reg-ask-btns { display: flex; flex-direction: column; gap: 10px; }
+.reg-ask-btn { padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+.reg-ask-btn--yes { background: rgba(124,58,237,0.3); color: #ede9fe; border: 1.5px solid rgba(124,58,237,0.5); }
+.reg-ask-btn--yes:hover { background: rgba(124,58,237,0.45); }
+.reg-ask-btn--no { background: rgba(245,239,230,0.06); color: rgba(245,239,230,0.6); }
+.reg-ask-btn--no:hover { background: rgba(245,239,230,0.1); color: rgba(245,239,230,0.85); }
+.reg-form { display: flex; flex-direction: column; gap: 14px; }
+.reg-field-group { display: flex; flex-direction: column; gap: 6px; }
+.reg-label { font-size: 11px; font-weight: 700; color: rgba(245,239,230,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
+.reg-input { width: 100%; }
+.reg-school-badge { background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.4); border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 600; color: #c4b5fd; margin-bottom: 4px; }
+.reg-share-row { background: rgba(245,239,230,0.04); border-radius: 10px; padding: 12px 14px; }
+.reg-share-label { display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: rgba(245,239,230,0.75); }
+.reg-share-options { display: flex; gap: 20px; }
+.reg-radio-label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
 /* Desktop: brand dentro do card, mobile-img escondida */
 .login-brand-mobile { display: none; }
 .login-brand-desktop { display: block; }
@@ -31239,6 +31545,26 @@ select.modal-input { appearance: none; }
   font-family: 'Fraunces', serif; font-size: 13px; font-weight: 700;
   letter-spacing: 0.06em;
 }
+/* Turma (class group) cards */
+.lp-turma-card {
+  background: rgba(124,58,237,0.1); border: 1.5px solid rgba(124,58,237,0.3);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.lp-turma-card:hover { border-color: #7c3aed; background: rgba(124,58,237,0.18); }
+.lp-turma-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.lp-turma-card-name { font-weight: 700; font-size: 14px; color: #ede9fe; flex: 1; }
+.lp-turma-code-badge { font-size: 11px; }
+.lp-turma-card-info { display: flex; gap: 14px; font-size: 11px; color: rgba(245,239,230,0.5); }
+.lp-turma-students { margin-top: 10px; }
+.lp-turma-sections { margin-top: 4px; }
+.lp-turma-section-label { font-size: 12px; font-weight: 700; color: rgba(245,239,230,0.5); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: flex; align-items: center; }
+.lp-turma-student-list { display: flex; flex-direction: column; gap: 4px; }
+.lp-turma-student-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(245,239,230,0.04); border-radius: 8px; font-size: 12px; }
+.lp-turma-student-name { font-weight: 600; color: rgba(245,239,230,0.85); flex: 1; }
+.lp-turma-student-user { color: rgba(245,239,230,0.4); font-size: 11px; }
+.lp-turma-student-date { color: rgba(245,239,230,0.3); font-size: 10px; margin-left: auto; }
+
 .lp-classroom-sep {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 14px 0 10px;

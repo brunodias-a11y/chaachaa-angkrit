@@ -261,6 +261,11 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     onSaveTeacherIndex,
     onGetStudentCodes,
     onSaveStudentCodes,
+    onGenerateTurmaCode,
+    onGetTurma,
+    onSaveTurma,
+    onGetTeacherTurmaIndex,
+    onSaveTeacherTurmaIndex,
   },
   ref
 ) {
@@ -715,6 +720,11 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onDeleteClassroomSection={onDeleteClassroomSection}
           onGetTeacherIndex={onGetTeacherIndex}
           onSaveTeacherIndex={onSaveTeacherIndex}
+          onGenerateTurmaCode={onGenerateTurmaCode}
+          onGetTurma={onGetTurma}
+          onSaveTurma={onSaveTurma}
+          onGetTeacherTurmaIndex={onGetTeacherTurmaIndex}
+          onSaveTeacherTurmaIndex={onSaveTeacherTurmaIndex}
         />
       )}
 
@@ -734,6 +744,11 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onDeleteClassroomSection={onDeleteClassroomSection}
           onGetTeacherIndex={onGetTeacherIndex}
           onSaveTeacherIndex={onSaveTeacherIndex}
+          onGenerateTurmaCode={onGenerateTurmaCode}
+          onGetTurma={onGetTurma}
+          onSaveTurma={onSaveTurma}
+          onGetTeacherTurmaIndex={onGetTeacherTurmaIndex}
+          onSaveTeacherTurmaIndex={onSaveTeacherTurmaIndex}
         />
       )}
 

@@ -960,7 +960,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
   );
 }
 
-export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [], profile = null, onGenerateClassroomCode, onGetClassroomSection, onSaveClassroomSection, onDeleteClassroomSection, onGetTeacherIndex, onSaveTeacherIndex }) {
+export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [], profile = null, onGenerateClassroomCode, onGetClassroomSection, onSaveClassroomSection, onDeleteClassroomSection, onGetTeacherIndex, onSaveTeacherIndex, onGenerateTurmaCode, onGetTurma, onSaveTurma, onGetTeacherTurmaIndex, onSaveTeacherTurmaIndex }) {
   const [localCodes,    setLocalCodes]    = useState(classCodes);
   const [selectedCode,  setSelectedCode]  = useState(classCodes[0]?.code || "");
   const [lessons,       setLessons]       = useState([]);
@@ -989,6 +989,13 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   const [editingClassCode,   setEditingClassCode]    = useState(null); // code being edited (lessons view) — task #3
   const [confirmDeleteCode,  setConfirmDeleteCode]   = useState(null); // code pending deletion confirm
   const [expandedCompletions, setExpandedCompletions] = useState(null); // code whose completions list is open
+
+  // Turma (class group) state — two-level My Classes
+  const [turmas,           setTurmas]           = useState([]);  // [{ code, name, teacherUsername, createdAt, students:[], sectionCodes:[] }]
+  const [turmaLoading,     setTurmaLoading]     = useState(false);
+  const [newTurmaForm,     setNewTurmaForm]     = useState(null); // null=closed, {name:""}=open
+  const [activeTurmaCode,  setActiveTurmaCode]  = useState(null); // which turma is open (level 2)
+  const [confirmDeleteTurma, setConfirmDeleteTurma] = useState(null);
 
   // Issue #426 — classCodes may arrive after mount (async fetch in App.jsx).
   // When the prop updates from [] to a real list, set the first code automatically.
@@ -1122,6 +1129,16 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     }).finally(() => setClassroomLoading(false));
   }, [profile?.username]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load turmas for this teacher
+  useEffect(() => {
+    if (!onGetTeacherTurmaIndex || !onGetTurma || !profile?.username) return;
+    setTurmaLoading(true);
+    onGetTeacherTurmaIndex(profile.username).then(async codes => {
+      const loaded = await Promise.all(codes.map(c => onGetTurma(c).catch(() => null)));
+      setTurmas(loaded.filter(Boolean).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
+    }).finally(() => setTurmaLoading(false));
+  }, [profile?.username]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleCreateClass() {
     if (!newClassForm?.name?.trim()) return;
     const code = onGenerateClassroomCode?.() || `CL-${Date.now().toString(16).slice(-6).toUpperCase()}`;
@@ -1140,6 +1157,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     await onSaveTeacherIndex(profile.username, [...currentCodes, code]);
     setClassroomSections(s => [...s, section]);
     setNewClassForm(null);
+    return code;
   }
 
   async function handleToggleClassActive(code) {
@@ -1156,6 +1174,32 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     await onSaveTeacherIndex(profile.username, currentCodes.filter(c => c !== code));
     setClassroomSections(s => s.filter(x => x.code !== code));
     setConfirmDeleteCode(null);
+  }
+
+  async function handleCreateTurma() {
+    if (!newTurmaForm?.name?.trim() || !onGenerateTurmaCode || !profile?.username) return;
+    const code = onGenerateTurmaCode();
+    const turma = {
+      code,
+      name: newTurmaForm.name.trim(),
+      teacherUsername: profile.username,
+      createdAt: Date.now(),
+      students: [],
+      sectionCodes: [],
+    };
+    await onSaveTurma(turma);
+    const idx = await onGetTeacherTurmaIndex(profile.username);
+    await onSaveTeacherTurmaIndex(profile.username, [...idx, code]);
+    setTurmas(t => [...t, turma]);
+    setNewTurmaForm(null);
+  }
+
+  async function handleDeleteTurma(code) {
+    const idx = await onGetTeacherTurmaIndex(profile.username);
+    await onSaveTeacherTurmaIndex(profile.username, idx.filter(c => c !== code));
+    setTurmas(t => t.filter(x => x.code !== code));
+    setConfirmDeleteTurma(null);
+    if (activeTurmaCode === code) setActiveTurmaCode(null);
   }
 
   function startCreate() {
@@ -1438,119 +1482,209 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
         })}
       </div>
 
-      {/* ── My Classes ── */}
-      {onGetTeacherIndex && (
+      {/* ── My Classes — Level 1: Turma list ── */}
+      {onGetTeacherTurmaIndex && !activeTurmaCode && (
         <div className="lp-myclasses">
           <div className="lp-myclasses-header">
             <span className="lp-myclasses-title">My Classes</span>
-            <button className="lp-myclasses-new-btn" onClick={() => setNewClassForm({ name: "", expires: false, expiresAt: "" })}>
+            <button className="lp-myclasses-new-btn" onClick={() => setNewTurmaForm({ name: "" })}>
               + New Class
             </button>
           </div>
 
-          {/* New class form */}
-          {newClassForm && (
+          {newTurmaForm && (
             <div className="lp-mc-new-form">
               <input
                 className="lp-input lp-mc-name-input"
-                placeholder="Class name (e.g. Unit 3 — Present Perfect)"
-                value={newClassForm.name}
-                onChange={e => setNewClassForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Class name (e.g. Intermediate B — Monday 9h)"
+                value={newTurmaForm.name}
+                onChange={e => setNewTurmaForm(f => ({ ...f, name: e.target.value }))}
                 autoFocus
               />
-              <label className="lp-mc-expire-row">
-                <input
-                  type="checkbox"
-                  checked={newClassForm.expires}
-                  onChange={e => setNewClassForm(f => ({ ...f, expires: e.target.checked }))}
-                />
-                <span>Expires on</span>
-                {newClassForm.expires && (
-                  <input
-                    type="date"
-                    className="lp-input lp-mc-date-input"
-                    value={newClassForm.expiresAt}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={e => setNewClassForm(f => ({ ...f, expiresAt: e.target.value }))}
-                  />
-                )}
-              </label>
               <div className="lp-mc-form-actions">
-                <button className="lp-cefr-add-confirm" onClick={handleCreateClass}>Create</button>
-                <button className="lp-cefr-add-cancel" onClick={() => setNewClassForm(null)}>Cancel</button>
+                <button className="lp-cefr-add-confirm" onClick={handleCreateTurma}>Create</button>
+                <button className="lp-cefr-add-cancel" onClick={() => setNewTurmaForm(null)}>Cancel</button>
               </div>
             </div>
           )}
 
-          {classroomLoading && <div className="lp-mc-loading">Loading…</div>}
+          {turmaLoading && <div className="lp-mc-loading">Loading…</div>}
 
-          {!classroomLoading && classroomSections.length === 0 && !newClassForm && (
-            <div className="lp-mc-empty">No classes yet. Create one to share with your students.</div>
+          {!turmaLoading && turmas.length === 0 && !newTurmaForm && (
+            <div className="lp-mc-empty">No classes yet. Create one to get started.</div>
           )}
 
           <div className="lp-mc-card-list">
-            {classroomSections.map(section => {
-              const isExpired = section.expiresAt && Date.now() > section.expiresAt;
-              const completedCount = Object.keys(section.completions || {}).length;
-              const expiryLabel = section.expiresAt
-                ? new Date(section.expiresAt).toLocaleDateString()
-                : "No expiry";
-
-              return (
-                <div key={section.code} className={`lp-mc-card${isExpired ? " lp-mc-card--expired" : ""}${!section.active ? " lp-mc-card--inactive" : ""}`}>
-                  <div className="lp-mc-card-top">
-                    <div className="lp-mc-card-name">{section.name}</div>
-                    <div className="lp-mc-card-meta">
-                      <span className="lp-mc-code-badge" title="Share this code with students" onClick={() => navigator.clipboard?.writeText(section.code)}>
-                        {section.code} 📋
-                      </span>
-                      <span className={`lp-mc-status-badge${isExpired ? " lp-mc-status--expired" : section.active ? " lp-mc-status--active" : " lp-mc-status--inactive"}`}>
-                        {isExpired ? "Expired" : section.active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="lp-mc-card-info">
-                    <span>📚 {section.lessons?.length || 0} lesson{section.lessons?.length !== 1 ? "s" : ""}</span>
-                    <span
-                      className={`lp-mc-completions-toggle${completedCount > 0 ? " lp-mc-completions-toggle--clickable" : ""}`}
-                      onClick={() => completedCount > 0 && setExpandedCompletions(expandedCompletions === section.code ? null : section.code)}
-                    >
-                      ✅ {completedCount} completed{completedCount > 0 ? (expandedCompletions === section.code ? " ▲" : " ▼") : ""}
-                    </span>
-                    <span>📅 {expiryLabel}</span>
-                  </div>
-                  {expandedCompletions === section.code && completedCount > 0 && (
-                    <div className="lp-mc-completions-list">
-                      {Object.entries(section.completions || {}).sort((a,b) => (a[1].completedAt||"").localeCompare(b[1].completedAt||"")).map(([username, data]) => (
-                        <div key={username} className="lp-mc-completion-row">
-                          <span className="lp-mc-completion-user">{username}</span>
-                          <span className="lp-mc-completion-date">{data.completedAt ? new Date(data.completedAt).toLocaleDateString() : ""}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="lp-mc-card-actions">
-                    <button className="lp-mc-btn lp-mc-btn-edit" onClick={() => setEditingClassCode(section.code)}>
-                      Edit Lessons
-                    </button>
-                    <button className="lp-mc-btn lp-mc-btn-toggle" onClick={() => handleToggleClassActive(section.code)}>
-                      {section.active ? "Deactivate" : "Activate"}
-                    </button>
-                    {confirmDeleteCode === section.code ? (
-                      <>
-                        <button className="lp-mc-btn lp-mc-btn-delete-confirm" onClick={() => handleDeleteClass(section.code)}>Confirm Delete</button>
-                        <button className="lp-mc-btn lp-mc-btn-cancel" onClick={() => setConfirmDeleteCode(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <button className="lp-mc-btn lp-mc-btn-delete" onClick={() => setConfirmDeleteCode(section.code)}>Delete</button>
-                    )}
-                  </div>
+            {turmas.map(turma => (
+              <div key={turma.code} className="lp-turma-card" onClick={() => setActiveTurmaCode(turma.code)}>
+                <div className="lp-turma-card-top">
+                  <span className="lp-turma-card-name">{turma.name}</span>
+                  <span className="lp-mc-code-badge lp-turma-code-badge"
+                    title="Share this code with students — they use it to create their account"
+                    onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(turma.code); }}>
+                    {turma.code} 📋
+                  </span>
                 </div>
-              );
-            })}
+                <div className="lp-turma-card-info">
+                  <span>👥 {turma.students?.length || 0} student{turma.students?.length !== 1 ? "s" : ""}</span>
+                  <span>📚 {turma.sectionCodes?.length || 0} section{turma.sectionCodes?.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="lp-mc-card-actions" onClick={e => e.stopPropagation()}>
+                  <button className="lp-mc-btn lp-mc-btn-edit" onClick={() => setActiveTurmaCode(turma.code)}>
+                    Open →
+                  </button>
+                  {confirmDeleteTurma === turma.code ? (
+                    <>
+                      <button className="lp-mc-btn lp-mc-btn-delete-confirm" onClick={() => handleDeleteTurma(turma.code)}>Confirm Delete</button>
+                      <button className="lp-mc-btn lp-mc-btn-cancel" onClick={() => setConfirmDeleteTurma(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className="lp-mc-btn lp-mc-btn-delete" onClick={() => setConfirmDeleteTurma(turma.code)}>Delete</button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* ── My Classes — Level 2: Turma detail (students + sections) ── */}
+      {onGetTeacherTurmaIndex && activeTurmaCode && (() => {
+        const turma = turmas.find(t => t.code === activeTurmaCode);
+        if (!turma) return null;
+        const turmaStudents = turma.students || [];
+        const turmaSections = classroomSections.filter(s => (turma.sectionCodes || []).includes(s.code));
+        return (
+          <div className="lp-myclasses">
+            <div className="lp-myclasses-header">
+              <button className="lp-mc-btn lp-mc-btn-cancel" style={{ marginRight: 8 }} onClick={() => { setActiveTurmaCode(null); setNewClassForm(null); }}>← Classes</button>
+              <span className="lp-myclasses-title">{turma.name}</span>
+              <span className="lp-mc-code-badge" style={{ marginLeft: "auto" }}
+                title="Share with students for account creation"
+                onClick={() => navigator.clipboard?.writeText(turma.code)}>
+                {turma.code} 📋
+              </span>
+            </div>
+
+            {/* Students list */}
+            <div className="lp-turma-students">
+              <div className="lp-turma-section-label">👥 Students ({turmaStudents.length})</div>
+              {turmaStudents.length === 0
+                ? <div className="lp-mc-empty">No students yet — share the class code above.</div>
+                : <div className="lp-turma-student-list">
+                    {turmaStudents.map(s => (
+                      <div key={s.username} className="lp-turma-student-row">
+                        <span className="lp-turma-student-name">{s.fullName || s.username}</span>
+                        <span className="lp-turma-student-user">@{s.username}</span>
+                        <span className="lp-turma-student-date">{s.joinedAt ? new Date(s.joinedAt).toLocaleDateString() : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+
+            {/* Sections within this turma */}
+            <div className="lp-turma-sections">
+              <div className="lp-turma-section-label" style={{ marginTop: 14 }}>
+                📚 Sections
+                <button className="lp-myclasses-new-btn" style={{ marginLeft: 10 }} onClick={() => setNewClassForm({ name: "", expires: false, expiresAt: "" })}>
+                  + New Section
+                </button>
+              </div>
+
+              {newClassForm && (
+                <div className="lp-mc-new-form">
+                  <input
+                    className="lp-input lp-mc-name-input"
+                    placeholder="Section name (e.g. Aula 01 — Greetings)"
+                    value={newClassForm.name}
+                    onChange={e => setNewClassForm(f => ({ ...f, name: e.target.value }))}
+                    autoFocus
+                  />
+                  <label className="lp-mc-expire-row">
+                    <input type="checkbox" checked={newClassForm.expires} onChange={e => setNewClassForm(f => ({ ...f, expires: e.target.checked }))} />
+                    <span>Expires on</span>
+                    {newClassForm.expires && (
+                      <input type="date" className="lp-input lp-mc-date-input"
+                        value={newClassForm.expiresAt} min={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setNewClassForm(f => ({ ...f, expiresAt: e.target.value }))} />
+                    )}
+                  </label>
+                  <div className="lp-mc-form-actions">
+                    <button className="lp-cefr-add-confirm" onClick={async () => {
+                      const newSectionCode = await handleCreateClass();
+                      if (newSectionCode) {
+                        const updated = { ...turma, sectionCodes: [...(turma.sectionCodes || []), newSectionCode] };
+                        await onSaveTurma?.(updated);
+                        setTurmas(ts => ts.map(t => t.code === turma.code ? updated : t));
+                      }
+                    }}>Create</button>
+                    <button className="lp-cefr-add-cancel" onClick={() => setNewClassForm(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="lp-mc-card-list">
+                {turmaSections.map(section => {
+                  const isExpired = section.expiresAt && Date.now() > section.expiresAt;
+                  const completedCount = Object.keys(section.completions || {}).length;
+                  return (
+                    <div key={section.code} className={`lp-mc-card${isExpired ? " lp-mc-card--expired" : ""}${!section.active ? " lp-mc-card--inactive" : ""}`}>
+                      <div className="lp-mc-card-top">
+                        <div className="lp-mc-card-name">{section.name}</div>
+                        <div className="lp-mc-card-meta">
+                          <span className="lp-mc-code-badge" title="Share this code with students" onClick={() => navigator.clipboard?.writeText(section.code)}>
+                            {section.code} 📋
+                          </span>
+                          <span className={`lp-mc-status-badge${isExpired ? " lp-mc-status--expired" : section.active ? " lp-mc-status--active" : " lp-mc-status--inactive"}`}>
+                            {isExpired ? "Expired" : section.active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="lp-mc-card-info">
+                        <span>📚 {section.lessons?.length || 0} lesson{section.lessons?.length !== 1 ? "s" : ""}</span>
+                        <span
+                          className={`lp-mc-completions-toggle${completedCount > 0 ? " lp-mc-completions-toggle--clickable" : ""}`}
+                          onClick={() => completedCount > 0 && setExpandedCompletions(expandedCompletions === section.code ? null : section.code)}
+                        >
+                          ✅ {completedCount} completed{completedCount > 0 ? (expandedCompletions === section.code ? " ▲" : " ▼") : ""}
+                        </span>
+                      </div>
+                      {expandedCompletions === section.code && completedCount > 0 && (
+                        <div className="lp-mc-completions-list">
+                          {Object.entries(section.completions || {}).sort((a,b) => (a[1].completedAt||"").localeCompare(b[1].completedAt||"")).map(([username, data]) => (
+                            <div key={username} className="lp-mc-completion-row">
+                              <span className="lp-mc-completion-user">{username}</span>
+                              <span className="lp-mc-completion-date">{data.completedAt ? new Date(data.completedAt).toLocaleDateString() : ""}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="lp-mc-card-actions">
+                        <button className="lp-mc-btn lp-mc-btn-edit" onClick={() => setEditingClassCode(section.code)}>Edit Lessons</button>
+                        <button className="lp-mc-btn lp-mc-btn-toggle" onClick={() => handleToggleClassActive(section.code)}>
+                          {section.active ? "Deactivate" : "Activate"}
+                        </button>
+                        {confirmDeleteCode === section.code ? (
+                          <>
+                            <button className="lp-mc-btn lp-mc-btn-delete-confirm" onClick={() => handleDeleteClass(section.code)}>Confirm Delete</button>
+                            <button className="lp-mc-btn lp-mc-btn-cancel" onClick={() => setConfirmDeleteCode(null)}>Cancel</button>
+                          </>
+                        ) : (
+                          <button className="lp-mc-btn lp-mc-btn-delete" onClick={() => setConfirmDeleteCode(section.code)}>Delete</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {turmaSections.length === 0 && !newClassForm && (
+                  <div className="lp-mc-empty">No sections yet. Create one to assign to students.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 
@@ -1561,7 +1695,7 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
           <div className="lp-manage-list">
             {/* #897 — back to CEFR overview */}
             <button className="lp-back-to-cefr" onClick={() => { setCefrView(true); setEditingClassCode(null); }}>
-              {editingClassCode ? "← My Classes" : "← CEFR Overview"}
+              {editingClassCode && activeTurmaCode ? "← Sections" : editingClassCode ? "← My Classes" : "← CEFR Overview"}
             </button>
             <div className="lp-manage-code-row">
               <select
