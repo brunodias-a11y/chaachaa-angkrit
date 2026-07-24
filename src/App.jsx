@@ -2526,12 +2526,14 @@ function getTeacherDisplayAvatar(catalog = getFullAvatarCatalog()) {
 // RARITY_POWER_COOLDOWN below is that table. "passive" powers have no
 // cooldown entry — they're never on a charge/cooldown cycle.
 const RARITY_POWER_COOLDOWN = {
-  common:    { simple: 5 },              // 1 charge / 5 days
-  uncommon:  { simple: 3 },              // 1 charge / 3 days
+  common:    { simple: 5, special: 7 },  // 1 charge / 5d simple, 7d special
+  uncommon:  { simple: 3, special: 7 },  // 1 charge / 3d simple, 7d special
   rare:      { simple: 3, special: 7 },  // simple / 3d, special / 7d (weekly)
   epic:      { simple: 3, special: 5 },  // simple / 3d, special / 5d
   legendary: { simple: 2, special: 3 },  // simple / 2d, special / 3d
 };
+// #921 — number of passive slots per rarity (1 for common/uncommon, 2 for rare/epic, 3 for legendary)
+const RARITY_PASSIVE_SLOTS = { common: 1, uncommon: 1, rare: 2, epic: 2, legendary: 3 };
 
 // Daily time windows for window-gated passive powers (Asia/Bangkok, GMT+7 —
 // matches the project's existing timezone convention). Issue #287 — each
@@ -2666,6 +2668,11 @@ const POWER_CATALOG = [
   { id: "energy_grant_5_daily",   mechanic: "simple",   duration: null, appliesTo: ["lessonPath"],
     name: "🌿 Yaa Dom • +5 energy (once per day)", desc: "Immediately grants 5 energy points. Can be used once per day.",
     effect: { type: "energyGrantOnActivate", value: 5 } },
+  // #920 — Matcha: +15 energy, 2-day cooldown, activatable without equipping
+  { id: "energy_matcha_15", mechanic: "simple", duration: null, appliesTo: ["lessonPath"],
+    name: "🍵 Get a strong Matcha! • +15 energy", desc: "Immediately grants 15 energy points (can overflow cap). 2-day cooldown. No need to equip — activate from Collection.",
+    cooldownDays: 2, activateWithoutEquip: true,
+    effect: { type: "energyGrantOnActivate", value: 15 } },
   { id: "energy_grant_per_lesson", mechanic: "special", duration: "session", appliesTo: ["lessonPath"],
     name: "🐯 Tiger Ointment • +2 energy per new lesson", desc: "Grants 2 energy after completing each new Path Mode lesson for one session.",
     effect: { type: "energyGrantPerLesson", value: 2 } },
@@ -2763,7 +2770,8 @@ async function setAvatarPowerAssignment(avatarId, patch) {
 // Phase 1 only ships the read/write primitives.
 //
 // Shape: { simple: { lastUsedAt: epochMs|null }, special: { lastUsedAt: epochMs|null } }
-const AVATAR_POWER_CHARGES_KEY = "avatar-power-charges"; // personal
+const AVATAR_POWER_CHARGES_KEY        = "avatar-power-charges";         // personal — equipped-slot charges
+const AVATAR_POWER_CHARGES_UNEQUIP_KEY = "avatar-power-charges-unequip"; // personal — #920 unequipped power charges keyed by avatarId
 
 async function getPowerCharges() {
   return (await storageGet(AVATAR_POWER_CHARGES_KEY, false)) || { simple: { lastUsedAt: null }, special: { lastUsedAt: null } };
@@ -2774,6 +2782,22 @@ async function recordPowerUse(slot) {
   charges[slot] = { lastUsedAt: Date.now() };
   await storageSet(AVATAR_POWER_CHARGES_KEY, charges, false);
   return charges;
+}
+
+// #920 — unequipped-power charge helpers (keyed by avatarId, not slot)
+async function getUnequipCharges() {
+  return (await storageGet(AVATAR_POWER_CHARGES_UNEQUIP_KEY, false)) || {};
+}
+async function recordUnequipPowerUse(avatarId) {
+  const charges = await getUnequipCharges();
+  charges[avatarId] = { lastUsedAt: Date.now() };
+  await storageSet(AVATAR_POWER_CHARGES_UNEQUIP_KEY, charges, false);
+}
+function isUnequipPowerCharged(avatarId, power, charges) {
+  const cooldownDays = power?.cooldownDays ?? 2;
+  const lastUsedAt = charges?.[avatarId]?.lastUsedAt;
+  if (!lastUsedAt) return true;
+  return (Date.now() - lastUsedAt) >= cooldownDays * 24 * 60 * 60 * 1000;
 }
 
 // Cooldown check — Phase 3 will call this before allowing a consumable power
@@ -2827,7 +2851,26 @@ function getEquippedPowerAssignment(profile, powersConfig) {
 
 // Ativa (arma) um poder consumível carregado no slot indicado. Retorna
 // { ok: true, boost } ou { ok: false, reason }.
-async function activatePower(profile, powersConfig, slot) {
+// avatarId is optional — when provided, activates the unequipped power path (#920)
+async function activatePower(profile, powersConfig, slot, avatarId = null) {
+  // #920 — unequipped activation path (activateWithoutEquip powers)
+  if (avatarId) {
+    const assignment = (powersConfig || {})[avatarId];
+    const powerId = assignment?.[slot];
+    if (!powerId) return { ok: false, reason: "no_power_assigned" };
+    const power = getPowerById(powerId);
+    if (!power?.activateWithoutEquip) return { ok: false, reason: "not_unequip_power" };
+    const charges = await getUnequipCharges();
+    if (!isUnequipPowerCharged(avatarId, power, charges)) return { ok: false, reason: "on_cooldown" };
+    if (power.effect.type === "energyGrantOnActivate") {
+      await recordUnequipPowerUse(avatarId);
+      await addS0Energy(power.effect.value ?? 0); // overflow is allowed by design for Matcha
+      return { ok: true, boost: null, energyGranted: power.effect.value ?? 0 };
+    }
+    return { ok: false, reason: "unsupported_effect" };
+  }
+
+  // Equipped activation path (original)
   const assignment = getEquippedPowerAssignment(profile, powersConfig);
   const powerId = assignment?.[slot];
   if (!powerId) return { ok: false, reason: "no_power_assigned" };
@@ -2896,12 +2939,9 @@ function collectActiveEffects(profile, powersConfig, activeBoosts, now = Date.no
   // Issue #295 — up to 2 passives per avatar now (passive + passive2), e.g.
   // a positive coin/countdown bonus paired with a negative drawback for
   // balance. Both read the same way; passive2 is just optional.
-  for (const passiveSlot of ["passive", "passive2"]) {
+  for (const passiveSlot of ["passive", "passive2", "passive3"]) {
     if (!assignment?.[passiveSlot]) continue;
     const power = getPowerById(assignment[passiveSlot]);
-    // Issue #287 — every passive power now carries its own fixed window
-    // (morning/afternoon/evening/night/allday); there's no more generic
-    // "pick a window at assignment time" power, so this just reads power.window.
     if (power && isPowerTimeWindowActive(power.window, now)) effects.push(power.effect);
   }
   return effects;
@@ -7241,7 +7281,7 @@ export default function App() {
     // Avatar roll
     const passiveIds = new Set(
       Object.entries(studentPowersConfig || {})
-        .filter(([, a]) => a?.passive === "daily_login_bonus" || a?.passive2 === "daily_login_bonus")
+        .filter(([, a]) => a?.passive === "daily_login_bonus" || a?.passive2 === "daily_login_bonus" || a?.passive3 === "daily_login_bonus")
         .map(([id]) => id)
     );
     const unlocked = new Set(profile.unlockedAvatars || []);
@@ -9658,7 +9698,7 @@ function getBestWindowBoostAvatar(profile, powersConfig, now = Date.now()) {
     if (!av) continue;
     const assignment = (powersConfig || {})[id];
     if (!assignment) continue;
-    for (const slot of ["passive", "passive2"]) {
+    for (const slot of ["passive", "passive2", "passive3"]) {
       const power = assignment[slot] ? getPowerById(assignment[slot]) : null;
       if (!power) continue;
       if (power.window === "allday" || !power.window) continue; // only time-window powers
@@ -9875,7 +9915,7 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
   const lbCatForTeaser = useMemo(() => {
     if (loginBonusActive || teacher) return null;
     const candidates = Object.entries(studentPowersConfig || {})
-      .filter(([, a]) => a?.passive === "daily_login_bonus" || a?.passive2 === "daily_login_bonus")
+      .filter(([, a]) => a?.passive === "daily_login_bonus" || a?.passive2 === "daily_login_bonus" || a?.passive3 === "daily_login_bonus")
       .map(([id]) => getAvatarById(id))
       .filter(Boolean);
     if (!candidates.length) return null;
@@ -11061,7 +11101,7 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
       ]);
       if (!remote) { setSyncMsg({ ok: false, text: "Key not found in ChaaChaaThai." }); return; }
       const localCfg = local || {};
-      const isEmpty = (entry) => !entry || (!entry.simple && !entry.special && !entry.passive && !entry.passive2);
+      const isEmpty = (entry) => !entry || (!entry.simple && !entry.special && !entry.passive && !entry.passive2 && !entry.passive3);
       let added = 0;
       const merged = { ...remote };
       for (const [id, entry] of Object.entries(localCfg)) {
@@ -11086,20 +11126,14 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
     for (const a of getAvatarPowersAssignable()) {
       const existing = powersConfig[a.id] || {};
       d[a.id] = {
-        // Legacy single-choice field — still drives the Common/Uncommon
-        // dropdown (mutually exclusive, unchanged). Rare+ rows use the two
-        // independent flags below instead (Issue #224).
-        mechanic: existing.passive ? "passive" : (existing.simple || existing.special) ? "consumable" : "none",
-        // Issue #224 — Rare+ avatars can have consumable(s) AND a passive at
-        // once, so these are independent rather than one exclusive choice.
+        // #921 — all rarities now use independent Consumable + Passive checkboxes
         useConsumable: !!(existing.simple || existing.special),
-        usePassive: !!existing.passive,
-        simple: existing.simple || "",
-        special: existing.special || "",
-        passive: existing.passive || "",
-        // Issue #295 — optional 2nd passive slot, e.g. pairing a positive
-        // bonus with a negative drawback for balance on the same avatar.
+        usePassive: !!(existing.passive || existing.passive2 || existing.passive3),
+        simple:   existing.simple   || "",
+        special:  existing.special  || "",
+        passive:  existing.passive  || "",
         passive2: existing.passive2 || "",
+        passive3: existing.passive3 || "",
         price: priceOverrides[a.id] ?? a.price ?? "",
       };
     }
@@ -11117,12 +11151,13 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
       const d = draft[a.id];
       // Issue #287 — window no longer a separate field; it's baked into
       // whichever passive power id was picked (coins_50_morning etc.).
+      const passiveSlotCount = RARITY_PASSIVE_SLOTS[a.rarity] ?? 1;
       newPowersConfig[a.id] = {
-        simple:  d.useConsumable ? (d.simple || null)  : null,
-        special: d.useConsumable ? (d.special || null) : null,
-        passive: d.usePassive    ? (d.passive || null) : null,
-        // Issue #295 — 2nd passive, only meaningful while the passive toggle is on.
-        passive2: d.usePassive   ? (d.passive2 || null) : null,
+        simple:   d.useConsumable                        ? (d.simple   || null) : null,
+        special:  d.useConsumable                        ? (d.special  || null) : null,
+        passive:  d.usePassive                           ? (d.passive  || null) : null,
+        passive2: d.usePassive && passiveSlotCount >= 2  ? (d.passive2 || null) : null,
+        passive3: d.usePassive && passiveSlotCount >= 3  ? (d.passive3 || null) : null,
       };
       if (a.shopExclusive && d.price !== "") {
         newPriceOverrides[a.id] = Math.max(0, Number(d.price));
@@ -11138,8 +11173,8 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
         <div className="avatar-powers-group-title">{title}</div>
         {avatars.map((a) => {
           const d = draft[a.id];
-          const hasSpecial = !!RARITY_POWER_COOLDOWN[a.rarity]?.special;
-          const simpleOpts  = getAssignablePowers("simple", a.rarity);
+          const passiveSlotCount = RARITY_PASSIVE_SLOTS[a.rarity] ?? 1;
+          const simpleOpts  = getAssignablePowers("simple",  a.rarity);
           const specialOpts = getAssignablePowers("special", a.rarity);
           const passiveOpts = getAssignablePowers("passive", a.rarity);
           return (
@@ -11152,49 +11187,19 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
                 </div>
               </div>
 
-              {/* Issue #224 — Rare+ avatars get two independent toggles
-                  (consumable(s) AND passive can both be on); Common/Uncommon
-                  keep the original mutually-exclusive dropdown unchanged. */}
-              {!hasSpecial && (
-                <label className="level-settings-field">
-                  <span className="level-settings-field-label">Power</span>
-                  <select
-                    value={d.mechanic}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDraft((prev) => ({
-                        ...prev,
-                        [a.id]: { ...prev[a.id], mechanic: v, useConsumable: v === "consumable", usePassive: v === "passive" },
-                      }));
-                    }}
-                  >
-                    <option value="none">None</option>
-                    <option value="consumable">Consumable</option>
-                    <option value="passive">Passive</option>
-                  </select>
+              {/* #921 — all rarities now use independent Consumable + Passive checkboxes */}
+              <div className="avatar-powers-toggles">
+                <label className="avatar-powers-toggle">
+                  <input type="checkbox" checked={d.useConsumable}
+                    onChange={(e) => update(a.id, "useConsumable", e.target.checked)} />
+                  <span>Consumable(s)</span>
                 </label>
-              )}
-
-              {hasSpecial && (
-                <div className="avatar-powers-toggles">
-                  <label className="avatar-powers-toggle">
-                    <input
-                      type="checkbox"
-                      checked={d.useConsumable}
-                      onChange={(e) => update(a.id, "useConsumable", e.target.checked)}
-                    />
-                    <span>Consumable(s)</span>
-                  </label>
-                  <label className="avatar-powers-toggle">
-                    <input
-                      type="checkbox"
-                      checked={d.usePassive}
-                      onChange={(e) => update(a.id, "usePassive", e.target.checked)}
-                    />
-                    <span>Passive</span>
-                  </label>
-                </div>
-              )}
+                <label className="avatar-powers-toggle">
+                  <input type="checkbox" checked={d.usePassive}
+                    onChange={(e) => update(a.id, "usePassive", e.target.checked)} />
+                  <span>Passive</span>
+                </label>
+              </div>
 
               {d.useConsumable && (
                 <>
@@ -11205,15 +11210,13 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
                       {simpleOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </label>
-                  {hasSpecial && (
-                    <label className="level-settings-field">
-                      <span className="level-settings-field-label">Special</span>
-                      <select value={d.special} onChange={(e) => update(a.id, "special", e.target.value)}>
-                        <option value="">—</option>
-                        {specialOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </label>
-                  )}
+                  <label className="level-settings-field">
+                    <span className="level-settings-field-label">Special</span>
+                    <select value={d.special} onChange={(e) => update(a.id, "special", e.target.value)}>
+                      <option value="">—</option>
+                      {specialOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </label>
                 </>
               )}
 
@@ -11226,17 +11229,24 @@ function AvatarPowersModal({ powersConfig, priceOverrides, onClose, onSave }) {
                       {passiveOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </label>
-                  {/* Issue #295 — optional 2nd ability, e.g. pairing a
-                      positive passive with a negative drawback. */}
-                  <label className="level-settings-field">
-                    <span className="level-settings-field-label">Ability 2 (optional)</span>
-                    <select value={d.passive2} onChange={(e) => update(a.id, "passive2", e.target.value)}>
-                      <option value="">—</option>
-                      {/* Issue #295 — hide whatever's already picked as Ability 1
-                          so the same passive can't be double-stacked by accident. */}
-                      {passiveOpts.filter((p) => p.id !== d.passive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </label>
+                  {passiveSlotCount >= 2 && (
+                    <label className="level-settings-field">
+                      <span className="level-settings-field-label">Ability 2 (optional)</span>
+                      <select value={d.passive2} onChange={(e) => update(a.id, "passive2", e.target.value)}>
+                        <option value="">—</option>
+                        {passiveOpts.filter((p) => p.id !== d.passive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {passiveSlotCount >= 3 && (
+                    <label className="level-settings-field">
+                      <span className="level-settings-field-label">Ability 3 (optional)</span>
+                      <select value={d.passive3} onChange={(e) => update(a.id, "passive3", e.target.value)}>
+                        <option value="">—</option>
+                        {passiveOpts.filter((p) => p.id !== d.passive && p.id !== d.passive2).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </label>
+                  )}
                 </>
               )}
 
@@ -14308,7 +14318,7 @@ function getDailyLoginBonusActive(profile, powersConfig) {
   ]);
   return [...unlocked].some(avatarId => {
     const assignment = (powersConfig || {})[avatarId];
-    return assignment?.passive === "daily_login_bonus" || assignment?.passive2 === "daily_login_bonus";
+    return assignment?.passive === "daily_login_bonus" || assignment?.passive2 === "daily_login_bonus" || assignment?.passive3 === "daily_login_bonus";
   });
 }
 
@@ -14792,7 +14802,7 @@ function PowerInfoTip({ desc }) {
 // filtering by hand (and risking the two falling out of sync later).
 function getActivePowersForActivity(profile, powersConfig, activity) {
   const assignment = getEquippedPowerAssignment(profile, powersConfig);
-  if (!assignment || (!assignment.simple && !assignment.special && !assignment.passive && !assignment.passive2)) {
+  if (!assignment || (!assignment.simple && !assignment.special && !assignment.passive && !assignment.passive2 && !assignment.passive3)) {
     return { assignment: null, consumableSlots: [], passivePowers: [], inapplicableSlots: [], inapplicablePassives: [] };
   }
   const relevant    = (power) => !activity || (power.appliesTo || []).includes(activity);
@@ -14811,11 +14821,11 @@ function getActivePowersForActivity(profile, powersConfig, activity) {
   // Issue #295 — up to 2 passives per avatar now (e.g. a positive bonus
   // paired with a negative drawback for balance); both render as their own
   // chip, same as before.
-  const passivePowers = ["passive", "passive2"]
+  const passivePowers = ["passive", "passive2", "passive3"]
     .filter((slot) => assignment[slot])
     .map((slot) => getPowerById(assignment[slot]))
     .filter((power) => power && relevant(power));
-  const inapplicablePassives = ["passive", "passive2"]
+  const inapplicablePassives = ["passive", "passive2", "passive3"]
     .filter((slot) => assignment[slot])
     .map((slot) => getPowerById(assignment[slot]))
     .filter((power) => power && inapplicable(power));
@@ -20893,7 +20903,7 @@ function scoreAvatarBonuses(avatarId, powersConfig) {
   const assignment = (powersConfig || {})[avatarId];
   if (!assignment) return 0;
   let total = 0;
-  for (const slot of ["passive", "passive2", "special", "simple"]) {
+  for (const slot of ["passive", "passive2", "passive3", "special", "simple"]) {
     const powerId = assignment[slot];
     if (!powerId) continue;
     const power = getPowerById(powerId);
@@ -24498,8 +24508,8 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
           onClose={() => { setDetailAvatar(null); setDetailActiveBoosts(null); }}
           isHearthbound={hbFeaturedIds.has(detailAvatar.avatar.id)}
           activeBoosts={detailActiveBoosts}
-          onActivatePower={async (slot) => {
-            const result = await activatePower(profile, powersConfig, slot);
+          onActivatePower={async (slot, avatarId) => {
+            const result = await activatePower(profile, powersConfig, slot, avatarId);
             if (result?.ok) setDetailActiveBoosts(await getActiveBoosts());
             return result;
           }}
@@ -24518,8 +24528,8 @@ function StoreScreen({ profile, coins, gachaTickets, catalogVersion = 0, priceOv
           onClose={() => { setDetailAvatar(null); setDetailActiveBoosts(null); }}
           isHearthbound={hbFeaturedIds.has(detailAvatar.avatar.id)}
           activeBoosts={detailActiveBoosts}
-          onActivatePower={async (slot) => {
-            const result = await activatePower(profile, powersConfig, slot);
+          onActivatePower={async (slot, avatarId) => {
+            const result = await activatePower(profile, powersConfig, slot, avatarId);
             if (result?.ok) setDetailActiveBoosts(await getActiveBoosts());
             return result;
           }}
@@ -24608,7 +24618,9 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
   const glowClass = rarity === "epic" ? " adm-star-epic" : rarity === "legendary" ? " adm-star-legendary" : "";
 
   const assignment = (powersConfig || {})[avatar.id] || null;
-  const slots = ["simple", "special", "passive", "passive2"].filter(s => assignment?.[s]);
+  const slots = ["simple", "special", "passive", "passive2", "passive3"].filter(s => assignment?.[s]);
+  // #920 — slots with activateWithoutEquip can be used even when cat is not equipped
+  const unequipSlots = slots.filter(s => getPowerById(assignment[s])?.activateWithoutEquip);
 
   // Collection rate — percentage of students who own this avatar
   const collectionPct = (roster && roster.length > 0)
@@ -24616,7 +24628,7 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
     : 0;
 
   // Derive Active Hours from the assigned passive window
-  const passiveSlots = slots.filter(s => (s === "passive" || s === "passive2") && assignment[s]);
+  const passiveSlots = slots.filter(s => (s === "passive" || s === "passive2" || s === "passive3") && assignment[s]);
   const passiveWindows = passiveSlots
     .map(s => getPowerById(assignment[s])?.window)
     .filter(Boolean)
@@ -24641,9 +24653,9 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
     setBuyMsg(result?.reason === "insufficient-coins" ? "Meowtongs ไม่พอนะ" : "ทำรายการไม่สำเร็จ — ลองใหม่อีกครั้ง");
   }
 
-  async function handleActivate(slot) {
+  async function handleActivate(slot, isUnequip = false) {
     if (!onActivatePower) return;
-    const result = await onActivatePower(slot);
+    const result = await onActivatePower(slot, isUnequip ? avatar.id : undefined);
     if (result?.ok) {
       setLocalBoosts(prev => ({ ...(prev || {}), [slot]: result.boost || true }));
       setActivateMsg(prev => ({ ...prev, [slot]: "เปิดใช้แล้ว!" }));
@@ -24733,12 +24745,19 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
             </div>
           </div>
 
-          {/* Activate Consumables — only when cat is equipped and has activatable powers */}
-          {selected && onActivatePower && slots.some(s => getPowerById(assignment[s])?.mechanic !== "passive") && (
+          {/* Activate Consumables — equipped powers + unequipped activateWithoutEquip powers */}
+          {onActivatePower && (
+            (selected && slots.some(s => getPowerById(assignment[s])?.mechanic !== "passive")) ||
+            unequipSlots.length > 0
+          ) && (
             <div className="adm-activate-section">
               <div className="adm-section-label"><span className="adm-section-icon">⏱</span> Activate Consumables</div>
               <div className="adm-activate-cards">
-                {slots.filter(s => getPowerById(assignment[s])?.mechanic !== "passive").map(slot => {
+                {/* Equipped activatable slots */}
+                {selected && slots.filter(s => {
+                  const p = getPowerById(assignment[s]);
+                  return p?.mechanic !== "passive" && !p?.activateWithoutEquip;
+                }).map(slot => {
                   const power = getPowerById(assignment[slot]);
                   if (!power) return null;
                   const boostActive = localBoosts?.[slot];
@@ -24757,6 +24776,30 @@ function AvatarDetailModal({ avatar, origin, owned, selected, price, coins, powe
                         <div className="adm-activate-card-btn adm-activate-card-active">✓ Active</div>
                       ) : (
                         <button className="adm-activate-card-btn" onClick={() => handleActivate(slot)}>Activate</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Unequipped activateWithoutEquip slots — usable from Collection even without equipping */}
+                {unequipSlots.map(slot => {
+                  const power = getPowerById(assignment[slot]);
+                  if (!power) return null;
+                  const boostActive = localBoosts?.[slot];
+                  return (
+                    <div key={`unequip-${slot}`} className="adm-activate-card">
+                      <div className="adm-activate-card-top">
+                        <span className="adm-activate-emoji">{admPowerEmoji(power.name)}</span>
+                        <div className="adm-activate-card-info">
+                          <span className="adm-activate-card-name">{admPowerName(power.name)}</span>
+                          <span className="adm-activate-card-uses">⏱ 1 USE · No equip needed</span>
+                        </div>
+                      </div>
+                      {activateMsg[slot] ? (
+                        <div className="adm-activate-feedback">{activateMsg[slot]}</div>
+                      ) : boostActive ? (
+                        <div className="adm-activate-card-btn adm-activate-card-active">✓ Active</div>
+                      ) : (
+                        <button className="adm-activate-card-btn" onClick={() => handleActivate(slot, true)}>Activate</button>
                       )}
                     </div>
                   );
@@ -24813,13 +24856,14 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
   const glowClass = rarity === "epic" ? " admd-star-epic" : rarity === "legendary" ? " admd-star-legendary" : "";
 
   const assignment = (powersConfig || {})[avatar.id] || null;
-  const slots = ["simple", "special", "passive", "passive2"].filter(s => assignment?.[s]);
+  const slots = ["simple", "special", "passive", "passive2", "passive3"].filter(s => assignment?.[s]);
+  const unequipSlots = slots.filter(s => getPowerById(assignment[s])?.activateWithoutEquip);
 
   const collectionPct = (roster && roster.length > 0)
     ? (roster.filter(s => (s.unlockedAvatars || []).includes(avatar.id)).length / roster.length) * 100
     : 0;
 
-  const passiveSlots = slots.filter(s => (s === "passive" || s === "passive2") && assignment[s]);
+  const passiveSlots = slots.filter(s => (s === "passive" || s === "passive2" || s === "passive3") && assignment[s]);
   const passiveWindows = passiveSlots
     .map(s => getPowerById(assignment[s])?.window)
     .filter(Boolean)
@@ -24844,9 +24888,9 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
     setBuyMsg(result?.reason === "insufficient-coins" ? "Meowtongs ไม่พอนะ" : "ทำรายการไม่สำเร็จ — ลองใหม่อีกครั้ง");
   }
 
-  async function handleActivate(slot) {
+  async function handleActivate(slot, isUnequip = false) {
     if (!onActivatePower) return;
-    const result = await onActivatePower(slot);
+    const result = await onActivatePower(slot, isUnequip ? avatar.id : undefined);
     if (result?.ok) {
       setLocalBoosts(prev => ({ ...(prev || {}), [slot]: result.boost || true }));
       setActivateMsg(prev => ({ ...prev, [slot]: "เปิดใช้แล้ว!" }));
@@ -24936,12 +24980,18 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
             </div>
           </div>
 
-          {/* Activate Consumables */}
-          {selected && onActivatePower && slots.some(s => getPowerById(assignment[s])?.mechanic !== "passive") && (
+          {/* Activate Consumables — equipped powers + unequipped activateWithoutEquip powers */}
+          {onActivatePower && (
+            (selected && slots.some(s => getPowerById(assignment[s])?.mechanic !== "passive")) ||
+            unequipSlots.length > 0
+          ) && (
             <div className="adm-activate-section">
               <div className="adm-section-label"><span className="adm-section-icon">⏱</span> Activate Consumables</div>
               <div className="adm-activate-cards">
-                {slots.filter(s => getPowerById(assignment[s])?.mechanic !== "passive").map(slot => {
+                {selected && slots.filter(s => {
+                  const p = getPowerById(assignment[s]);
+                  return p?.mechanic !== "passive" && !p?.activateWithoutEquip;
+                }).map(slot => {
                   const power = getPowerById(assignment[slot]);
                   if (!power) return null;
                   const boostActive = localBoosts?.[slot];
@@ -24960,6 +25010,29 @@ function AvatarDetailModalDesktop({ avatar, origin, owned, selected, price, coin
                         <div className="adm-activate-card-btn adm-activate-card-active">✓ Active</div>
                       ) : (
                         <button className="adm-activate-card-btn" onClick={() => handleActivate(slot)}>Activate</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {unequipSlots.map(slot => {
+                  const power = getPowerById(assignment[slot]);
+                  if (!power) return null;
+                  const boostActive = localBoosts?.[slot];
+                  return (
+                    <div key={`unequip-${slot}`} className="adm-activate-card">
+                      <div className="adm-activate-card-top">
+                        <span className="adm-activate-emoji">{admPowerEmoji(power.name)}</span>
+                        <div className="adm-activate-card-info">
+                          <span className="adm-activate-card-name">{admPowerName(power.name)}</span>
+                          <span className="adm-activate-card-uses">⏱ 1 USE · No equip needed</span>
+                        </div>
+                      </div>
+                      {activateMsg[slot] ? (
+                        <div className="adm-activate-feedback">{activateMsg[slot]}</div>
+                      ) : boostActive ? (
+                        <div className="adm-activate-card-btn adm-activate-card-active">✓ Active</div>
+                      ) : (
+                        <button className="adm-activate-card-btn" onClick={() => handleActivate(slot, true)}>Activate</button>
                       )}
                     </div>
                   );
