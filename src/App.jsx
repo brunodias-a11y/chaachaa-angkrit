@@ -8062,13 +8062,13 @@ export default function App() {
 // Login
 const LEVELS = ["Pre-A1","A1","A2","B1","B2","C1","C2"];
 const LEVEL_META = {
-  "Pre-A1": { subtitle: "เริ่มต้น A B C",         icon: "ก",  color: "#6B9E78" },
-  "A1":     { subtitle: "I'm fine and you?",      icon: "🙏", color: "#7B9EC0" },
-  "A2":     { subtitle: "ไม่อายแล้ว!",            icon: "🛺", color: "#C0A04A" },
-  "B1":     { subtitle: "อยากพูด English จัง",    icon: "🌴", color: "#8E7BC0" },
-  "B2":     { subtitle: "คุยได้ทุกที่",           icon: "🏙", color: "#C07B6B" },
-  "C1":     { subtitle: "เข้าใจวัฒนธรรมด้วย",    icon: "🎭", color: "#9E6BC0" },
-  "C2":     { subtitle: "ปราชญ์ English",         icon: "📜", color: "#C0A06B" },
+  "Pre-A1": { subtitle: "เริ่มต้น A B C",         subtitleEn: "Getting started",          icon: "🌱", color: "#6B9E78" },
+  "A1":     { subtitle: "I'm fine and you?",      subtitleEn: "Basic greetings",          icon: "🙏", color: "#7B9EC0" },
+  "A2":     { subtitle: "ไม่อายแล้ว!",            subtitleEn: "Everyday topics",          icon: "🛺", color: "#C0A04A" },
+  "B1":     { subtitle: "อยากพูด English จัง",    subtitleEn: "Conversational",           icon: "🌴", color: "#8E7BC0" },
+  "B2":     { subtitle: "คุยได้ทุกที่",           subtitleEn: "Fluent discussions",       icon: "🏙", color: "#C07B6B" },
+  "C1":     { subtitle: "เข้าใจวัฒนธรรมด้วย",    subtitleEn: "Cultural fluency",         icon: "🎭", color: "#9E6BC0" },
+  "C2":     { subtitle: "ปราชญ์ English",         subtitleEn: "Mastery",                  icon: "📜", color: "#C0A06B" },
 };
 const SHOW_ROMANIZATION_LEVELS = new Set(["Pre-A1","A1","A2","B1"]);
 
@@ -19500,7 +19500,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
                     </div>
                     <div className="tp-cefr-titles">
                       <div className="tp-cefr-level">{level}</div>
-                      <div className="tp-cefr-subtitle">{meta.subtitle}</div>
+                      <div className="tp-cefr-subtitle">{meta.subtitleEn || meta.subtitle}</div>
                     </div>
                     <div className="tp-cefr-count">
                       {panelStudents.length}
