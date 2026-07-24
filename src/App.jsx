@@ -6706,7 +6706,7 @@ export default function App() {
   }
 
   // Student account registration — called from the "Create Account" flow in LoginScreen
-  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false }) {
+  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false, matricula = "" }) {
     if (USE_SUPABASE) await authenticateAccount(username, pin);
     if (USE_SUPABASE) {
       localStorage.setItem("sb-last-user", username);
@@ -6723,6 +6723,7 @@ export default function App() {
       email: email.trim(),
       shareProgress,
       turmaCode: turmaCode || null,
+      matricula: matricula.trim() || null,
     };
     await storageSet(KEYS.profile, p, false);
     setProfile(p);
@@ -6736,7 +6737,9 @@ export default function App() {
         if (turma) {
           const alreadyIn = (turma.students || []).some(s => s.username === username);
           if (!alreadyIn) {
-            const updated = { ...turma, students: [...(turma.students || []), { username, fullName: fullName.trim(), joinedAt: Date.now(), shareProgress }] };
+            const studentEntry = { username, fullName: fullName.trim(), joinedAt: Date.now(), shareProgress };
+            if (matricula.trim()) studentEntry.matricula = matricula.trim();
+            const updated = { ...turma, students: [...(turma.students || []), studentEntry] };
             await saveTurma(updated);
           }
         }
@@ -8566,8 +8569,10 @@ function LoginScreen({ onLogin, onRegister }) {
   const [regView,        setRegView]        = useState("login"); // "login" | "register-ask" | "register-with-code" | "register-no-code"
   const [regTurmaCode,   setRegTurmaCode]   = useState("");
   const [regTurmaName,   setRegTurmaName]   = useState("");       // resolved from code
+  const [regTurmaIsSchool, setRegTurmaIsSchool] = useState(false);
   const [regTurmaError,  setRegTurmaError]  = useState("");
   const [regTurmaLoading, setRegTurmaLoading] = useState(false);
+  const [regMatricula,   setRegMatricula]   = useState("");
   const [regNickname,    setRegNickname]    = useState("");
   const [regFullName,    setRegFullName]    = useState("");
   const [regEmail,       setRegEmail]       = useState("");
@@ -8775,6 +8780,7 @@ function LoginScreen({ onLogin, onRegister }) {
                           const turma = await getTurma(regTurmaCode.trim());
                           if (!turma) { setRegTurmaError("Class code not found. Please check and try again."); return; }
                           setRegTurmaName(turma.name);
+                          setRegTurmaIsSchool(!!turma.isSchool);
                         } catch (_) { setRegTurmaError("Could not verify code. Please try again."); }
                         finally { setRegTurmaLoading(false); }
                       }}>
@@ -8786,9 +8792,19 @@ function LoginScreen({ onLogin, onRegister }) {
                     e.preventDefault();
                     if (regPin.length !== 4) { setRegError("PIN must be 4 digits."); return; }
                     if (!regNickname.trim()) { setRegError("Nickname is required."); return; }
+                    if (regTurmaIsSchool && !regMatricula.trim()) { setRegError("Student ID (Matrícula) is required."); return; }
+                    if (regTurmaIsSchool && regMatricula.trim()) {
+                      try {
+                        const turma = await getTurma(regTurmaCode.trim());
+                        if (turma?.students?.some(s => s.matricula === regMatricula.trim())) {
+                          setRegError("This student ID is already registered in this school. Please contact your teacher.");
+                          return;
+                        }
+                      } catch (_) {}
+                    }
                     setRegLoading(true); setRegError("");
                     try {
-                      await onRegister({ username: regNickname.trim(), pin: regPin, fullName: regFullName, turmaCode: regTurmaCode.trim(), shareProgress: regShare });
+                      await onRegister({ username: regNickname.trim(), pin: regPin, fullName: regFullName, turmaCode: regTurmaCode.trim(), shareProgress: regShare, matricula: regTurmaIsSchool ? regMatricula.trim() : "" });
                     } catch (e) { setRegError(e?.message || "Registration failed. This nickname may already be taken."); }
                     finally { setRegLoading(false); }
                   }}>
@@ -8803,6 +8819,13 @@ function LoginScreen({ onLogin, onRegister }) {
                       <input className="login-input reg-input" placeholder="Your real name (visible to teacher)"
                         value={regFullName} onChange={e => setRegFullName(e.target.value)} maxLength={80} />
                     </div>
+                    {regTurmaIsSchool && (
+                      <div className="reg-field-group">
+                        <label className="reg-label">Matrícula <span className="reg-required">*</span></label>
+                        <input className="login-input reg-input" placeholder="Your student ID number"
+                          value={regMatricula} onChange={e => { setRegMatricula(e.target.value); setRegError(""); }} maxLength={30} />
+                      </div>
+                    )}
                     <div className="reg-field-group">
                       <label className="reg-label">School / Group</label>
                       <input className="login-input reg-input" value={regTurmaName} disabled />
@@ -26434,6 +26457,7 @@ html, body {
 .reg-form { display: flex; flex-direction: column; gap: 14px; }
 .reg-field-group { display: flex; flex-direction: column; gap: 6px; }
 .reg-label { font-size: 11px; font-weight: 700; color: rgba(245,239,230,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
+.reg-required { color: #f87171; font-size: 13px; }
 .reg-input { width: 100%; }
 .reg-school-badge { background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.4); border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 600; color: #c4b5fd; margin-bottom: 4px; }
 .reg-share-row { background: rgba(245,239,230,0.04); border-radius: 10px; padding: 12px 14px; }
