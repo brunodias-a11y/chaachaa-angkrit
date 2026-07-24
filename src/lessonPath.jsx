@@ -2630,7 +2630,7 @@ function LessonNode({ lesson, status, xPct, onOpen, peers = [], avatarCatalog = 
       <button
         ref={nodeButtonRef}
         className={`lp-node lp-node-${isCodeLocked ? "locked" : status}${isAvailable ? " lp-node-pulse" : ""}`}
-        onClick={() => !isLocked && !isEnergyLocked && !isTeacherLocked && !isCodeLocked && onOpen?.(lesson)}
+        onClick={e => !isLocked && !isEnergyLocked && !isTeacherLocked && !isCodeLocked && onOpen?.(lesson, e.currentTarget.getBoundingClientRect())}
         disabled={isLocked || isEnergyLocked || isTeacherLocked || isCodeLocked}
         aria-label={lesson.title}
         title={isCodeLocked ? "Complete the current level to unlock." : isEnergyLocked ? `Not enough energy — ${energyTimeLabel}` : isTeacherLocked ? "This lesson is locked by your teacher." : lesson.title}
@@ -2734,6 +2734,7 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
   const nodeButtonRefs = useRef([]);
   const [svgPoints, setSvgPoints] = useState([]);
   const [svgHeight, setSvgHeight] = useState(0);
+  const hasScrolledRef = useRef(false);
 
   // #795 — cat walk animation between nodes
   const [catWalk, setCatWalk] = useState(null); // null | { x, y, toX, toY, goingLeft, arrived }
@@ -2816,6 +2817,19 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
     pendingWalkRef.current = null;
     return _fireCatWalk(fromIdx, toIdx, svgPoints);
   }, [walkEnabled, svgPoints]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // #903 — scroll to current node on first open of the path screen
+  useEffect(() => {
+    if (hasScrolledRef.current) return;
+    if (currentNodeIndex == null || !svgPoints.length) return;
+    const pt = svgPoints[currentNodeIndex];
+    if (!pt) return;
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    hasScrolledRef.current = true;
+    const top = pt.y - scrollEl.clientHeight / 2;
+    scrollEl.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  }, [svgPoints, currentNodeIndex]);
 
   useLayoutEffect(() => {
     const scrollEl = scrollRef.current;

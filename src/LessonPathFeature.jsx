@@ -29,9 +29,29 @@ import { spendS0Energy, getS0Energy, addS0Energy, S0_ENERGY_MAX, getProgressiveE
 // ---------------------------------------------------------------------------
 // EnergyInsufficientModal — #801
 // ---------------------------------------------------------------------------
-function EnergyInsufficientModal({ energy, energyMax, needed, waitStr, powers = [], onActivate, onClose }) {
+function EnergyInsufficientModal({ energy, energyMax, needed, waitStr, powers = [], nodeRect, onActivate, onClose }) {
   const [activating, setActivating] = React.useState(null);
+  const cardRef = React.useRef(null);
+  const [cardPos, setCardPos] = React.useState(null);
+
+  React.useLayoutEffect(() => {
+    if (!nodeRect || !cardRef.current) return;
+    const card = cardRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 12;
+    let top = nodeRect.top - card.height - gap;
+    if (top < 8) top = nodeRect.bottom + gap;
+    top = Math.max(8, Math.min(top, vh - card.height - 8));
+    let left = nodeRect.left + nodeRect.width / 2 - card.width / 2;
+    left = Math.max(8, Math.min(left, vw - card.width - 8));
+    setCardPos({ top, left });
+  }, [nodeRect]);
+
   const barPct = Math.round((energy / Math.max(energyMax, 1)) * 100);
+  const cardStyle = cardPos
+    ? { position: "absolute", top: cardPos.top, left: cardPos.left }
+    : { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
 
   function parsePowerEmoji(name) {
     const m = name.match(/^([\p{Emoji_Presentation}\p{Extended_Pictographic}]+)/u);
@@ -43,8 +63,8 @@ function EnergyInsufficientModal({ energy, energyMax, needed, waitStr, powers = 
   }
 
   return (
-    <div className="ach-moment-overlay" onClick={onClose}>
-      <div className="eim-card" onClick={e => e.stopPropagation()}>
+    <div className="eim-overlay" onClick={onClose}>
+      <div ref={cardRef} className="eim-card" style={{ ...cardStyle, opacity: cardPos || !nodeRect ? 1 : 0, transition: "opacity 0.1s" }} onClick={e => e.stopPropagation()}>
         <button className="eim-close" onClick={onClose} aria-label="Close">✕</button>
 
         <div className="eim-header">
@@ -474,7 +494,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           energyVersion={energyVersion}
           energyMax={S0_ENERGY_MAX + (catSkillEffects.energyMaxBonus || 0)}
           walkEnabled={walkEnabled && !activeLessonPlayer}
-          onOpenLesson={teacher ? null : async (lesson) => {
+          onOpenLesson={teacher ? null : async (lesson, nodeRect) => {
             let effects = { removeWrongOption: false };
             try { effects = (await onGetCatSkillEffects?.()) ?? effects; } catch (_) {}
             setCatSkillEffects(effects);
@@ -503,7 +523,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
                 const min = totalMin % 60;
                 const waitStr = hrs > 0 ? `${hrs}h ${min}min` : `${min}min`;
                 const powers = onGetEnergyPowers ? await onGetEnergyPowers().catch(() => []) : [];
-                setEnergyModal({ energy: energy ?? 0, energyMax, needed: effectiveNeeded, waitStr, powers });
+                setEnergyModal({ energy: energy ?? 0, energyMax, needed: effectiveNeeded, waitStr, powers, nodeRect });
                 return;
               }
             }
@@ -586,6 +606,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           needed={energyModal.needed}
           waitStr={energyModal.waitStr}
           powers={energyModal.powers}
+          nodeRect={energyModal.nodeRect}
           onActivate={async (slot) => {
             if (!onActivateEnergyPower) return;
             const result = await onActivateEnergyPower(slot).catch(() => ({ ok: false }));

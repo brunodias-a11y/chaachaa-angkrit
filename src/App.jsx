@@ -4594,136 +4594,97 @@ async function fetchWithTimeout(url, ms, init) {
 // Everything else (actions, relations, abstract words) rarely has one universal photo and
 // keyword search tends to return nonsensical matches (chemistry diagrams, unrelated screenshots) —
 // an AI illustration depicting the concept works better for these.
-const PHOTO_FIRST_POS = new Set(["noun", "adjective", "classifier", "numeral"]);
-
-// Terms to exclude from Wikimedia Commons searches to steer away from clinical/technical
-// diagrams that dominate Commons for many common words (e.g. "eye" -> anatomy diagrams).
-const WIKI_EXCLUDE_TERMS = "-diagram -anatomy -chart -map -structure -schematic -chemical -molecule -formula";
-
-function buildAIImagePrompt(englishWord, pos) {
-  if (PHOTO_FIRST_POS.has(pos)) {
-    return `a clear, simple real-world photo of ${englishWord}, minimal background, no text, no diagram`;
+function buildCseQuery(englishWord, pos) {
+  if (pos === "noun" || pos === "classifier" || pos === "numeral") {
+    return `"${englishWord}" photo`;
   }
-  return `a simple flat illustration depicting the concept or action of "${englishWord}", showing it visually as a scene, minimal style, no text, no diagram`;
+  if (pos === "adjective") {
+    return `${englishWord} example photo`;
+  }
+  if (pos === "verb") {
+    return `person ${englishWord}ing photo`;
+  }
+  return `${englishWord} concept photo`;
 }
 
-async function searchWikimedia(englishWord) {
+// Terms to exclude from Wikimedia Commons searches — steers away from clinical/
+// technical diagrams that dominate Commons for many words (e.g. "eye" → anatomy).
+const WIKI_EXCLUDE = "-diagram -anatomy -chart -map -structure -schematic -chemical -molecule -formula -screenshot";
+
+async function searchGoogleCSE(englishWord, pos) {
   try {
-    const query = encodeURIComponent(`${englishWord} ${WIKI_EXCLUDE_TERMS}`);
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${query}&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
-    const res = await fetchWithTimeout(url, 5000);
+    const q = encodeURIComponent(buildCseQuery(englishWord, pos));
+    const res = await fetchWithTimeout(`/api/image-search?q=${q}&n=1`, 8000);
+    if (!res.ok) return null;
     const data = await res.json();
-    const pages = data?.query?.pages;
-    if (pages) {
-      const firstPage = Object.values(pages)[0];
-      return firstPage?.imageinfo?.[0]?.thumburl || null;
-    }
-  } catch { /* network error, timeout, or no match */ }
-  return null;
+    return data?.results?.[0]?.url || null;
+  } catch { return null; }
 }
 
 async function searchOpenverse(englishWord) {
   try {
     const q = encodeURIComponent(englishWord);
-    const res = await fetchWithTimeout(`https://api.openverse.org/v1/images/?q=${q}&page_size=1&mature=false`, 5000);
+    const res = await fetchWithTimeout(
+      `https://api.openverse.org/v1/images/?q=${q}&page_size=3&mature=false&license_type=commercial,modification`,
+      6000
+    );
+    if (!res.ok) return null;
     const data = await res.json();
-    return data?.results?.[0]?.thumbnail || data?.results?.[0]?.url || null;
-  } catch { /* network error, timeout, or no match */ }
-  return null;
+    const result = (data?.results || []).find(r => {
+      const url = r.thumbnail || r.url || "";
+      return url.startsWith("http") && !url.endsWith(".svg");
+    });
+    return result?.thumbnail || result?.url || null;
+  } catch { return null; }
 }
 
-// Pollinations.ai rate limiter — max 1 concurrent request + 2s spacing between
-// requests to avoid 429 "Too Many Requests" errors. The free tier is aggressive
-// about rate limiting; without throttling, loading a practice session with 4+
-// image-type exercises floods the API and all images fail.
-let _pollinationsQueue = Promise.resolve();
-let _lastPollinationsTs = 0;
-const POLLINATIONS_MIN_GAP = 2000; // ms between requests
-
-function _pollinationsThrottle(fn) {
-  _pollinationsQueue = _pollinationsQueue.then(async () => {
-    const now = Date.now();
-    const wait = Math.max(0, _lastPollinationsTs + POLLINATIONS_MIN_GAP - now);
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
-    _lastPollinationsTs = Date.now();
-    return fn();
-  }).catch(() => fn()); // if previous failed, still proceed
-  return _pollinationsQueue;
+async function searchWikimedia(englishWord) {
+  try {
+    const query = encodeURIComponent(`${englishWord} ${WIKI_EXCLUDE}`);
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${query}&gsrnamespace=6&gsrlimit=3&prop=imageinfo&iiprop=url|mime&iiurlwidth=400&format=json&origin=*`;
+    const res = await fetchWithTimeout(url, 6000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = Object.values(data?.query?.pages || {});
+    const imgPage = pages.find(p => {
+      const mime = p?.imageinfo?.[0]?.mime || "";
+      return mime.startsWith("image/") && !mime.includes("svg");
+    });
+    return imgPage?.imageinfo?.[0]?.thumburl || null;
+  } catch { return null; }
 }
 
-async function generateAIImage(englishWord, pos) {
-  const seed = simpleHash(englishWord);
-  const prompt = encodeURIComponent(buildAIImagePrompt(englishWord, pos));
-  const genUrl = `https://image.pollinations.ai/prompt/${prompt}?width=300&height=300&seed=${seed}&nologo=true`;
-
-  // Try up to 2 times with backoff on 429
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await _pollinationsThrottle(() => fetchWithTimeout(genUrl, 12000));
-      if (res.status === 429) {
-        // Rate limited — wait longer before retry
-        if (attempt < 1) {
-          await new Promise(r => setTimeout(r, 3000));
-          continue;
-        }
-        return null;
-      }
-      const ct = res.headers.get("content-type") || "";
-      if (res.ok && ct.startsWith("image/")) return genUrl;
-    } catch { /* generation failed/timed out */ }
-    if (attempt < 1) await new Promise(r => setTimeout(r, 1000));
-  }
-  return null;
-}
-
-// Fetch a representative image for a word. Source ORDER depends on grammatical class:
-//   Concrete words (noun/adjective/classifier/numeral): Openverse -> Wikimedia -> AI
-//     (real photos make sense here; Openverse's curated photo relevance beats raw
-//     Commons keyword search, which surfaces clinical/technical diagrams too often)
-//   Action/abstract words (verb/adverb/preposition/conjunction/interjection/particle/pronoun):
-//     AI -> Openverse -> Wikimedia
-//     (there's no one universal photo for "to follow" or "according to" — an AI
-//     illustration of the concept beats a random unrelated stock photo)
-// Same 3-layer cache as generateSpelling: localStorage → Supabase shared_kv → live fetch.
-// AI results are verified (status + content-type) before caching, since Pollinations.ai
-// can be flaky — failures are NOT cached as permanent "NONE", so a later flip can retry.
+// Fetch a representative image for a word.
+// Source order (all POS): Google CSE → Openverse → Wikimedia
+// Cache: localStorage (instant repeat) → Supabase shared_kv (cross-user).
+// Cache key bumped to v4 — Pollinations removed, CSE added, query strategies revised.
 async function fetchWordImage(englishWord, wordId, pos) {
-  // v3: cache key bumped — new POS-aware source ordering + Wikimedia diagram filtering
-  // means previously "NONE" or "wrong/technical image" words deserve a fresh attempt.
-  const lsKey = `img_v3_${wordId}`;
-  const dbKey = `img_v3_${wordId}`;
+  const lsKey = `img_v4_${wordId}`;
+  const dbKey = `img_v4_${wordId}`;
 
   // 1. localStorage — instant, same user repeat visit
   const lsCached = localStorage.getItem(lsKey);
   if (lsCached) return lsCached === "NONE" ? null : lsCached;
 
-  // 2. Supabase shared_kv — any student/teacher who already triggered this word
+  // 2. Supabase shared_kv — any student/teacher who already resolved this word
   try {
     const dbVal = await storageGet(dbKey, true);
     if (dbVal && typeof dbVal === "string") {
       localStorage.setItem(lsKey, dbVal);
       return dbVal === "NONE" ? null : dbVal;
     }
-  } catch { /* shared_kv not available yet — continue to fetch */ }
+  } catch { /* shared_kv unavailable — proceed to live fetch */ }
 
-  let imgUrl = null;
+  // 3. Live fetch: CSE → Openverse → Wikimedia
+  let imgUrl = await searchGoogleCSE(englishWord, pos);
+  if (!imgUrl) imgUrl = await searchOpenverse(englishWord);
+  if (!imgUrl) imgUrl = await searchWikimedia(englishWord);
 
-  if (PHOTO_FIRST_POS.has(pos)) {
-    imgUrl = await searchOpenverse(englishWord);
-    if (!imgUrl) imgUrl = await searchWikimedia(englishWord);
-    if (!imgUrl) imgUrl = await generateAIImage(englishWord, pos);
-  } else {
-    imgUrl = await generateAIImage(englishWord, pos);
-    if (!imgUrl) imgUrl = await searchOpenverse(englishWord);
-    if (!imgUrl) imgUrl = await searchWikimedia(englishWord);
-  }
+  // Cache result (or "NONE" sentinel so we don't re-fetch a known miss)
+  const toCache = imgUrl || "NONE";
+  localStorage.setItem(lsKey, toCache);
+  storageSet(dbKey, toCache, true).catch(() => {});
 
-  // Only permanently cache "NONE" if every source missed this attempt — since the AI
-  // tier can be flaky, a later flip is still allowed to retry rather than being stuck.
-  if (imgUrl) {
-    localStorage.setItem(lsKey, imgUrl);
-    storageSet(dbKey, imgUrl, true).catch(() => {});
-  }
   return imgUrl;
 }
 
@@ -8632,6 +8593,8 @@ const TOUR_STEPS = [
   { tab: "progress", selector: "[data-tour='streak-pill']",       title: "Your Streak 🔥",             desc: "Every consecutive day you practice adds to your streak. The longer it runs, the bigger the bonuses — and some monthly cats require a streak milestone to unlock!" },
   { tab: "progress", selector: "[data-tour='weekly-card']",       title: "Weekly Challenges 🏆",       desc: "Three challenges set by your teacher each week. Complete all three and earn a bonus reward!",
     sideEffect: () => document.dispatchEvent(new CustomEvent("tour-wc-tab", { detail: "challenges" })) },
+  { tab: "progress", selector: ".mr-root",                        title: "My Results 📋",              desc: "A deeper look at your personal performance — skill tiles for Listening, Vocabulary, Writing, and Speaking, a vocabulary summary, your weekly study time, and a full activity feed.",
+    sideEffect: () => document.dispatchEvent(new CustomEvent("tour-progress-tab", { detail: "myresults" })) },
   { tab: "store",    selector: ".sch-cotm-card",                  title: "Cat of the Month 🗓️",       desc: "Every month a Legendary cat is up for grabs. Hit the streak goal and complete the weekly challenge to unlock it. The clock resets on the 1st!" },
   { tab: "store",    selector: ".sanctuary-col-left",             title: "Your Collection 🐱",         desc: "All the cats you've unlocked so far. Tap any cat to see its skills and set it as your avatar — each one has a unique power!" },
   { tab: "store",    selector: ".sanctuary-feed-group",           title: "Activity Feed 💰",            desc: "Every Meowtong earned or spent appears here — practice sessions, missions, achievements. Your personal transaction log." },
@@ -20297,6 +20260,12 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
     document.addEventListener("tour-wc-tab", handler);
     return () => document.removeEventListener("tour-wc-tab", handler);
   }, []);
+  // #905 — tour can switch progress sub-tab
+  useEffect(() => {
+    const handler = (e) => { if (e.detail === "myresults") setPTab("my-results"); };
+    document.addEventListener("tour-progress-tab", handler);
+    return () => document.removeEventListener("tour-progress-tab", handler);
+  }, []);
   const weekKey        = useMemo(() => getCurrentWeekKey(), []);
   const weekChallenges = useMemo(() => getWeekChallenges(weekKey), [weekKey]);
   const wcDoneSet      = useMemo(() => new Set(weeklyDone), [weeklyDone]);
@@ -20745,7 +20714,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
 
       {/* ══════════════════ MY RESULTS TAB ══════════════════ */}
       {pTab === "my-results" && (
-        <div className="mr-grid">
+        <div className="mr-root"><div className="mr-grid">
           {/* ── Left column: Skills Overview + Weekly Activity ── */}
           <div className="mr-col">
             <div className="mr-card">
@@ -20821,7 +20790,7 @@ function ProgressScreen({ profile, words, progMap, streak, sessionsCompleted, st
           <div className="mr-col">
             <ActivityFeed events={ownEvents} fmt={fmt} />
           </div>
-        </div>
+        </div></div>
       )}
 
       {/* ══════════════════ ACHIEVEMENTS TAB ══════════════════ */}
@@ -28024,7 +27993,7 @@ select.modal-input { appearance: none; }
 /* #798 — redesigned AvatarDetailModal */
 .adm-root {
   display: flex; flex-direction: column;
-  width: min(96vw, 700px); max-height: 90vh;
+  width: min(96vw, 700px); height: 82vh;
   border-radius: 18px; overflow: hidden;
   background: var(--card);
   box-shadow: 0 24px 64px rgba(0,0,0,.55);
@@ -30501,17 +30470,21 @@ select.modal-input { appearance: none; }
 }
 
 /* #801 — EnergyInsufficientModal */
+.eim-overlay {
+  position: fixed; inset: 0; z-index: 9500;
+  background: rgba(10,12,28,0.5);
+}
 .eim-card {
   background: #181028;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 20px;
   padding: 28px 24px 24px;
-  width: min(400px, 92vw);
-  position: relative;
+  width: min(380px, calc(100vw - 16px));
+  position: absolute;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  box-shadow: 0 8px 40px rgba(0,0,0,.7);
 }
 .eim-close {
   position: absolute;
@@ -31369,6 +31342,7 @@ select.modal-input { appearance: none; }
 }
 
 /* ══════════════════ MY RESULTS TAB ══════════════════ */
+.mr-root { display: contents; }
 .mr-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-areas: "left center right"; gap: 14px; padding: 16px 20px 24px; align-items: start; }
 .mr-col { display: flex; flex-direction: column; gap: 14px; }
 .mr-center-col { grid-area: center; }
