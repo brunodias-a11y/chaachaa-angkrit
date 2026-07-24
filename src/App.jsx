@@ -6741,8 +6741,25 @@ export default function App() {
     setProfile(updated);
   }
 
-  // Student account registration — called from the "Create Account" flow in LoginScreen
-  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false, matricula = "" }) {
+  // Account registration — called from the "Create Account" flow in LoginScreen
+  async function handleRegister({ username, pin, fullName = "", email = "", turmaCode = "", shareProgress = false, matricula = "", role: requestedRole = "student", teacherInviteCode = "" }) {
+    // Teacher registration via Dean-generated invite code
+    if (requestedRole === "teacher") {
+      const invite = await getTeacherInvite(teacherInviteCode).catch(() => null);
+      if (!invite) throw new Error("Invite code not found. Please check and try again.");
+      if (invite.usedAt) throw new Error("This invite code has already been used.");
+      if (USE_SUPABASE) await authenticateAccount(username, pin);
+      if (USE_SUPABASE) { localStorage.setItem("sb-last-user", username); await ensureStudentProfile(username); }
+      await saveTeacherInvite({ ...invite, usedAt: Date.now(), usedBy: username });
+      // Best-effort Supabase role claim
+      await claimTeacherRole(teacherInviteCode).catch(() => {});
+      const p = { username, role: "teacher", createdAt: Date.now(), avatar: DEFAULT_AVATAR_ID, unlockedAvatars: [] };
+      await storageSet(KEYS.profile, p, false);
+      setProfile(p);
+      goToTab("teacher");
+      return;
+    }
+
     if (USE_SUPABASE) await authenticateAccount(username, pin);
     if (USE_SUPABASE) {
       localStorage.setItem("sb-last-user", username);
@@ -8590,7 +8607,7 @@ function LoginScreen({ onLogin, onRegister }) {
   const [lastSnap,       setLastSnap]       = useState(null);
 
   // Registration flow state
-  const [regView,        setRegView]        = useState("login"); // "login" | "register-ask" | "register-with-code" | "register-no-code"
+  const [regView,        setRegView]        = useState("login"); // "login" | "register-ask" | "register-with-code" | "register-no-code" | "register-teacher"
   const [regTurmaCode,   setRegTurmaCode]   = useState("");
   const [regTurmaName,   setRegTurmaName]   = useState("");       // resolved from code
   const [regTurmaIsSchool, setRegTurmaIsSchool] = useState(false);
@@ -8605,6 +8622,12 @@ function LoginScreen({ onLogin, onRegister }) {
   const [regShare,       setRegShare]       = useState(false);
   const [regLoading,     setRegLoading]     = useState(false);
   const [regError,       setRegError]       = useState("");
+  const [regTchNickname, setRegTchNickname] = useState("");
+  const [regTchPin,      setRegTchPin]      = useState("");
+  const [regTchShowPin,  setRegTchShowPin]  = useState(false);
+  const [regTchCode,     setRegTchCode]     = useState("");
+  const [regTchLoading,  setRegTchLoading]  = useState(false);
+  const [regTchError,    setRegTchError]    = useState("");
 
   // #583 — ler snapshot local para saudação contextual e pré-preenchimento
   useEffect(() => {
@@ -8729,23 +8752,18 @@ function LoginScreen({ onLogin, onRegister }) {
             </>
           )}
 
-          {!showTeacher && (
+          {!showTeacher && onRegister && (
             <>
               <div className="login-or-row"><span className="login-or-line"/><span className="login-or-text">or</span><span className="login-or-line"/></div>
               <button
                 type="button"
                 className="login-teacher-btn"
-                onClick={() => { setShowTeacher(true); setTeacherCode(""); }}
+                onClick={() => setRegView("register-teacher")}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.657 2.686 3 6 3s6-1.343 6-3v-5"/></svg>
                 I am a teacher
               </button>
             </>
-          )}
-          {showTeacher && (
-            <button type="button" className="teacher-toggle" onClick={() => { setShowTeacher(false); setTeacherCode(""); }}>
-              ← กลับไปหน้านักเรียน
-            </button>
           )}
 
           {/* #518 — forgot PIN link */}
@@ -8763,7 +8781,7 @@ function LoginScreen({ onLogin, onRegister }) {
       {regView !== "login" && (
         <div className="reg-overlay">
           <div className="reg-card">
-            <button className="reg-back-btn" onClick={() => { setRegView("login"); setRegTurmaCode(""); setRegTurmaName(""); setRegTurmaError(""); setRegError(""); }}>
+            <button className="reg-back-btn" onClick={() => { setRegView("login"); setRegTurmaCode(""); setRegTurmaName(""); setRegTurmaError(""); setRegError(""); setRegTchNickname(""); setRegTchPin(""); setRegTchCode(""); setRegTchError(""); }}>
               ← Back to Login
             </button>
 
@@ -8933,6 +8951,55 @@ function LoginScreen({ onLogin, onRegister }) {
                   {regError && <p className="login-error">{regError}</p>}
                   <button type="submit" className="login-btn" disabled={regLoading || !regNickname.trim() || regPin.length !== 4}>
                     {regLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Create Account <span className="login-btn-star">✦</span></>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* ── Teacher registration ── */}
+            {regView === "register-teacher" && (
+              <div className="reg-step">
+                <div className="reg-step-title">Teacher Account</div>
+                <div className="reg-step-sub">Enter your invite code from your Dean to get started</div>
+                <form className="reg-form" onSubmit={async e => {
+                  e.preventDefault();
+                  if (!regTchNickname.trim()) { setRegTchError("Nickname is required."); return; }
+                  if (regTchPin.length !== 4)  { setRegTchError("PIN must be 4 digits."); return; }
+                  if (!regTchCode.trim().startsWith("TCH-")) { setRegTchError("Invalid invite code. Must start with TCH-"); return; }
+                  setRegTchLoading(true); setRegTchError("");
+                  try {
+                    await onRegister({ username: regTchNickname.trim(), pin: regTchPin, role: "teacher", teacherInviteCode: regTchCode.trim() });
+                  } catch (err) { setRegTchError(err?.message || "Registration failed. Nickname may already be taken."); }
+                  finally { setRegTchLoading(false); }
+                }}>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Nickname</label>
+                    <input className="login-input reg-input" placeholder="Your name in the app"
+                      value={regTchNickname} onChange={e => { setRegTchNickname(e.target.value); setRegTchError(""); }} autoFocus maxLength={32} />
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Choose a PIN</label>
+                    <div className="login-input-wrap" style={{ margin: 0 }}>
+                      <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                      <input className="login-input" placeholder="4-digit PIN" type={regTchShowPin ? "text" : "password"}
+                        inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                        value={regTchPin} onChange={e => { setRegTchPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setRegTchError(""); }}
+                        autoComplete="new-password" />
+                      <button type="button" className="login-pin-eye" onClick={() => setRegTchShowPin(v => !v)} tabIndex={-1}>
+                        {regTchShowPin
+                          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="reg-field-group">
+                    <label className="reg-label">Invite Code <span className="reg-required">*</span></label>
+                    <input className="login-input reg-input" placeholder="TCH-XXXXXX"
+                      value={regTchCode} onChange={e => { setRegTchCode(e.target.value.toUpperCase()); setRegTchError(""); }} maxLength={10} />
+                  </div>
+                  {regTchError && <p className="login-error">{regTchError}</p>}
+                  <button type="submit" className="login-btn" disabled={regTchLoading || !regTchNickname.trim() || regTchPin.length !== 4 || !regTchCode.trim()}>
+                    {regTchLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Create Teacher Account <span className="login-btn-star">✦</span></>}
                   </button>
                 </form>
               </div>
