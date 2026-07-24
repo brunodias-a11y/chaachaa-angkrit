@@ -237,6 +237,7 @@ function resolveCodeLevel(code, metaMap = {}) {
 }
 const ACTIVITY_LOG_KEY        = "activity-log";          // personal: array of ISO date strings (one per practice session day) — #502
 const ONBOARDING_KEY          = "onboarding-done";        // personal: true after first-visit tour completes — #508
+const TEACHER_ONBOARDING_KEY  = "teacher-onboarding-done"; // personal: true after teacher tour completes
 const VISITED_EVENTS_KEY      = "visited-tab-events";     // personal: true after first manual visit to Events tab — #556
 const VISITED_PROGRESS_KEY    = "visited-tab-progress";   // personal: true after first manual visit to Progress tab — #557
 const EVENT_POPUP_DATE_KEY    = "event-popup-date";        // personal: "YYYY-MM-DD" of last shown event popup — #559
@@ -5051,6 +5052,8 @@ export default function App() {
   const [tourTargetRect,    setTourTargetRect]    = useState(null);
   const [tourResumed,       setTourResumed]       = useState(false); // #728 — true on first step of a resumed tour
   const [tourLang,          setTourLang]          = useState("th");  // "th" | "en" — set at step 0
+  const [teacherTourStep,   setTeacherTourStep]   = useState(null);
+  const [teacherTourRect,   setTeacherTourRect]   = useState(null);
   const [onboardingMeta,    setOnboardingMeta]    = useState(null);
   const [visitedEventsTab,     setVisitedEventsTab]     = useState(false);
   const [visitedProgressTab,   setVisitedProgressTab]   = useState(false);
@@ -5371,6 +5374,37 @@ export default function App() {
       } catch (_) {}
     })();
   }, [loaded, profile?.username]); // eslint-disable-line
+
+  // teacher tour — start on first teacher login
+  useEffect(() => {
+    if (!profile?.username || !teacher) return;
+    storageGet(TEACHER_ONBOARDING_KEY, false).then(done => {
+      if (!done) setTeacherTourStep(0);
+    });
+  }, [profile?.username]); // eslint-disable-line
+
+  // teacher tour — measure spotlight target when step changes
+  useEffect(() => {
+    if (teacherTourStep === null) return;
+    const s = TEACHER_TOUR_STEPS[teacherTourStep];
+    s.sideEffect?.();
+    const timer = setTimeout(() => {
+      if (!s.selector) { setTeacherTourRect(null); return; }
+      const el = document.querySelector(s.selector);
+      setTeacherTourRect(el ? el.getBoundingClientRect() : null);
+    }, 380);
+    return () => clearTimeout(timer);
+  }, [teacherTourStep]); // eslint-disable-line
+
+  function finishTeacherTour() {
+    setTeacherTourStep(null);
+    setTeacherTourRect(null);
+    storageSet(TEACHER_ONBOARDING_KEY, true, false).catch(() => {});
+  }
+  function handleTeacherTourNext() {
+    if (teacherTourStep >= TEACHER_TOUR_STEPS.length - 1) { finishTeacherTour(); return; }
+    setTeacherTourStep(s => s + 1);
+  }
 
   // #508 — navigate to correct tab and measure spotlight target when step changes
   useEffect(() => {
@@ -7856,7 +7890,7 @@ export default function App() {
         {teacher && <TabButton icon={Home} label="Home" active={tab === "teacher"} onClick={() => goToTab("teacher")} badge={teacherLevelUpUnseen} />}
         {(dean || words.length >= 1) && <TabButton icon={Eye} label="My Vocab" active={tab === "study"} onClick={() => goToTab("study")} />}
         {!teacher && words.length >= 30 && <TabButton icon={GraduationCap} label="Practice" active={tab === "practice"} onClick={() => goToTab("practice")} data-tour="nav-practice" />}
-        {teacher && <TabButton icon={BookOpen} label="Lessons" active={tab === "lessons"} onClick={() => goToTab("lessons")} />}
+        {teacher && <TabButton icon={BookOpen} label="Lessons" active={tab === "lessons"} onClick={() => goToTab("lessons")} data-tour-t="nav-lessons" />}
         {/* Path — students and deans; plain teachers don't have Path tab */}
         {(!teacher || dean || hasPathLessons !== 0) && (
           <TabButton icon={PathTabIcon} label="Path" active={tab === "path"} onClick={() => { lpRef.current?.loadPathData(dean ? appClassCodes?.[0]?.code : enabledClassCodes?.[0]); goToTab("path"); }} data-tour="nav-path" />
@@ -7886,6 +7920,17 @@ export default function App() {
           resumed={tourResumed}
           tourLang={tourLang}
           onSetLang={setTourLang}
+        />
+      )}
+
+      {/* teacher onboarding tour */}
+      {teacherTourStep !== null && (
+        <OnboardingTour
+          step={teacherTourStep}
+          onNext={handleTeacherTourNext}
+          onSkip={finishTeacherTour}
+          targetRect={teacherTourRect}
+          teacherMode
         />
       )}
 
@@ -9193,6 +9238,39 @@ function LoginScreen({ onLogin, onRegister }) {
 // ---------------------------------------------------------------------------
 // #508 — Onboarding Tour
 // ---------------------------------------------------------------------------
+// Teacher onboarding tour — English only, no lang picker
+const TEACHER_TOUR_STEPS = [
+  { selector: null,
+    title: "Welcome to your Teacher Hub! 👋",
+    desc: "Let's take a quick look at the tools you have to manage your class. This will only take a minute!" },
+  { selector: "[data-tour-t='sidebar']",
+    title: "Navigation Sidebar 📋",
+    desc: "This sidebar is your command centre. Use it to switch between Dashboard, Challenges, and more. Locked sections are coming soon." },
+  { selector: "[data-tour-t='class-code']",
+    title: "Your Class Code 🔑",
+    desc: "This is the code your students enter when they sign up to join your class. Share it and they'll appear on your Dashboard automatically." },
+  { selector: "[data-tour-t='kpi-row']",
+    title: "Class Stats 📊",
+    desc: "At a glance: total students, average progress, active streaks, and recent level-ups. These update in real time as your students study." },
+  { selector: "[data-tour-t='leaderboard']",
+    title: "Top Streaks 🔥",
+    desc: "The students with the longest consecutive study streaks. A great way to spot who's staying consistent — and who might need a nudge." },
+  { selector: "[data-tour-t='nav-challenges']",
+    title: "Challenges 🏆",
+    desc: "Set up to three weekly challenges for your class. Students who complete all three earn a bonus reward — a great motivator!",
+    sideEffect: () => document.dispatchEvent(new CustomEvent("teacher-tour-section", { detail: "challenges" })) },
+  { selector: "[data-tour-t='challenges-panel']",
+    title: "Challenge Slots 🎯",
+    desc: "Each slot holds one challenge. Choose the type — Vocabulary, Lessons, Streak — set a target, and save. Challenges reset every Monday." },
+  { selector: "[data-tour-t='nav-lessons']",
+    title: "Lessons Tab 📚",
+    desc: "Switch to the Lessons tab to manage the lesson paths your students follow. You can assign lessons per CEFR level and control what's available to each class." },
+  { selector: null,
+    title: "You're all set! 🎉",
+    desc: "That's the quick tour. Explore each section at your own pace — and remember, locked features will be unlocked in upcoming updates. Good luck! 🐱" },
+];
+
+// ---------------------------------------------------------------------------
 // #695 — redesigned tour: step 0 = lang picker, steps 1–21 = content
 const TOUR_STEPS = [
   { tab: "home", selector: null, langPicker: true,
@@ -9331,14 +9409,15 @@ function FirstCompanionPickerModal({ profile, avatarCatalog, onPick, onClose }) 
   );
 }
 
-function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tourLang = "th", onSetLang }) {
-  const s = TOUR_STEPS[step];
-  const isLast = step === TOUR_STEPS.length - 1;
-  const th = tourLang === "th";
+function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tourLang = "th", onSetLang, teacherMode = false }) {
+  const steps = teacherMode ? TEACHER_TOUR_STEPS : TOUR_STEPS;
+  const s = steps[step];
+  const isLast = step === steps.length - 1;
+  const th = !teacherMode && tourLang === "th";
 
   const rawTitle = th ? (s.titleTh || s.title) : s.title;
   const rawDesc  = th ? (s.descTh  || s.desc)  : s.desc;
-  const desc = resumed ? `หวังว่าคราวนี้จะไม่ skip นะ! ${rawDesc}` : rawDesc;
+  const desc = (!teacherMode && resumed) ? `หวังว่าคราวนี้จะไม่ skip นะ! ${rawDesc}` : rawDesc;
   const hasSpot = !!(targetRect && s.selector);
   const pad = 10;
 
@@ -9371,7 +9450,7 @@ function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tou
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
           <span style={{ fontSize: 17, fontWeight: 700, color: "#ffd080", lineHeight: 1.25 }}>{rawTitle}</span>
-          {!s.langPicker && (
+          {(teacherMode || !s.langPicker) && (
             <button onClick={onSkip} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.38)", fontSize: 13, cursor: "pointer", paddingLeft: 10, flexShrink: 0 }}>
               {th ? "ข้าม" : "Skip"}
             </button>
@@ -9379,8 +9458,8 @@ function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tou
         </div>
         <p style={{ margin: "0 0 14px", fontSize: 14, lineHeight: 1.6, color: "rgba(255,255,255,0.78)" }}>{desc}</p>
 
-        {/* Step 0 — language picker */}
-        {s.langPicker ? (
+        {/* Step 0 — language picker (students only) */}
+        {!teacherMode && s.langPicker ? (
           <div style={{ display: "flex", gap: 10 }}>
             {[{ lang: "th", flag: "🇹🇭", label: "ภาษาไทย" }, { lang: "en", flag: "🇬🇧", label: "English" }].map(({ lang, flag, label }) => (
               <button key={lang} onClick={() => { onSetLang?.(lang); onNext(); }} style={{
@@ -9421,7 +9500,9 @@ function OnboardingTour({ step, onNext, onSkip, targetRect, resumed = false, tou
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", letterSpacing: "0.03em" }}>{step} / {TOUR_STEPS.length - 1}</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)", letterSpacing: "0.03em" }}>
+                {teacherMode ? `${step + 1} / ${steps.length}` : `${step} / ${steps.length - 1}`}
+              </span>
               <button onClick={onNext} style={{
                 background: "linear-gradient(135deg,#f5a623,#e08800)", border: "none",
                 borderRadius: 999, padding: "9px 26px", fontSize: 14, fontWeight: 700,
@@ -19189,6 +19270,13 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
   const [codeMetas, setCodeMetas] = useState({}); // #793 — { [code]: { cefrLevel } }
   const [totalLessonsPerLevel, setTotalLessonsPerLevel] = useState({}); // #794 — { [cefrLevel]: count }
 
+  // teacher tour — listen for section-switch events
+  useEffect(() => {
+    const handler = e => setActiveSection(e.detail);
+    document.addEventListener("teacher-tour-section", handler);
+    return () => document.removeEventListener("teacher-tour-section", handler);
+  }, []);
+
   // Issue #304 — load the feed once, and immediately mark everything seen
   // (both in shared_kv and the App-level tab badge) since opening this tab
   // IS the "the teacher noticed" signal — no separate dismiss action needed.
@@ -19518,7 +19606,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
   return (
     <div className="tp-layout">
       {/* ── Sidebar ── */}
-      <aside className="tp-sidebar">
+      <aside className="tp-sidebar" data-tour-t="sidebar">
         <div className="tp-sidebar-logo">
           <img src="/mascots/teacher-cat.png" alt="" className="tp-sidebar-mascot" />
           <span className="tp-sidebar-brand">Teacher</span>
@@ -19551,6 +19639,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
                 disabled={locked}
                 onClick={() => !locked && setActiveSection(id)}
                 title={locked ? `${label} (coming soon)` : label}
+                data-tour-t={`nav-${id}`}
               >
                 <NavIcon size={15} className="tp-sidebar-icon" />
                 <span className="tp-sidebar-label">{label}</span>
@@ -19586,7 +19675,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
         {activeSection === "dean-invites" ? (
           <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />
         ) : activeSection === "challenges" ? (
-          <ChallengesPanel readOnly={!isDean} />
+          <div data-tour-t="challenges-panel"><ChallengesPanel readOnly={!isDean} /></div>
         ) : activeSection === "dashboard" ? (
           /* ── Teacher Dashboard ── */
           <div className="tdb-root">
@@ -19599,7 +19688,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
                     : "Your teaching hub"}
                 </p>
               </div>
-              <div className="teacher-code-badge">Code: <span>{teacherCode || (codeError ? "—" : "…")}</span></div>
+              <div className="teacher-code-badge" data-tour-t="class-code">Code: <span>{teacherCode || (codeError ? "—" : "…")}</span></div>
             </div>
 
             {loading ? (
@@ -19617,7 +19706,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
               </div>
             ) : (<>
               {/* KPI tiles */}
-              <div className="tp-kpi-row">
+              <div className="tp-kpi-row" data-tour-t="kpi-row">
                 {kpiTiles.map(({ Icon: KIcon, color, label, value }, i) => (
                   <div key={i} className="tp-kpi-tile">
                     <div className="tp-kpi-icon-wrap" style={{ color, background: color + "22" }}>
@@ -19643,7 +19732,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
                 return (
                   <div className="tdb-section">
                     <div className="tdb-section-title">🔥 Top Streaks</div>
-                    <div className="tdb-leaderboard">
+                    <div className="tdb-leaderboard" data-tour-t="leaderboard">
                       {top.map((s, i) => (
                         <div key={s.username} className="tdb-lb-row">
                           <span className="tdb-lb-medal">{medals[i]}</span>
