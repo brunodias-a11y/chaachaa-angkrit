@@ -3288,11 +3288,11 @@ function giftConsumesBudget(avatar) {
 // Teacher-side: writes the pending gift + (if budgeted) bumps the level lock.
 // Caller (AvatarGiftModal) is responsible for only calling this when the
 // button isn't disabled (student doesn't already own it / budget available).
-async function sendAvatarGift(student, avatar) {
+async function sendAvatarGift(student, avatar, teacherDisplay = "") {
   if (giftConsumesBudget(avatar)) {
     await storageSet(`${AVATAR_GIFT_BUDGET_PREFIX}${student.username}`, { lastGiftLevel: student.level || "Pre-A1" }, true);
   }
-  await storageSet(`${AVATAR_GIFT_PREFIX}${student.username}`, { avatarId: avatar.id, claimedAt: null }, true);
+  await storageSet(`${AVATAR_GIFT_PREFIX}${student.username}`, { avatarId: avatar.id, claimedAt: null, teacherDisplay }, true);
 }
 
 // Reads whether this student's "1 gift per level" budget is already spent
@@ -3346,8 +3346,8 @@ const TICKET_GIFT_PREFIX = "ticket-gift:"; // shared: ticket-gift:<username> —
 
 // Teacher-side: writes the pending coin gift. Caller (CoinGiftModal) picks
 // the amount (quick-pick or custom input).
-async function sendCoinGift(student, amount) {
-  await storageSet(`${COIN_GIFT_PREFIX}${student.username}`, { amount, grantedAt: Date.now(), claimedAt: null }, true);
+async function sendCoinGift(student, amount, teacherDisplay = "") {
+  await storageSet(`${COIN_GIFT_PREFIX}${student.username}`, { amount, grantedAt: Date.now(), claimedAt: null, teacherDisplay }, true);
 }
 
 // Student-side: checks for a pending coin gift and, if any, credits it into
@@ -3363,14 +3363,14 @@ async function claimPendingCoinGift(profile) {
   const newCoins = await creditCoins(gift.amount, "Teacher gift");
 
   return {
-    grant: { events: [{ label: "Gift from your teacher! 🎁", amount: gift.amount }], total: gift.amount },
+    grant: { events: [{ label: `A gift from ${gift.teacherDisplay || "your teacher"}! 🎁`, amount: gift.amount }], total: gift.amount },
     newCoins,
   };
 }
 
 // Teacher-side: writes a pending ticket gift (kind = "rare" | "epic" | "banner").
-async function sendTicketGift(student, kind, amount) {
-  await storageSet(`${TICKET_GIFT_PREFIX}${student.username}`, { kind, amount, grantedAt: Date.now(), claimedAt: null }, true);
+async function sendTicketGift(student, kind, amount, teacherDisplay = "") {
+  await storageSet(`${TICKET_GIFT_PREFIX}${student.username}`, { kind, amount, grantedAt: Date.now(), claimedAt: null, teacherDisplay }, true);
 }
 
 // Student-side: claims a pending ticket gift and credits it into GACHA_TICKETS_KEY.
@@ -19564,6 +19564,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
       {giftStudent && (
         <AvatarGiftModal
           student={giftStudent}
+          teacherDisplay={[profile.title, profile.workName].filter(Boolean).join(" ") || profile.username}
           onClose={() => setGiftStudent(null)}
           onSent={username => setGiftBudgetUsed(prev => ({ ...prev, [username]: true }))}
         />
@@ -19571,6 +19572,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
       {coinGiftStudent && (
         <CoinGiftModal
           student={coinGiftStudent}
+          teacherDisplay={[profile.title, profile.workName].filter(Boolean).join(" ") || profile.username}
           onClose={() => setCoinGiftStudent(null)}
           onSent={() => { setCoinGiftStudent(null); setDetailRefreshKey(k => k + 1); }}
         />
@@ -20144,7 +20146,7 @@ function StudentDetailModal({ student, st, onClose, codes, codeWordCount, toggli
 // student for free (no coins spent). Gacha System avatars are shown too
 // (a "luck shortcut", per the owner's spec) but never spend the "1 gift per
 // level" budget the way Store/Monthly ones do.
-function AvatarGiftModal({ student, onClose, onSent }) {
+function AvatarGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
   const [pending, setPending]       = useState(null); // this student's currently-unclaimed gift, if any
   const [budgetUsed, setBudgetUsed] = useState(false); // Store/Monthly budget already spent at student's current level
   const [loading, setLoading]       = useState(true);
@@ -20170,7 +20172,7 @@ function AvatarGiftModal({ student, onClose, onSent }) {
   async function handleSend(avatar) {
     if (sending) return;
     setSending(avatar.id);
-    await sendAvatarGift(student, avatar);
+    await sendAvatarGift(student, avatar, teacherDisplay);
     triggerPushGift(student.username, "avatar", avatar.name); // #574
     setPending({ avatarId: avatar.id, claimedAt: null });
     if (giftConsumesBudget(avatar)) {
@@ -20257,7 +20259,7 @@ const TICKET_GIFT_KINDS = [
   { key: "dawn",   label: "Dawn",      img: "/tickets/dawn-ticket.png" },
 ];
 
-function CoinGiftModal({ student, onClose, onSent }) {
+function CoinGiftModal({ student, teacherDisplay = "", onClose, onSent }) {
   const [tab, setTab] = useState("coins"); // "coins" | "tickets"
 
   // — Coins tab state —
@@ -20277,7 +20279,7 @@ function CoinGiftModal({ student, onClose, onSent }) {
   async function handleSendCoins() {
     if (sending || sent || effectiveAmount <= 0) return;
     setSending(true);
-    await sendCoinGift(student, effectiveAmount);
+    await sendCoinGift(student, effectiveAmount, teacherDisplay);
     triggerPushGift(student.username, "coins", `${effectiveAmount} Meowtongs`);
     appendStudentEvent(student.username, { type: "gift", desc: `Received ${effectiveAmount} Meowtongs from teacher`, icon: "🪙" }).catch(() => {});
     setSending(false);
@@ -20288,7 +20290,7 @@ function CoinGiftModal({ student, onClose, onSent }) {
   async function handleSendTickets() {
     if (tSending || tSent || ticketQty <= 0) return;
     setTSending(true);
-    await sendTicketGift(student, ticketKind, ticketQty);
+    await sendTicketGift(student, ticketKind, ticketQty, teacherDisplay);
     const kindLabel = TICKET_GIFT_KINDS.find(k => k.key === ticketKind)?.label || ticketKind;
     triggerPushGift(student.username, "tickets", `${ticketQty}× ${kindLabel} Ticket`);
     appendStudentEvent(student.username, { type: "gift", desc: `Received ${ticketQty}× ${kindLabel} Ticket from teacher`, icon: "🎫" }).catch(() => {});

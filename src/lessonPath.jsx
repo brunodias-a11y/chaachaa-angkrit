@@ -1147,6 +1147,8 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
       code,
       name: newClassForm.name.trim(),
       teacherUsername: profile.username,
+      teacherTitle: profile.title || "",
+      teacherWorkName: profile.workName || "",
       createdAt: Date.now(),
       expiresAt: newClassForm.expires ? new Date(newClassForm.expiresAt).getTime() : null,
       active: true,

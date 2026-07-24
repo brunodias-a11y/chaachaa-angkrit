@@ -363,7 +363,11 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     if (current.includes(code)) return { ok: false, text: "Already redeemed." };
     await onSaveStudentCodes(profile.username, [...current, code]);
     await loadPathData();
-    return { ok: true, text: `"${section.name}" added to your path!` };
+    const teacherLabel = [section.teacherTitle, section.teacherWorkName].filter(Boolean).join(" ");
+    const successText = teacherLabel
+      ? `${teacherLabel}'s lesson was successfully added.`
+      : `"${section.name}" added to your path!`;
+    return { ok: true, text: successText };
   }, [onGetClassroomSection, onGetStudentCodes, onSaveStudentCodes, profile, loadPathData]);
 
   useImperativeHandle(ref, () => ({ loadPathData, openManageLessons: () => setShowManageLessonsModal(true), redeemCode }), [loadPathData, redeemCode]);
