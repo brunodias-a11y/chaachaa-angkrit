@@ -960,7 +960,7 @@ function StepCard({ step, index, total, onChange, onRemove, onMoveUp, onMoveDown
   );
 }
 
-export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [], profile = null, onGenerateClassroomCode, onGetClassroomSection, onSaveClassroomSection, onDeleteClassroomSection, onGetTeacherIndex, onSaveTeacherIndex, onGenerateTurmaCode, onGetTurma, onSaveTurma, onGetTeacherTurmaIndex, onSaveTeacherTurmaIndex }) {
+export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab = false, onSaveVocabWord, onCreateFlashcardWord, allCategories = [], profile = null, onGenerateSectionCode, onGetClassroomSection, onSaveClassroomSection, onDeleteClassroomSection, onGetTeacherIndex, onSaveTeacherIndex, onGenerateTurmaCode, onGetTurma, onSaveTurma, onGetTeacherTurmaIndex, onSaveTeacherTurmaIndex }) {
   const [localCodes,    setLocalCodes]    = useState(classCodes);
   const [selectedCode,  setSelectedCode]  = useState(classCodes[0]?.code || "");
   const [lessons,       setLessons]       = useState([]);
@@ -1140,8 +1140,9 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
   }, [profile?.username]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreateClass() {
-    if (!newClassForm?.name?.trim()) return;
-    const code = onGenerateClassroomCode?.() || `CL-${Date.now().toString(16).slice(-6).toUpperCase()}`;
+    if (!newClassForm?.name?.trim() || !newClassForm?.keyword?.trim()) return;
+    const word = newClassForm.keyword.trim().toUpperCase();
+    const code = (await onGenerateSectionCode?.(word)) || `${Array.from({length:4},()=>Math.floor(Math.random()*16).toString(16).toUpperCase()).join("")}-${word}`;
     const section = {
       code,
       name: newClassForm.name.trim(),
@@ -1587,42 +1588,59 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
             <div className="lp-turma-sections">
               <div className="lp-turma-section-label" style={{ marginTop: 14 }}>
                 📚 Sections
-                <button className="lp-myclasses-new-btn" style={{ marginLeft: 10 }} onClick={() => setNewClassForm({ name: "", expires: false, expiresAt: "" })}>
+                <button className="lp-myclasses-new-btn" style={{ marginLeft: 10 }} onClick={() => setNewClassForm({ name: "", keyword: "", expires: false, expiresAt: "" })}>
                   + New Section
                 </button>
               </div>
 
-              {newClassForm && (
-                <div className="lp-mc-new-form">
-                  <input
-                    className="lp-input lp-mc-name-input"
-                    placeholder="Section name (e.g. Aula 01 — Greetings)"
-                    value={newClassForm.name}
-                    onChange={e => setNewClassForm(f => ({ ...f, name: e.target.value }))}
-                    autoFocus
-                  />
-                  <label className="lp-mc-expire-row">
-                    <input type="checkbox" checked={newClassForm.expires} onChange={e => setNewClassForm(f => ({ ...f, expires: e.target.checked }))} />
-                    <span>Expires on</span>
-                    {newClassForm.expires && (
-                      <input type="date" className="lp-input lp-mc-date-input"
-                        value={newClassForm.expiresAt} min={new Date().toISOString().slice(0, 10)}
-                        onChange={e => setNewClassForm(f => ({ ...f, expiresAt: e.target.value }))} />
+              {newClassForm && (() => {
+                const kw = (newClassForm.keyword || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 25);
+                const previewCode = kw ? `????-${kw}` : null;
+                return (
+                  <div className="lp-mc-new-form">
+                    <input
+                      className="lp-input lp-mc-name-input"
+                      placeholder="Section name (e.g. Aula 01 — Greetings)"
+                      value={newClassForm.name}
+                      onChange={e => setNewClassForm(f => ({ ...f, name: e.target.value }))}
+                      autoFocus
+                    />
+                    <input
+                      className="lp-input lp-mc-name-input"
+                      placeholder="Keyword for student code (e.g. VERTEBRATES)"
+                      value={newClassForm.keyword}
+                      maxLength={25}
+                      onChange={e => setNewClassForm(f => ({ ...f, keyword: e.target.value.replace(/[^A-Z0-9]/gi, "").toUpperCase() }))}
+                    />
+                    {previewCode && (
+                      <div className="lp-mc-code-preview">
+                        Code preview: <strong>XXXX-{kw}</strong>
+                        <span className="lp-mc-code-preview-note"> (4 hex chars generated on save)</span>
+                      </div>
                     )}
-                  </label>
-                  <div className="lp-mc-form-actions">
-                    <button className="lp-cefr-add-confirm" onClick={async () => {
-                      const newSectionCode = await handleCreateClass();
-                      if (newSectionCode) {
-                        const updated = { ...turma, sectionCodes: [...(turma.sectionCodes || []), newSectionCode] };
-                        await onSaveTurma?.(updated);
-                        setTurmas(ts => ts.map(t => t.code === turma.code ? updated : t));
-                      }
-                    }}>Create</button>
-                    <button className="lp-cefr-add-cancel" onClick={() => setNewClassForm(null)}>Cancel</button>
+                    <label className="lp-mc-expire-row">
+                      <input type="checkbox" checked={newClassForm.expires} onChange={e => setNewClassForm(f => ({ ...f, expires: e.target.checked }))} />
+                      <span>Expires on</span>
+                      {newClassForm.expires && (
+                        <input type="date" className="lp-input lp-mc-date-input"
+                          value={newClassForm.expiresAt} min={new Date().toISOString().slice(0, 10)}
+                          onChange={e => setNewClassForm(f => ({ ...f, expiresAt: e.target.value }))} />
+                      )}
+                    </label>
+                    <div className="lp-mc-form-actions">
+                      <button className="lp-cefr-add-confirm" disabled={!newClassForm.name?.trim() || !kw} onClick={async () => {
+                        const newSectionCode = await handleCreateClass();
+                        if (newSectionCode) {
+                          const updated = { ...turma, sectionCodes: [...(turma.sectionCodes || []), newSectionCode] };
+                          await onSaveTurma?.(updated);
+                          setTurmas(ts => ts.map(t => t.code === turma.code ? updated : t));
+                        }
+                      }}>Create</button>
+                      <button className="lp-cefr-add-cancel" onClick={() => setNewClassForm(null)}>Cancel</button>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="lp-mc-card-list">
                 {turmaSections.map(section => {
@@ -3256,11 +3274,11 @@ export function LessonPathScreen({ lessons, progress, sectionStats, sectionMeta 
             <div className="lp-redeem-form">
               <input
                 className="lp-redeem-input"
-                placeholder="Class code (e.g. BD26-4FA39C)"
+                placeholder="Class code (e.g. 2AF1-VERTEBRATES)"
                 value={redeemVal}
                 onChange={e => { setRedeemVal(e.target.value.toUpperCase()); setRedeemMsg(null); }}
                 autoFocus
-                maxLength={12}
+                maxLength={31}
               />
               <button
                 className="lp-redeem-submit"

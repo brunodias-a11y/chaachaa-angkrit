@@ -4696,20 +4696,24 @@ function classroomSectionKey(code)        { return `classroom-section-${code}`; 
 function classroomTeacherIndexKey(user)   { return `classroom-index-${user}`; }
 function classroomStudentCodesKey(user)   { return `classroom-codes-${user}`; }
 
-// Generate a classroom code: {INITIALS}{YY}-{6 hex}  e.g. BD26-4FA39C
-function generateClassroomCode(profile) {
-  const name = profile?.name || profile?.username || "T";
-  const initials = name
-    .split(/[\s_\-]+/)
-    .map(w => w[0] || "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 3);
-  const yy = String(new Date().getFullYear()).slice(-2);
-  const hex = Array.from({ length: 6 }, () =>
+// Generate a section code: {4 hex}-{WORD}  e.g. 2AF1-VERTEBRATES
+function generateSectionCodeRaw(word) {
+  const hex = Array.from({ length: 4 }, () =>
     Math.floor(Math.random() * 16).toString(16).toUpperCase()
   ).join("");
-  return `${initials}${yy}-${hex}`;
+  return `${hex}-${word.toUpperCase()}`;
+}
+
+async function generateSectionCode(word, getSection) {
+  let code;
+  let attempts = 0;
+  do {
+    code = generateSectionCodeRaw(word);
+    const existing = await getSection(code).catch(() => null);
+    if (!existing) break;
+    attempts++;
+  } while (attempts < 10);
+  return code;
 }
 
 async function getClassroomSection(code) {
@@ -7593,7 +7597,7 @@ export default function App() {
               await saveWord(newWord);
               return id;
             }}
-            onGenerateClassroomCode={() => generateClassroomCode(profile)}
+            onGenerateSectionCode={(word) => generateSectionCode(word, getClassroomSection)}
             onGetClassroomSection={getClassroomSection}
             onSaveClassroomSection={saveClassroomSection}
             onDeleteClassroomSection={deleteClassroomSection}
@@ -9780,11 +9784,11 @@ function HomeScreen({ words, profile, wordsLoaded, streak, progMap, enabledClass
               <div className="hero-classcode-form">
                 <input
                   className="hero-classcode-input"
-                  placeholder="e.g. BD26-4FA39C"
+                  placeholder="e.g. 2AF1-VERTEBRATES"
                   value={classCodeVal}
                   onChange={e => { setClassCodeVal(e.target.value.toUpperCase()); setClassCodeMsg(null); }}
                   autoFocus
-                  maxLength={12}
+                  maxLength={31}
                 />
                 <button
                   className="hero-classcode-submit"
@@ -31172,6 +31176,9 @@ select.modal-input { appearance: none; }
 .lp-myclasses-new-btn:hover { background: rgba(139,92,246,0.3); }
 .lp-mc-new-form { display: flex; flex-direction: column; gap: 8px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px; padding: 12px; }
 .lp-mc-name-input { width: 100%; }
+.lp-mc-code-preview { font-size: 12px; color: rgba(196,181,253,0.7); padding: 4px 6px; background: rgba(139,92,246,0.12); border-radius: 6px; }
+.lp-mc-code-preview strong { color: #c4b5fd; letter-spacing: 0.05em; }
+.lp-mc-code-preview-note { opacity: 0.6; font-style: italic; }
 .lp-mc-expire-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(245,239,230,0.6); cursor: pointer; }
 .lp-mc-expire-row input[type="checkbox"] { cursor: pointer; }
 .lp-mc-date-input { flex: 1; font-size: 12px; padding: 4px 8px; }

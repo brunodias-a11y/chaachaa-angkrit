@@ -253,7 +253,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
     allCategories = [],
     onNodeIndexUpdate,
     walkEnabled = true,
-    onGenerateClassroomCode,
+    onGenerateSectionCode,
     onGetClassroomSection,
     onSaveClassroomSection,
     onDeleteClassroomSection,
@@ -714,7 +714,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onCreateFlashcardWord={onCreateFlashcardWord}
           allCategories={allCategories}
           profile={profile}
-          onGenerateClassroomCode={onGenerateClassroomCode}
+          onGenerateSectionCode={onGenerateSectionCode}
           onGetClassroomSection={onGetClassroomSection}
           onSaveClassroomSection={onSaveClassroomSection}
           onDeleteClassroomSection={onDeleteClassroomSection}
@@ -738,7 +738,7 @@ const LessonPathFeature = forwardRef(function LessonPathFeature(
           onCreateFlashcardWord={onCreateFlashcardWord}
           allCategories={allCategories}
           profile={profile}
-          onGenerateClassroomCode={onGenerateClassroomCode}
+          onGenerateSectionCode={onGenerateSectionCode}
           onGetClassroomSection={onGetClassroomSection}
           onSaveClassroomSection={onSaveClassroomSection}
           onDeleteClassroomSection={onDeleteClassroomSection}
