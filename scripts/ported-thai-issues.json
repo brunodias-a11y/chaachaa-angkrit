@@ -6,6 +6,7 @@
     895, 896, 897, 898, 899, 900,
     902, 903, 904, 905, 910,
     916,
+    918, 919,
     920, 921
   ],
   "notes": {
@@ -26,6 +27,8 @@
     "905": "portado como #27 (Progress My Results tour step) — commit 3100b9f",
     "910": "portado como #28 (.adm-root mobile height: 82vh) — commit 3100b9f",
     "916": "portado como #29 (adm-moment-overlay + action-row como sibling) — commit 2bbd013",
+    "918": "portado como #32 (lp-manage-tab-screen: bottom:0 + height:100%) — commit 00d1571",
+    "919": "portado como #33 (lp-path-screen: flex:1 → height:100% restaura auto-scroll) — commit 00d1571",
     "920": "portado como #31 (Matcha +15 energy unequip power, activateWithoutEquip) — commit 7e93906",
     "921": "portado como #30 (all rarities consumable+passive, passive3 legendary, RARITY_PASSIVE_SLOTS) — commit 7e93906"
   }
