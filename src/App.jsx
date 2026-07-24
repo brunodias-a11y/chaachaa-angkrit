@@ -1899,7 +1899,8 @@ const ROSTER_PREFIX     = "roster:";             // shared: roster:<username>
 const TEACHER_LEVELUP_FEED_KEY = "teacher-levelup-feed";
 const TEACHER_LEVELUP_FEED_MAX = 50;
 
-const isTeacher = (profile) => profile?.role === "teacher";
+const isTeacher = (profile) => profile?.role === "teacher" || profile?.role === "dean";
+const isDean    = (profile) => profile?.role === "dean";
 
 // Sprint 12 — the teacher access code and the role decision now live
 // entirely server-side (see supabase-schema/sprint12_teacher_rbac.sql).
@@ -4692,6 +4693,22 @@ async function fetchWordImage(englishWord, wordId, pos) {
 // Classroom Sections — teacher-created ad-hoc lesson sections shared via code
 // ---------------------------------------------------------------------------
 
+// Teacher invite codes (Dean-generated, single-use) ─────────────────────────
+function teacherInviteKey(code)          { return `teacher-invite-${code}`; }
+async function getTeacherInvite(code)    { return (await storageGet(teacherInviteKey(code), true)) || null; }
+async function saveTeacherInvite(inv)    { await storageSet(teacherInviteKey(inv.code), inv, true); }
+async function createTeacherInvite(createdBy) {
+  let code, existing, attempts = 0;
+  do {
+    const hex = Array.from({ length: 6 }, () => Math.floor(Math.random() * 16).toString(16).toUpperCase()).join("");
+    code = `TCH-${hex}`;
+    existing = await getTeacherInvite(code).catch(() => null);
+  } while (existing && ++attempts < 10);
+  const inv = { code, createdBy, createdAt: Date.now(), usedAt: null, usedBy: null };
+  await saveTeacherInvite(inv);
+  return inv;
+}
+
 function classroomSectionKey(code)        { return `classroom-section-${code}`; }
 function classroomTeacherIndexKey(user)   { return `classroom-index-${user}`; }
 function classroomStudentCodesKey(user)   { return `classroom-codes-${user}`; }
@@ -4950,7 +4967,8 @@ export default function App() {
     }
   };
   const goToStoreSeg = (seg) => { setStoreInitSeg(seg); goToTab("store"); };
-  const teacher = isTeacher(profile); // declared early — used inside useEffect closures below
+  const teacher = isTeacher(profile); // true for both "teacher" and "dean"
+  const dean    = isDean(profile);    // true only for "dean"
   if (typeof window !== "undefined") {
     window.__currentTab = tab;
     window.__userType = teacher ? "teacher" : (profile ? "student" : "unknown");
@@ -5945,10 +5963,27 @@ export default function App() {
       // caller's own row on a match — a wrong/empty code just silently
       // stays "student", same UX as before.
       await ensureStudentProfile(username);
-      if (teacherCode && teacherCode.trim()) {
-        await claimTeacherRole(teacherCode.trim());
+      const trimmedCode = teacherCode?.trim() || "";
+      if (trimmedCode) {
+        if (trimmedCode.startsWith("TCH-")) {
+          // Dean-generated single-use invite code
+          const invite = await getTeacherInvite(trimmedCode).catch(() => null);
+          if (invite && !invite.usedAt) {
+            await saveTeacherInvite({ ...invite, usedAt: Date.now(), usedBy: username });
+            // Also try Supabase role claim (best-effort; may fail if no master code set)
+            await claimTeacherRole(trimmedCode).catch(() => {});
+          }
+        } else {
+          await claimTeacherRole(trimmedCode);
+        }
       }
       role = await fetchMyRole();
+      // Preserve "dean" role from KV if Supabase doesn't know it yet
+      if (role === "teacher" || role === "student") {
+        const cached = await storageGet(KEYS.profile, false).catch(() => null);
+        if (cached?.role === "dean") role = "dean";
+        else if (role === "student" && cached?.role === "teacher" && trimmedCode.startsWith("TCH-")) role = "teacher";
+      }
     }
 
     // Issue #193 — this used to *always* build a brand-new profile with
@@ -5975,6 +6010,7 @@ export default function App() {
       : { username, level: "Pre-A1", role, createdAt: Date.now(), avatar: DEFAULT_AVATAR_ID, unlockedAvatars: [] };
     await storageSet(KEYS.profile, p, false);
     setProfile(p);
+    if (role === "teacher") goToTab("teacher");
     if (role === "student") {
       await registerStudent(p);
       // #738 — mirror wallet to shared_kv for teacher view (fire-and-forget)
@@ -7630,7 +7666,7 @@ export default function App() {
             onSaveAvatar={handleSaveAvatar}
           />
         )}
-        {tab === "teacher" && <TeacherScreen profile={profile} allWords={words} onLevelUpFeedSeen={() => setTeacherLevelUpUnseen(0)} />}
+        {tab === "teacher" && <TeacherScreen profile={profile} allWords={words} onLevelUpFeedSeen={() => setTeacherLevelUpUnseen(0)} isDean={dean} onCreateInvite={() => createTeacherInvite(profile.username)} onGetInvite={getTeacherInvite} />}
         {tab === "events" && <EventsScreen profile={profile} pathStats={pathStats} dawnTickets={dawnTickets} onGoToStore={() => goToTab("store")} />}
         {tab === "progress" && (
           <ProgressScreen
@@ -7759,31 +7795,19 @@ export default function App() {
       </ErrorBoundary>
 
       <nav className={"tabbar-main" + (sessionActive ? " collapsed" : "")}>
-        <TabButton icon={Home}          label="Home"     active={tab === "home"}     onClick={() => goToTab("home")} />
-        {/* Issue #371 — "Bank" tab removed for both roles (redundant with Study
-            Mode's own search/category filter for students; teacher still reaches
-            it via the Home "Go to word bank" button and the new Settings shortcut).
-            The `bank` tab itself is untouched — goToTab("bank") still works, it's
-            just no longer surfaced as a nav item. */}
-        {(teacher || words.length >= 1) && <TabButton icon={Eye} label="My Vocab" active={tab === "study"} onClick={() => goToTab("study")} />}
-        {/* Issue #520 — Practice and Progress are student-only; teachers have no
-            SRS drill or personal progress to track. */}
+        {/* Home — students and deans (plain teachers start on Teacher tab) */}
+        {(!teacher || dean) && <TabButton icon={Home} label="Home" active={tab === "home"} onClick={() => goToTab("home")} />}
+        {(dean || words.length >= 1) && <TabButton icon={Eye} label="My Vocab" active={tab === "study"} onClick={() => goToTab("study")} />}
         {!teacher && words.length >= 30 && <TabButton icon={GraduationCap} label="Practice" active={tab === "practice"} onClick={() => goToTab("practice")} data-tour="nav-practice" />}
-        {/* Issue #372 — "Sunday" tab removed: it was only ever usable on Sundays
-            (blocked screen the other 6 days), so it moved to a conditional 3rd
-            button on the student Home, shown only when isSunday(). The `sunday`
-            tab itself is untouched — goToTab("sunday") still works. */}
         {teacher && <TabButton icon={Shield}   label="Teacher" active={tab === "teacher"} onClick={() => goToTab("teacher")} badge={teacherLevelUpUnseen} />}
         {teacher && <TabButton icon={BookOpen} label="Lessons" active={tab === "lessons"} onClick={() => goToTab("lessons")} />}
-        {/* Issue #646 — Cat Sanctuary tab for teacher (reference view) */}
-        {/* #693 — teacher Sanctuary tab removed */}
-        {(teacher || hasPathLessons !== 0) && (
-          <TabButton icon={PathTabIcon} label="Path" active={tab === "path"} onClick={() => { lpRef.current?.loadPathData(teacher ? appClassCodes?.[0]?.code : enabledClassCodes?.[0]); goToTab("path"); }} data-tour="nav-path" />
+        {/* Path — students and deans; plain teachers don't have Path tab */}
+        {(!teacher || dean || hasPathLessons !== 0) && (
+          <TabButton icon={PathTabIcon} label="Path" active={tab === "path"} onClick={() => { lpRef.current?.loadPathData(dean ? appClassCodes?.[0]?.code : enabledClassCodes?.[0]); goToTab("path"); }} data-tour="nav-path" />
         )}
         {!teacher && <TabButton icon={BarChart3} label="Progress" active={tab === "progress"} onClick={() => goToTab("progress")} badge={visitedProgressTab ? 0 : unlockedTotal} data-tour="nav-progress" />}
-        {/* Issue #551 — Events tab visible for both student and teacher */}
         {!teacher && <TabButton icon={CalendarDays} label="Events" active={tab === "events"} onClick={() => goToTab("events")} data-tour="nav-events" />}
-        {teacher  && <TabButton icon={CalendarDays} label="Events" active={tab === "events"} onClick={() => goToTab("events")} />}
+        {dean     && <TabButton icon={CalendarDays} label="Events" active={tab === "events"} onClick={() => goToTab("events")} />}
       </nav>
 
       {/* #882 — First Companion Picker (shown after tour, before celebrations) */}
@@ -18770,7 +18794,59 @@ function ChallengesPanel() {
 }
 
 // ---------------------------------------------------------------------------
-function TeacherScreen({ profile, allWords, onLevelUpFeedSeen }) {
+function DeanInvitePanel({ onCreateInvite, onGetInvite }) {
+  const [invites, setInvites] = React.useState([]);
+  const [creating, setCreating] = React.useState(false);
+  const [copied, setCopied] = React.useState(null);
+  const [open, setOpen] = React.useState(false);
+
+  async function handleCreate() {
+    setCreating(true);
+    try {
+      const inv = await onCreateInvite();
+      setInvites(prev => [inv, ...prev]);
+      setOpen(true);
+    } finally { setCreating(false); }
+  }
+
+  function copyCode(code) {
+    navigator.clipboard?.writeText(code).catch(() => {});
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div className="dean-invite-panel">
+      <div className="dean-invite-header">
+        <span className="dean-invite-title">🎓 Dean — Teacher Invites</span>
+        <button className="dean-invite-toggle" onClick={() => setOpen(v => !v)}>{open ? "▲ Hide" : "▼ Show"}</button>
+        <button className="dean-invite-new" onClick={handleCreate} disabled={creating}>
+          {creating ? "…" : "+ New Invite Code"}
+        </button>
+      </div>
+      {open && (
+        <div className="dean-invite-list">
+          {invites.length === 0 && <span className="dean-invite-empty">No invite codes generated yet.</span>}
+          {invites.map(inv => (
+            <div key={inv.code} className={"dean-invite-row" + (inv.usedAt ? " used" : "")}>
+              <code className="dean-invite-code">{inv.code}</code>
+              {inv.usedAt
+                ? <span className="dean-invite-status used">Used by {inv.usedBy}</span>
+                : <span className="dean-invite-status active">Active</span>}
+              {!inv.usedAt && (
+                <button className="dean-invite-copy" onClick={() => copyCode(inv.code)}>
+                  {copied === inv.code ? "✓ Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, onCreateInvite, onGetInvite }) {
   const [roster,      setRoster]      = useState([]);
   const [stats,       setStats]       = useState({}); // username → stats object
   const [codes,       setCodes]       = useState([]);
@@ -19120,6 +19196,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen }) {
 
   return (
     <div className="tp-layout">
+      {isDean && <DeanInvitePanel onCreateInvite={onCreateInvite} onGetInvite={onGetInvite} />}
       {/* ── Sidebar ── */}
       <aside className="tp-sidebar">
         <div className="tp-sidebar-logo">
@@ -28214,6 +28291,23 @@ select.modal-input { appearance: none; }
 
 /* ---- Sprint 6.4 — Full teacher panel ---- */
 /* ─── Teacher Dashboard Redesign (#724) ─────────────────────────── */
+/* Dean Invite Panel ────────────────────────────────────────────────────── */
+.dean-invite-panel { background: rgba(124,58,237,0.1); border-bottom: 1px solid rgba(124,58,237,0.25); padding: 10px 18px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.dean-invite-header { display: flex; align-items: center; gap: 10px; }
+.dean-invite-title { font-size: 13px; font-weight: 700; color: #c4b5fd; flex: 1; }
+.dean-invite-toggle { font-size: 11px; background: none; border: 1px solid rgba(196,181,253,0.3); border-radius: 6px; color: rgba(196,181,253,0.7); padding: 3px 8px; cursor: pointer; }
+.dean-invite-new { font-size: 12px; background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); border-radius: 6px; color: #c4b5fd; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+.dean-invite-new:disabled { opacity: 0.5; cursor: default; }
+.dean-invite-list { display: flex; flex-direction: column; gap: 6px; }
+.dean-invite-empty { font-size: 12px; color: rgba(196,181,253,0.4); font-style: italic; }
+.dean-invite-row { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 6px 10px; }
+.dean-invite-row.used { opacity: 0.45; }
+.dean-invite-code { font-family: monospace; font-size: 13px; color: #e9d5ff; letter-spacing: 0.08em; flex: 1; }
+.dean-invite-status { font-size: 11px; border-radius: 5px; padding: 2px 7px; font-weight: 600; }
+.dean-invite-status.active { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+.dean-invite-status.used   { background: rgba(156,163,175,0.15); color: #9ca3af; }
+.dean-invite-copy { font-size: 11px; background: rgba(124,58,237,0.25); border: 1px solid rgba(124,58,237,0.4); border-radius: 5px; color: #c4b5fd; padding: 2px 8px; cursor: pointer; }
+
 .tp-layout { display: flex; min-height: 100%; height: 100%; }
 
 .tp-sidebar {
