@@ -8634,6 +8634,91 @@ function buildLoginGreeting(snap) {
   return generals[new Date().getDay() % generals.length];
 }
 
+const REG_I18N = {
+  en: {
+    back: "← Back to Login",
+    // register-ask
+    askTitle: "Create your account",
+    askSub: "Do you have a class code from your teacher?",
+    askYes: "🎓 Yes, I have a code",
+    askNo: "Continue without a code",
+    // register-with-code — code entry
+    joinTitle: "Join your class",
+    joinSub: "Enter the class code your teacher gave you",
+    joinPlaceholder: "Class code (e.g. BD2026-4FA3)",
+    joinNotFound: "Class code not found. Please check and try again.",
+    joinNetErr: "Could not verify code. Please try again.",
+    joinChecking: "Checking…",
+    joinVerify: "Verify Code →",
+    // form fields
+    labelNickname: "Nickname",
+    phNickname: "Your nickname in the app",
+    labelFullName: "Full Name",
+    phFullName: "Your real name (visible to teacher)",
+    labelMatricula: "Student ID",
+    phMatricula: "Your student ID number",
+    labelSchool: "School / Group",
+    labelShare: "Share my progress with classmates?",
+    shareYes: "Yes", shareNo: "No",
+    labelPin: "Choose a PIN",
+    phPin: "4-digit PIN",
+    labelEmail: "E-mail",
+    // errors
+    errPin: "PIN must be 4 digits.",
+    errNickname: "Nickname is required.",
+    errMatricula: "Student ID is required.",
+    errMatriculaTaken: "This student ID is already registered. Please contact your teacher.",
+    errRegFail: "Registration failed. This nickname may already be taken.",
+    // buttons
+    submitting: "Creating account…",
+    joinClass: "Join Class",
+    createAccount: "Create Account",
+    // register-no-code title
+    noCodeTitle: "Create your account",
+  },
+  th: {
+    back: "← กลับหน้าเข้าสู่ระบบ",
+    // register-ask
+    askTitle: "สร้างบัญชีของคุณ",
+    askSub: "คุณมีรหัสชั้นเรียนจากครูไหม?",
+    askYes: "🎓 มีรหัสชั้นเรียน",
+    askNo: "ไม่มีรหัส ดำเนินการต่อ",
+    // register-with-code — code entry
+    joinTitle: "เข้าร่วมชั้นเรียน",
+    joinSub: "ใส่รหัสชั้นเรียนที่ครูให้คุณ",
+    joinPlaceholder: "รหัสชั้นเรียน (เช่น BD2026-4FA3)",
+    joinNotFound: "ไม่พบรหัสชั้นเรียน กรุณาตรวจสอบและลองใหม่",
+    joinNetErr: "ไม่สามารถยืนยันรหัสได้ กรุณาลองใหม่",
+    joinChecking: "กำลังตรวจสอบ…",
+    joinVerify: "ยืนยันรหัส →",
+    // form fields
+    labelNickname: "ชื่อเล่น",
+    phNickname: "ชื่อเล่นที่ใช้ในแอป",
+    labelFullName: "ชื่อ-นามสกุล",
+    phFullName: "ชื่อจริง (ครูจะเห็น)",
+    labelMatricula: "รหัสนักเรียน",
+    phMatricula: "หมายเลขประจำตัวนักเรียน",
+    labelSchool: "โรงเรียน / กลุ่ม",
+    labelShare: "แชร์ความก้าวหน้ากับเพื่อนร่วมชั้นไหม?",
+    shareYes: "ใช่", shareNo: "ไม่",
+    labelPin: "ตั้งรหัส PIN",
+    phPin: "PIN 4 หลัก",
+    labelEmail: "อีเมล",
+    // errors
+    errPin: "PIN ต้องมี 4 หลัก",
+    errNickname: "กรุณากรอกชื่อเล่น",
+    errMatricula: "กรุณากรอกรหัสนักเรียน",
+    errMatriculaTaken: "รหัสนักเรียนนี้ถูกลงทะเบียนแล้ว กรุณาติดต่อครู",
+    errRegFail: "การลงทะเบียนล้มเหลว ชื่อเล่นนี้อาจถูกใช้แล้ว",
+    // buttons
+    submitting: "กำลังสร้างบัญชี…",
+    joinClass: "เข้าร่วมชั้นเรียน",
+    createAccount: "สร้างบัญชี",
+    // register-no-code title
+    noCodeTitle: "สร้างบัญชีของคุณ",
+  },
+};
+
 function LoginScreen({ onLogin, onRegister }) {
   const [name,           setName]           = useState("");
   const [pin,            setPin]            = useState("");
@@ -8645,6 +8730,7 @@ function LoginScreen({ onLogin, onRegister }) {
   const [lastSnap,       setLastSnap]       = useState(null);
 
   // Registration flow state
+  const [regLang,        setRegLang]        = useState("th"); // "en" | "th" — student-facing reg copy language
   const [regView,        setRegView]        = useState("login"); // "login" | "register-ask" | "register-with-code" | "register-no-code" | "register-teacher"
   const [regTurmaCode,   setRegTurmaCode]   = useState("");
   const [regTurmaName,   setRegTurmaName]   = useState("");       // resolved from code
@@ -8813,35 +8899,44 @@ function LoginScreen({ onLogin, onRegister }) {
       {regView !== "login" && (
         <div className="reg-overlay">
           <div className="reg-card">
-            <button className="reg-back-btn" onClick={() => { setRegView("login"); setRegTurmaCode(""); setRegTurmaName(""); setRegTurmaError(""); setRegError(""); setRegTchNickname(""); setRegTchPin(""); setRegTchCode(""); setRegTchError(""); }}>
-              ← Back to Login
-            </button>
+            {/* Card header: back button + language toggle (student flows only) */}
+            <div className="reg-card-header">
+              <button className="reg-back-btn" onClick={() => { setRegView("login"); setRegTurmaCode(""); setRegTurmaName(""); setRegTurmaError(""); setRegError(""); setRegTchNickname(""); setRegTchPin(""); setRegTchCode(""); setRegTchError(""); }}>
+                {regView === "register-teacher" ? "← Back to Login" : REG_I18N[regLang].back}
+              </button>
+              {regView !== "register-teacher" && (
+                <div className="reg-lang-toggle">
+                  <button className={"reg-lang-btn" + (regLang === "th" ? " active" : "")} onClick={() => setRegLang("th")}>🇹🇭 ภาษาไทย</button>
+                  <button className={"reg-lang-btn" + (regLang === "en" ? " active" : "")} onClick={() => setRegLang("en")}>🇬🇧 EN</button>
+                </div>
+              )}
+            </div>
 
             {/* Step 1 — ask if they have a class code */}
-            {regView === "register-ask" && (
+            {regView === "register-ask" && (() => { const t = REG_I18N[regLang]; return (
               <div className="reg-step">
-                <div className="reg-step-title">Create your account</div>
-                <div className="reg-step-sub">Do you have a class code from your teacher?</div>
+                <div className="reg-step-title">{t.askTitle}</div>
+                <div className="reg-step-sub">{t.askSub}</div>
                 <div className="reg-ask-btns">
                   <button className="reg-ask-btn reg-ask-btn--yes" onClick={() => setRegView("register-with-code")}>
-                    🎓 Yes, I have a code
+                    {t.askYes}
                   </button>
                   <button className="reg-ask-btn reg-ask-btn--no" onClick={() => setRegView("register-no-code")}>
-                    Continue without a code
+                    {t.askNo}
                   </button>
                 </div>
               </div>
-            )}
+            ); })()}
 
             {/* Step 2a — with class code */}
-            {regView === "register-with-code" && (
+            {regView === "register-with-code" && (() => { const t = REG_I18N[regLang]; return (
               <div className="reg-step">
-                <div className="reg-step-title">Join your class</div>
+                <div className="reg-step-title">{t.joinTitle}</div>
                 {!regTurmaName ? (
                   <>
-                    <div className="reg-step-sub">Enter the class code your teacher gave you</div>
+                    <div className="reg-step-sub">{t.joinSub}</div>
                     <div className="reg-field-group">
-                      <input className="login-input reg-input" placeholder="Class code (e.g. BD2026-4FA3)"
+                      <input className="login-input reg-input" placeholder={t.joinPlaceholder}
                         value={regTurmaCode}
                         onChange={e => { setRegTurmaCode(e.target.value.toUpperCase()); setRegTurmaError(""); }}
                         maxLength={11} autoFocus />
@@ -8852,76 +8947,75 @@ function LoginScreen({ onLogin, onRegister }) {
                         setRegTurmaLoading(true);
                         try {
                           const turma = await getTurma(regTurmaCode.trim());
-                          if (!turma) { setRegTurmaError("Class code not found. Please check and try again."); return; }
+                          if (!turma) { setRegTurmaError(t.joinNotFound); return; }
                           setRegTurmaName(turma.name);
                           setRegTurmaIsSchool(!!turma.isSchool);
-                        } catch (_) { setRegTurmaError("Could not verify code. Please try again."); }
+                        } catch (_) { setRegTurmaError(t.joinNetErr); }
                         finally { setRegTurmaLoading(false); }
                       }}>
-                      {regTurmaLoading ? "Checking…" : "Verify Code →"}
+                      {regTurmaLoading ? t.joinChecking : t.joinVerify}
                     </button>
                   </>
                 ) : (
                   <form className="reg-form" onSubmit={async e => {
                     e.preventDefault();
-                    if (regPin.length !== 4) { setRegError("PIN must be 4 digits."); return; }
-                    if (!regNickname.trim()) { setRegError("Nickname is required."); return; }
-                    if (regTurmaIsSchool && !regMatricula.trim()) { setRegError("Student ID (Matrícula) is required."); return; }
+                    if (regPin.length !== 4) { setRegError(t.errPin); return; }
+                    if (!regNickname.trim()) { setRegError(t.errNickname); return; }
+                    if (regTurmaIsSchool && !regMatricula.trim()) { setRegError(t.errMatricula); return; }
                     if (regTurmaIsSchool && regMatricula.trim()) {
                       try {
                         const turma = await getTurma(regTurmaCode.trim());
                         if (turma?.students?.some(s => s.matricula === regMatricula.trim())) {
-                          setRegError("This student ID is already registered in this school. Please contact your teacher.");
-                          return;
+                          setRegError(t.errMatriculaTaken); return;
                         }
                       } catch (_) {}
                     }
                     setRegLoading(true); setRegError("");
                     try {
                       await onRegister({ username: regNickname.trim(), pin: regPin, fullName: regFullName, turmaCode: regTurmaCode.trim(), shareProgress: regShare, matricula: regTurmaIsSchool ? regMatricula.trim() : "" });
-                    } catch (e) { setRegError(e?.message || "Registration failed. This nickname may already be taken."); }
+                    } catch (e) { setRegError(e?.message || t.errRegFail); }
                     finally { setRegLoading(false); }
                   }}>
                     <div className="reg-school-badge">🏫 {regTurmaName}</div>
                     <div className="reg-field-group">
-                      <label className="reg-label">Nickname</label>
-                      <input className="login-input reg-input" placeholder="Your nickname in the app"
+                      <label className="reg-label">{t.labelNickname}</label>
+                      <input className="login-input reg-input" placeholder={t.phNickname}
                         value={regNickname} onChange={e => { setRegNickname(e.target.value); setRegError(""); }} autoFocus maxLength={32} />
                     </div>
                     <div className="reg-field-group">
-                      <label className="reg-label">Full Name</label>
-                      <input className="login-input reg-input" placeholder="Your real name (visible to teacher)"
+                      <label className="reg-label">{t.labelFullName}</label>
+                      <input className="login-input reg-input" placeholder={t.phFullName}
                         value={regFullName} onChange={e => setRegFullName(e.target.value)} maxLength={80} />
                     </div>
                     {regTurmaIsSchool && (
                       <div className="reg-field-group">
-                        <label className="reg-label">Matrícula <span className="reg-required">*</span></label>
-                        <input className="login-input reg-input" placeholder="Your student ID number"
+                        <label className="reg-label">{t.labelMatricula} <span className="reg-required">*</span></label>
+                        <input className="login-input reg-input" placeholder={t.phMatricula}
                           value={regMatricula} onChange={e => { setRegMatricula(e.target.value); setRegError(""); }} maxLength={30} />
                       </div>
                     )}
                     <div className="reg-field-group">
-                      <label className="reg-label">School / Group</label>
+                      <label className="reg-label">{t.labelSchool}</label>
                       <input className="login-input reg-input" value={regTurmaName} disabled />
                     </div>
                     <div className="reg-share-row">
                       <label className="reg-share-label">
-                        <span>Share my progress with classmates?</span>
+                        <span>{t.labelShare}</span>
                         <div className="reg-share-options">
                           <label className="reg-radio-label">
-                            <input type="radio" name="share" checked={regShare} onChange={() => setRegShare(true)} /> Yes
+                            <input type="radio" name="share" checked={regShare} onChange={() => setRegShare(true)} /> {t.shareYes}
                           </label>
                           <label className="reg-radio-label">
-                            <input type="radio" name="share" checked={!regShare} onChange={() => setRegShare(false)} /> No
+                            <input type="radio" name="share" checked={!regShare} onChange={() => setRegShare(false)} /> {t.shareNo}
                           </label>
                         </div>
                       </label>
                     </div>
                     <div className="reg-field-group">
-                      <label className="reg-label">Choose a PIN</label>
+                      <label className="reg-label">{t.labelPin}</label>
                       <div className="login-input-wrap" style={{ margin: 0 }}>
                         <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-                        <input className="login-input" placeholder="4-digit PIN" type={regShowPin ? "text" : "password"}
+                        <input className="login-input" placeholder={t.phPin} type={regShowPin ? "text" : "password"}
                           inputMode="numeric" pattern="[0-9]*" maxLength={4}
                           value={regPin} onChange={e => { setRegPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setRegError(""); }}
                           autoComplete="new-password" name="reg-pin" />
@@ -8934,42 +9028,42 @@ function LoginScreen({ onLogin, onRegister }) {
                     </div>
                     {regError && <p className="login-error">{regError}</p>}
                     <button type="submit" className="login-btn" disabled={regLoading || !regNickname.trim() || regPin.length !== 4}>
-                      {regLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Join Class <span className="login-btn-star">✦</span></>}
+                      {regLoading ? t.submitting : <><span className="login-btn-star">✦</span> {t.joinClass} <span className="login-btn-star">✦</span></>}
                     </button>
                   </form>
                 )}
               </div>
-            )}
+            ); })()}
 
             {/* Step 2b — without class code */}
-            {regView === "register-no-code" && (
+            {regView === "register-no-code" && (() => { const t = REG_I18N[regLang]; return (
               <div className="reg-step">
-                <div className="reg-step-title">Create your account</div>
+                <div className="reg-step-title">{t.noCodeTitle}</div>
                 <form className="reg-form" onSubmit={async e => {
                   e.preventDefault();
-                  if (regPin.length !== 4) { setRegError("PIN must be 4 digits."); return; }
-                  if (!regNickname.trim()) { setRegError("Nickname is required."); return; }
+                  if (regPin.length !== 4) { setRegError(t.errPin); return; }
+                  if (!regNickname.trim()) { setRegError(t.errNickname); return; }
                   setRegLoading(true); setRegError("");
                   try {
                     await onRegister({ username: regNickname.trim(), pin: regPin, email: regEmail });
-                  } catch (e) { setRegError(e?.message || "Registration failed. This nickname may already be taken."); }
+                  } catch (e) { setRegError(e?.message || t.errRegFail); }
                   finally { setRegLoading(false); }
                 }}>
                   <div className="reg-field-group">
-                    <label className="reg-label">Nickname</label>
-                    <input className="login-input reg-input" placeholder="Your nickname in the app"
+                    <label className="reg-label">{t.labelNickname}</label>
+                    <input className="login-input reg-input" placeholder={t.phNickname}
                       value={regNickname} onChange={e => { setRegNickname(e.target.value); setRegError(""); }} autoFocus maxLength={32} />
                   </div>
                   <div className="reg-field-group">
-                    <label className="reg-label">E-mail</label>
+                    <label className="reg-label">{t.labelEmail}</label>
                     <input className="login-input reg-input" placeholder="your@email.com" type="email"
                       value={regEmail} onChange={e => setRegEmail(e.target.value)} autoComplete="email" />
                   </div>
                   <div className="reg-field-group">
-                    <label className="reg-label">Choose a PIN</label>
+                    <label className="reg-label">{t.labelPin}</label>
                     <div className="login-input-wrap" style={{ margin: 0 }}>
                       <svg className="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-                      <input className="login-input" placeholder="4-digit PIN" type={regShowPin ? "text" : "password"}
+                      <input className="login-input" placeholder={t.phPin} type={regShowPin ? "text" : "password"}
                         inputMode="numeric" pattern="[0-9]*" maxLength={4}
                         value={regPin} onChange={e => { setRegPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setRegError(""); }}
                         autoComplete="new-password" name="reg-pin-solo" />
@@ -8982,11 +9076,11 @@ function LoginScreen({ onLogin, onRegister }) {
                   </div>
                   {regError && <p className="login-error">{regError}</p>}
                   <button type="submit" className="login-btn" disabled={regLoading || !regNickname.trim() || regPin.length !== 4}>
-                    {regLoading ? "Creating account…" : <><span className="login-btn-star">✦</span> Create Account <span className="login-btn-star">✦</span></>}
+                    {regLoading ? t.submitting : <><span className="login-btn-star">✦</span> {t.createAccount} <span className="login-btn-star">✦</span></>}
                   </button>
                 </form>
               </div>
-            )}
+            ); })()}
 
             {/* ── Teacher registration ── */}
             {regView === "register-teacher" && (
@@ -27084,9 +27178,20 @@ html, body {
   background: #1a1035; border: 1.5px solid rgba(124,58,237,0.35); border-radius: 20px;
   padding: 28px 28px 24px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto;
 }
+.reg-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.reg-lang-toggle { display: flex; gap: 4px; flex-shrink: 0; }
+.reg-lang-btn {
+  font-size: 11px; padding: 4px 9px; border-radius: 7px;
+  border: 1px solid rgba(245,239,230,.15); background: rgba(245,239,230,.05);
+  color: var(--text-sub); cursor: pointer; line-height: 1.3;
+}
+.reg-lang-btn.active {
+  background: rgba(232,163,61,.18); border-color: rgba(232,163,61,.4);
+  color: var(--saffron); font-weight: 700;
+}
 .reg-back-btn {
   background: none; border: none; color: rgba(245,239,230,0.5); font-size: 13px;
-  cursor: pointer; padding: 0; margin-bottom: 18px; display: block;
+  cursor: pointer; padding: 0; margin-bottom: 0; display: block;
 }
 .reg-back-btn:hover { color: rgba(245,239,230,0.85); }
 .reg-step-title { font-size: 20px; font-weight: 800; color: #ede9fe; margin-bottom: 6px; }
