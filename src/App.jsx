@@ -19281,7 +19281,7 @@ function TeacherScreen({ profile, allWords, onLevelUpFeedSeen, isDean = false, o
   const sidebarNav = [
     { id: "dashboard",    label: "Dashboard",   Icon: LayoutDashboard, locked: true  },
     { id: "cefr-groups",  label: "CEFR Groups", Icon: Users,           locked: false },
-    { id: "students",     label: "Students",     Icon: User,            locked: true  },
+    { id: "my-classes",   label: "My Classes",   Icon: Users,           locked: true  },
     { id: "reports",      label: "Reports",      Icon: BarChart3,       locked: true  },
     { id: "challenges",   label: "Challenges",   Icon: ClipboardList,   locked: false },
     { id: "messages",     label: "Messages",     Icon: MessageSquare,   locked: true  },
