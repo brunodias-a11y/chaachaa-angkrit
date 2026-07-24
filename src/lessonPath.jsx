@@ -1717,6 +1717,8 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
     </div>
   );
 
+  const isDeanRole = profile?.role === "dean";
+
   // Issue #521 — shared body used by both tab and modal modes
   const manageLessonsBody = (
     <div className="lp-manage-body">
@@ -2033,8 +2035,6 @@ export function ManageLessonsModal({ classCodes = [], words = [], onClose, asTab
           </div>
         </div>
   );
-
-  const isDeanRole = profile?.role === "dean";
 
   if (asTab) {
     return (
